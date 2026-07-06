@@ -1,0 +1,13 @@
+{% from "dashboard/_icons.html" import icon %}
+
+{# Renders one statistics card.
+   Usage: {{ stats_card({"label": "XP", "value": 0, "icon": "zap", "hint": "..."}) }} #}
+{% macro stats_card(stat) %}
+<article class="stat-card" title="{{ stat.hint }}">
+    <div class="stat-card__icon">{{ icon(stat.icon, 20) }}</div>
+    <div class="stat-card__body">
+        <span class="stat-card__value" data-count="{{ stat.value }}">0</span>
+        <span class="stat-card__label">{{ stat.label }}</span>
+    </div>
+</article>
+{% endmacro %}

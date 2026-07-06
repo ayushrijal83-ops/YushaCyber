@@ -1,22 +1,9 @@
-"""Shared Flask extension instances for YushaCyber.
+"""Backward-compatibility shim.
 
-Extensions are instantiated here, unbound, and initialised against the
-application inside the app factory (``app/__init__.py``). This avoids
-circular imports and keeps a single instance of each extension that every
-module can import safely::
-
-    from extensions import db, login_manager, csrf
+Extensions moved into the application package in YC-004.2:
+use ``from app.extensions import db, login_manager, csrf``.
+This shim keeps any older imports working and will be removed
+once nothing references the project-root location.
 """
 
-from flask_login import LoginManager
-from flask_sqlalchemy import SQLAlchemy
-from flask_wtf import CSRFProtect
-
-# Database ORM — models across the project bind to this instance.
-db = SQLAlchemy()
-
-# Session/user management for login, logout and @login_required.
-login_manager = LoginManager()
-
-# Global CSRF protection for every POST form in the application.
-csrf = CSRFProtect()
+from app.extensions import csrf, db, login_manager  # noqa: F401

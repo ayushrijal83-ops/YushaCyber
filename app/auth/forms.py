@@ -40,7 +40,7 @@ class RegistrationForm(FlaskForm):
         "Username",
         validators=[
             DataRequired(message="Username is required."),
-            Length(min=3, max=20, message="Username must be 3–20 characters."),
+            Length(min=3, max=30, message="Username must be 3–30 characters."),
             Regexp(
                 r"^[A-Za-z0-9_]+$",
                 message="Only letters, numbers and underscores are allowed.",

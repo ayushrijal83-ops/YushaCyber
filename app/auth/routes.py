@@ -36,17 +36,15 @@ def register():
 
     form = RegistrationForm()
     if form.validate_on_submit():
-        user = services.create_user(
+        user, error = services.register_user(
             username=form.username.data,
             email=form.email.data,
             password=form.password.data,
         )
-        if user is None:
-            flash("Something went wrong creating your account. Please try again.",
-                  "error")
+        if error is not None:
+            flash(error, "error")
         else:
-            flash("Account created — welcome to YushaCyber! Please sign in.",
-                  "success")
+            flash("Account created successfully! Please sign in.", "success")
             return redirect(url_for("auth.login"))
 
     return render_template("auth/register.html", form=form)
@@ -67,7 +65,7 @@ def login():
         else:
             login_user(user, remember=form.remember.data)
             flash(f"Welcome back, {user.username}!", "success")
-            return redirect(_safe_next_url(default=url_for("index")))
+            return redirect(_safe_next_url(default=url_for("dashboard.index")))
 
     return render_template("auth/login.html", form=form)
 

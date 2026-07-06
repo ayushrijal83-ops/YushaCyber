@@ -1,0 +1,30 @@
+{% from "dashboard/_icons.html" import icon %}
+
+<aside class="sidebar" id="sidebar" aria-label="Dashboard navigation">
+    <a href="{{ url_for('index') }}" class="sidebar__logo" aria-label="YushaCyber home">
+        <span class="sidebar__logo-mark" aria-hidden="true">&gt;_</span>
+        <span class="sidebar__logo-text">Yusha<span class="accent">Cyber</span></span>
+    </a>
+
+    <nav class="sidebar__nav">
+        <ul>
+            {% for item in nav_items %}
+            <li>
+                <a href="{{ item.url }}"
+                   class="sidebar__link {% if item.active %}sidebar__link--active{% endif %}"
+                   {% if item.active %}aria-current="page"{% endif %}>
+                    {{ icon(item.icon) }}
+                    <span>{{ item.label }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+
+    <a href="{{ url_for('auth.logout') }}" class="sidebar__link sidebar__link--logout">
+        {{ icon("logout") }}
+        <span>Logout</span>
+    </a>
+</aside>
+
+<div class="sidebar-overlay" id="sidebar-overlay" hidden></div>

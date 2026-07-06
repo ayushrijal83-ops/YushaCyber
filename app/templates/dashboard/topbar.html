@@ -1,0 +1,42 @@
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="topbar">
+    <button class="topbar__menu-btn" id="sidebar-toggle" aria-label="Toggle navigation"
+            aria-expanded="false" aria-controls="sidebar">
+        {{ icon("menu", 20) }}
+    </button>
+
+    <div class="topbar__search" role="search">
+        {{ icon("search", 16) }}
+        <input type="search" class="topbar__search-input" placeholder="Search courses, labs, challenges…"
+               aria-label="Search">
+    </div>
+
+    <div class="topbar__right">
+        <button class="topbar__bell" aria-label="Notifications">
+            {{ icon("bell", 19) }}
+            <span class="topbar__bell-dot" aria-hidden="true"></span>
+        </button>
+
+        <div class="topbar__profile">
+            <button class="topbar__profile-btn" id="profile-toggle" aria-expanded="false"
+                    aria-controls="profile-menu" aria-haspopup="true">
+                <span class="topbar__avatar" aria-hidden="true">{{ user.username[0]|upper }}</span>
+                <span class="topbar__username">{{ user.username }}</span>
+                {{ icon("chevron", 15) }}
+            </button>
+
+            <div class="topbar__dropdown" id="profile-menu" hidden>
+                <div class="topbar__dropdown-head">
+                    <p class="topbar__dropdown-name">{{ user.username }}</p>
+                    <p class="topbar__dropdown-role">{{ user.role|capitalize }} · Level {{ user.level }}</p>
+                </div>
+                <a href="#" class="topbar__dropdown-item">{{ icon("user", 15) }} Profile</a>
+                <a href="#" class="topbar__dropdown-item">{{ icon("settings", 15) }} Settings</a>
+                <a href="{{ url_for('auth.logout') }}" class="topbar__dropdown-item topbar__dropdown-item--danger">
+                    {{ icon("logout", 15) }} Logout
+                </a>
+            </div>
+        </div>
+    </div>
+</header>

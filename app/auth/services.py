@@ -14,7 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth.models import User
-from extensions import db
+from app.extensions import db
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +55,35 @@ def email_taken(email: str) -> bool:
 # ---------------------------------------------------------------------------
 # Account creation
 # ---------------------------------------------------------------------------
+def register_user(
+    username: str, email: str, password: str
+) -> tuple[Optional[User], Optional[str]]:
+    """Full registration workflow. Returns ``(user, None)`` or ``(None, error)``.
+
+    Owns every step: input normalisation (trimmed username, trimmed +
+    lowercased email), duplicate detection, hashing via
+    ``User.set_password()``, persistence, and rollback on failure. The
+    error string is human-readable and safe to flash — it never exposes
+    database internals.
+
+    Form validators perform the same duplicate checks for field-level
+    error display; this service-level check is the authoritative one and
+    also guards any future callers (API, CLI seeding) that bypass forms.
+    """
+    username = username.strip()
+    email = email.strip().lower()
+
+    if username_taken(username):
+        return None, "That username is already taken."
+    if email_taken(email):
+        return None, "An account with that email already exists."
+
+    user = create_user(username, email, password)
+    if user is None:
+        return None, "Something went wrong creating your account. Please try again."
+    return user, None
+
+
 def create_user(username: str, email: str, password: str) -> Optional[User]:
     """Create a new account with a hashed password.
 

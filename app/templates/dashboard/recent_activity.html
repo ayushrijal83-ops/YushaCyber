@@ -1,0 +1,17 @@
+{% from "dashboard/_icons.html" import icon %}
+
+<section class="dash-card" aria-labelledby="activity-title">
+    <h2 class="dash-section__title" id="activity-title">Recent Activity</h2>
+    <ol class="timeline">
+        {% for entry in recent_activity %}
+        <li class="timeline__item">
+            <span class="timeline__node">{{ icon(entry.icon, 14) }}</span>
+            <div class="timeline__body">
+                <p class="timeline__title">{{ entry.title }}</p>
+                <p class="timeline__detail">{{ entry.detail }}</p>
+            </div>
+            <span class="timeline__time">{{ entry.time }}</span>
+        </li>
+        {% endfor %}
+    </ol>
+</section>

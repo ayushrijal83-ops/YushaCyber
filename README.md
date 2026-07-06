@@ -6,8 +6,8 @@ A cybersecurity learning platform landing page built with Flask, HTML, CSS, and 
 
 ```bash
 pip install -r requirements.txt
-cd app
-python app.py
+flask --app app db upgrade   # first run only (see docs/DATABASE.md)
+python app/app.py
 ```
 
 Then open http://127.0.0.1:5000
