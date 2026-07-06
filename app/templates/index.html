@@ -1,17 +1,569 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>YushaCyber</title>
-</head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="YushaCyber — learn cybersecurity through structured roadmaps, hands-on labs, daily challenges and CTF competitions.">
+    <title>YushaCyber — Your Journey to Cybersecurity Starts Here</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
 <body>
 
-    <h1>🚀 Welcome to YushaCyber</h1>
+    <!-- ============ Navigation ============ -->
+    <header class="navbar" id="navbar">
+        <nav class="navbar__inner container" aria-label="Primary">
+            <a href="#hero" class="navbar__logo" aria-label="YushaCyber home">
+                <span class="navbar__logo-mark" aria-hidden="true">&gt;_</span>
+                <span class="navbar__logo-text">Yusha<span class="accent">Cyber</span></span>
+            </a>
 
-    <p>Your Journey to Cybersecurity Starts Here.</p>
+            <button class="navbar__toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-menu" aria-label="Toggle navigation menu">
+                <span class="navbar__toggle-bar"></span>
+                <span class="navbar__toggle-bar"></span>
+                <span class="navbar__toggle-bar"></span>
+            </button>
 
+            <ul class="navbar__menu" id="nav-menu">
+                <li><a href="#roadmap" class="navbar__link">Roadmap</a></li>
+                <li><a href="#courses" class="navbar__link">Courses</a></li>
+                <li><a href="#challenge" class="navbar__link">Daily Challenge</a></li>
+                <li><a href="#ctf" class="navbar__link">CTF Arena</a></li>
+                <li><a href="#faq" class="navbar__link">FAQ</a></li>
+                <li><a href="#community" class="btn btn--outline btn--sm">Sign in</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- ============ 1. Hero (existing — unchanged) ============ -->
+        <section class="hero" id="hero">
+            <div class="hero__grid container">
+                <div class="hero__content">
+                    <p class="hero__eyebrow">// cybersecurity, learned by doing</p>
+                    <h1 class="hero__title">
+                        Your Journey to <span class="accent">Cybersecurity</span> Starts Here
+                    </h1>
+                    <p class="hero__subtitle">
+                        Follow a structured roadmap from your first terminal command to your
+                        first capture-the-flag win. Real labs, daily challenges, and courses
+                        built for beginners who want to go deep.
+                    </p>
+                    <div class="hero__actions">
+                        <a href="#courses" class="btn btn--primary">Start Learning</a>
+                        <a href="#roadmap" class="btn btn--outline">Explore Roadmap</a>
+                    </div>
+                </div>
+
+                <div class="hero__terminal terminal" aria-hidden="true">
+                    <div class="terminal__bar">
+                        <span class="terminal__dot terminal__dot--red"></span>
+                        <span class="terminal__dot terminal__dot--yellow"></span>
+                        <span class="terminal__dot terminal__dot--green"></span>
+                        <span class="terminal__bar-title">yusha@cyber:~</span>
+                    </div>
+                    <div class="terminal__body" id="terminal-body">
+                        <p class="terminal__line"><span class="terminal__prompt">$</span> <span id="typed-command"></span><span class="terminal__cursor" id="terminal-cursor">▋</span></p>
+                        <div id="terminal-output"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 2. Why Choose YushaCyber ============ -->
+        <section class="section" id="features" aria-labelledby="features-title">
+            <div class="container">
+                <header class="section__header reveal">
+                    <p class="section__eyebrow">// why choose yushacyber</p>
+                    <h2 class="section__title" id="features-title">Built for people who learn by breaking things</h2>
+                    <p class="section__subtitle">No passive video marathons. Every concept is paired with something you can type, scan, exploit, or capture.</p>
+                </header>
+
+                <div class="card-grid card-grid--4">
+                    <article class="feature-tile reveal">
+                        <div class="feature-tile__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                        </div>
+                        <h3 class="feature-tile__title">Learn by Doing</h3>
+                        <p class="feature-tile__text">Hands-on cybersecurity learning with practical exercises in real, browser-based lab environments.</p>
+                    </article>
+
+                    <article class="feature-tile reveal">
+                        <div class="feature-tile__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+                        </div>
+                        <h3 class="feature-tile__title">Structured Roadmaps</h3>
+                        <p class="feature-tile__text">Clear learning paths from beginner to advanced — always know exactly what to study next.</p>
+                    </article>
+
+                    <article class="feature-tile reveal">
+                        <div class="feature-tile__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        </div>
+                        <h3 class="feature-tile__title">Daily Challenges</h3>
+                        <p class="feature-tile__text">Practice every day, keep your streak alive, and earn XP with a fresh challenge each morning.</p>
+                    </article>
+
+                    <article class="feature-tile reveal">
+                        <div class="feature-tile__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                        </div>
+                        <h3 class="feature-tile__title">CTF Arena</h3>
+                        <p class="feature-tile__text">Apply your knowledge through Capture The Flag challenges and climb the seasonal leaderboard.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 3. Cybersecurity Learning Roadmap ============ -->
+        <section class="section section--alt" id="roadmap" aria-labelledby="roadmap-title">
+            <div class="container">
+                <header class="section__header reveal">
+                    <p class="section__eyebrow">// learning roadmap</p>
+                    <h2 class="section__title" id="roadmap-title">One path. Eight stages. Zero guessing.</h2>
+                    <p class="section__subtitle">Each stage unlocks the next. Finish the track and you'll be CTF-ready.</p>
+                </header>
+
+                <ol class="timeline">
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">01</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">Linux</h3>
+                            <p class="timeline__text">The terminal is your first weapon. Files, permissions, processes, and shell basics.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--easy">Beginner</span>
+                                <span class="meta-chip">⏱ 2 weeks</span>
+                                <span class="meta-chip meta-chip--xp">+500 XP</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">02</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">Networking</h3>
+                            <p class="timeline__text">TCP/IP, DNS, ports, and packets — understand what actually travels on the wire.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--easy">Beginner</span>
+                                <span class="meta-chip">⏱ 3 weeks</span>
+                                <span class="meta-chip meta-chip--xp">+750 XP</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">03</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">Python</h3>
+                            <p class="timeline__text">Automate the boring parts. Write your own scanners, parsers, and helper scripts.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--easy">Beginner</span>
+                                <span class="meta-chip">⏱ 4 weeks</span>
+                                <span class="meta-chip meta-chip--xp">+1,000 XP</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">04</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">Web Security</h3>
+                            <p class="timeline__text">How the web breaks: HTTP, sessions, cookies, and the classic attack surface.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--medium">Intermediate</span>
+                                <span class="meta-chip">⏱ 4 weeks</span>
+                                <span class="meta-chip meta-chip--xp">+1,200 XP</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">05</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">Nmap</h3>
+                            <p class="timeline__text">Map any network. Host discovery, port scanning, and service fingerprinting.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--medium">Intermediate</span>
+                                <span class="meta-chip">⏱ 1 week</span>
+                                <span class="meta-chip meta-chip--xp">+400 XP</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">06</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">Burp Suite</h3>
+                            <p class="timeline__text">Intercept, inspect, and manipulate web traffic like a professional tester.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--medium">Intermediate</span>
+                                <span class="meta-chip">⏱ 2 weeks</span>
+                                <span class="meta-chip meta-chip--xp">+600 XP</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">07</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">OWASP Top 10</h3>
+                            <p class="timeline__text">Find and exploit the ten most critical web vulnerabilities — then learn the fix.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--hard">Advanced</span>
+                                <span class="meta-chip">⏱ 5 weeks</span>
+                                <span class="meta-chip meta-chip--xp">+1,500 XP</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="timeline__item reveal">
+                        <div class="timeline__node" aria-hidden="true">08</div>
+                        <div class="timeline__card">
+                            <h3 class="timeline__title">CTF</h3>
+                            <p class="timeline__text">Put it all together in the Arena. Capture flags, earn rank, prove your skills.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--hard">Advanced</span>
+                                <span class="meta-chip">⏱ Ongoing</span>
+                                <span class="meta-chip meta-chip--xp">+2,000 XP</span>
+                            </div>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- ============ 4. Featured Courses ============ -->
+        <section class="section" id="courses" aria-labelledby="courses-title">
+            <div class="container">
+                <header class="section__header reveal">
+                    <p class="section__eyebrow">// featured courses</p>
+                    <h2 class="section__title" id="courses-title">Start with a course built for you</h2>
+                    <p class="section__subtitle">Every course pairs concise lessons with browser-based labs — no VM setup required.</p>
+                </header>
+
+                <div class="card-grid card-grid--3">
+                    <article class="course-card reveal">
+                        <div class="course-card__banner" aria-hidden="true"><span>$ sudo chmod +x future</span></div>
+                        <div class="course-card__body">
+                            <h3 class="course-card__title">Linux Essentials</h3>
+                            <p class="course-card__text">Command line fluency, file systems, users, and permissions from absolute zero.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--easy">Beginner</span>
+                                <span class="meta-chip">⏱ 12h</span>
+                                <span class="meta-chip meta-chip--xp">+500 XP</span>
+                            </div>
+                            <a href="#" class="btn btn--primary btn--sm btn--block">Start Learning</a>
+                        </div>
+                    </article>
+
+                    <article class="course-card reveal">
+                        <div class="course-card__banner" aria-hidden="true"><span>$ ping -c 4 8.8.8.8</span></div>
+                        <div class="course-card__body">
+                            <h3 class="course-card__title">Networking Fundamentals</h3>
+                            <p class="course-card__text">OSI layers, TCP/IP, subnetting, and DNS — the map beneath every attack.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--easy">Beginner</span>
+                                <span class="meta-chip">⏱ 15h</span>
+                                <span class="meta-chip meta-chip--xp">+750 XP</span>
+                            </div>
+                            <a href="#" class="btn btn--primary btn--sm btn--block">Start Learning</a>
+                        </div>
+                    </article>
+
+                    <article class="course-card reveal">
+                        <div class="course-card__banner" aria-hidden="true"><span>$ python3 exploit.py</span></div>
+                        <div class="course-card__body">
+                            <h3 class="course-card__title">Python for Cybersecurity</h3>
+                            <p class="course-card__text">Sockets, scripting, and automation — build the tools you'll use every day.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--easy">Beginner</span>
+                                <span class="meta-chip">⏱ 20h</span>
+                                <span class="meta-chip meta-chip--xp">+1,000 XP</span>
+                            </div>
+                            <a href="#" class="btn btn--primary btn--sm btn--block">Start Learning</a>
+                        </div>
+                    </article>
+
+                    <article class="course-card reveal">
+                        <div class="course-card__banner" aria-hidden="true"><span>$ nmap -sV -p- target</span></div>
+                        <div class="course-card__body">
+                            <h3 class="course-card__title">Nmap Masterclass</h3>
+                            <p class="course-card__text">From basic scans to NSE scripting — master the industry-standard mapper.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--medium">Intermediate</span>
+                                <span class="meta-chip">⏱ 8h</span>
+                                <span class="meta-chip meta-chip--xp">+400 XP</span>
+                            </div>
+                            <a href="#" class="btn btn--primary btn--sm btn--block">Start Learning</a>
+                        </div>
+                    </article>
+
+                    <article class="course-card reveal">
+                        <div class="course-card__banner" aria-hidden="true"><span>$ curl -v https://target</span></div>
+                        <div class="course-card__body">
+                            <h3 class="course-card__title">Web Security Basics</h3>
+                            <p class="course-card__text">Requests, responses, sessions, and the vulnerabilities hiding between them.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--medium">Intermediate</span>
+                                <span class="meta-chip">⏱ 18h</span>
+                                <span class="meta-chip meta-chip--xp">+1,200 XP</span>
+                            </div>
+                            <a href="#" class="btn btn--primary btn--sm btn--block">Start Learning</a>
+                        </div>
+                    </article>
+
+                    <article class="course-card reveal">
+                        <div class="course-card__banner" aria-hidden="true"><span>&gt; Proxy → Intercept: ON</span></div>
+                        <div class="course-card__body">
+                            <h3 class="course-card__title">Burp Suite Essentials</h3>
+                            <p class="course-card__text">Proxy, Repeater, Intruder — intercept and manipulate traffic with confidence.</p>
+                            <div class="meta-row">
+                                <span class="tag tag--medium">Intermediate</span>
+                                <span class="meta-chip">⏱ 10h</span>
+                                <span class="meta-chip meta-chip--xp">+600 XP</span>
+                            </div>
+                            <a href="#" class="btn btn--primary btn--sm btn--block">Start Learning</a>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 5. Daily Challenge Preview ============ -->
+        <section class="section section--alt" id="challenge" aria-labelledby="challenge-title">
+            <div class="container">
+                <article class="challenge-card reveal">
+                    <div class="challenge-card__glow" aria-hidden="true"></div>
+                    <div class="challenge-card__content">
+                        <div class="challenge-card__head">
+                            <span class="feature-card__badge">Today's Challenge</span>
+                            <span class="challenge-card__timer" id="challenge-timer">Resets in 00:00:00</span>
+                        </div>
+                        <h2 class="challenge-card__title" id="challenge-title">Decode the intercepted message</h2>
+                        <p class="challenge-card__text">
+                            A suspicious string was captured on the wire. Identify the encoding chain
+                            and recover the plaintext before the clock resets. Streaks earn bonus XP.
+                        </p>
+                        <div class="challenge-card__snippet" aria-hidden="true">
+                            <code>V2VsY29tZSB0byBZdXNoYUN5YmVyIQ==</code>
+                        </div>
+                        <div class="meta-row">
+                            <span class="tag tag--easy">Easy</span>
+                            <span class="meta-chip">⏱ ~15 min</span>
+                            <span class="meta-chip meta-chip--xp">+50 XP</span>
+                        </div>
+                        <a href="#" class="btn btn--primary">Start Challenge</a>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- ============ 6. CTF Arena Preview ============ -->
+        <section class="section" id="ctf" aria-labelledby="ctf-title">
+            <div class="container">
+                <header class="section__header reveal">
+                    <p class="section__eyebrow">// ctf arena</p>
+                    <h2 class="section__title" id="ctf-title">Pick your tier. Capture every flag.</h2>
+                    <p class="section__subtitle">Season 3 is live. Compete solo or in teams across web, crypto, forensics, and pwn.</p>
+                </header>
+
+                <div class="card-grid card-grid--3">
+                    <article class="ctf-card reveal">
+                        <h3 class="ctf-card__tier">Beginner</h3>
+                        <p class="ctf-card__desc">Guided challenges with hints. Perfect for your first flag.</p>
+                        <dl class="ctf-card__stats">
+                            <div><dt>Flags</dt><dd>12</dd></div>
+                            <div><dt>XP</dt><dd>1,200</dd></div>
+                            <div><dt>Difficulty</dt><dd class="accent">★☆☆</dd></div>
+                        </dl>
+                        <a href="#" class="btn btn--outline btn--sm btn--block">Play</a>
+                    </article>
+
+                    <article class="ctf-card ctf-card--featured reveal">
+                        <span class="ctf-card__ribbon">Most popular</span>
+                        <h3 class="ctf-card__tier">Intermediate</h3>
+                        <p class="ctf-card__desc">Realistic scenarios, fewer hints, real tooling required.</p>
+                        <dl class="ctf-card__stats">
+                            <div><dt>Flags</dt><dd>18</dd></div>
+                            <div><dt>XP</dt><dd>2,700</dd></div>
+                            <div><dt>Difficulty</dt><dd class="accent">★★☆</dd></div>
+                        </dl>
+                        <a href="#" class="btn btn--primary btn--sm btn--block">Play</a>
+                    </article>
+
+                    <article class="ctf-card reveal">
+                        <h3 class="ctf-card__tier">Advanced</h3>
+                        <p class="ctf-card__desc">No hints. Chained exploits. Leaderboard glory awaits.</p>
+                        <dl class="ctf-card__stats">
+                            <div><dt>Flags</dt><dd>24</dd></div>
+                            <div><dt>XP</dt><dd>4,800</dd></div>
+                            <div><dt>Difficulty</dt><dd class="accent">★★★</dd></div>
+                        </dl>
+                        <a href="#" class="btn btn--outline btn--sm btn--block">Play</a>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 7. Platform Statistics ============ -->
+        <section class="stats" aria-label="Platform statistics">
+            <div class="stats__grid container">
+                <div class="stats__item reveal">
+                    <span class="stats__value" data-count="12">0</span>
+                    <span class="stats__label">Learning Paths</span>
+                </div>
+                <div class="stats__item reveal">
+                    <span class="stats__value" data-count="48">0</span>
+                    <span class="stats__label">Courses</span>
+                </div>
+                <div class="stats__item reveal">
+                    <span class="stats__value" data-count="120">0</span>
+                    <span class="stats__label">Labs</span>
+                </div>
+                <div class="stats__item reveal">
+                    <span class="stats__value" data-count="365">0</span>
+                    <span class="stats__label">Daily Challenges</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 8. FAQ ============ -->
+        <section class="section" id="faq" aria-labelledby="faq-title">
+            <div class="container container--narrow">
+                <header class="section__header reveal">
+                    <p class="section__eyebrow">// faq</p>
+                    <h2 class="section__title" id="faq-title">Questions, answered</h2>
+                </header>
+
+                <div class="faq">
+                    <div class="faq__item reveal">
+                        <h3 class="faq__heading">
+                            <button class="faq__question" aria-expanded="false" aria-controls="faq-panel-1" id="faq-btn-1">
+                                Is YushaCyber free?
+                                <span class="faq__icon" aria-hidden="true">+</span>
+                            </button>
+                        </h3>
+                        <div class="faq__panel" id="faq-panel-1" role="region" aria-labelledby="faq-btn-1" hidden>
+                            <p class="faq__answer">Yes — the core roadmap, daily challenges, and beginner CTF tier are completely free. A Pro plan unlocks advanced labs, certificates, and priority lab environments.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq__item reveal">
+                        <h3 class="faq__heading">
+                            <button class="faq__question" aria-expanded="false" aria-controls="faq-panel-2" id="faq-btn-2">
+                                Who is this platform for?
+                                <span class="faq__icon" aria-hidden="true">+</span>
+                            </button>
+                        </h3>
+                        <div class="faq__panel" id="faq-panel-2" role="region" aria-labelledby="faq-btn-2" hidden>
+                            <p class="faq__answer">Students, career switchers, developers who want a security skill set, and hobbyists. If you can use a web browser, you can start here — everything else is taught from scratch.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq__item reveal">
+                        <h3 class="faq__heading">
+                            <button class="faq__question" aria-expanded="false" aria-controls="faq-panel-3" id="faq-btn-3">
+                                Do I need Linux experience?
+                                <span class="faq__icon" aria-hidden="true">+</span>
+                            </button>
+                        </h3>
+                        <div class="faq__panel" id="faq-panel-3" role="region" aria-labelledby="faq-btn-3" hidden>
+                            <p class="faq__answer">No. Linux is Stage 01 of the roadmap for exactly that reason. You'll learn the terminal inside our browser-based labs — no installation or dual-booting required.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq__item reveal">
+                        <h3 class="faq__heading">
+                            <button class="faq__question" aria-expanded="false" aria-controls="faq-panel-4" id="faq-btn-4">
+                                Will I receive certificates?
+                                <span class="faq__icon" aria-hidden="true">+</span>
+                            </button>
+                        </h3>
+                        <div class="faq__panel" id="faq-panel-4" role="region" aria-labelledby="faq-btn-4" hidden>
+                            <p class="faq__answer">Yes. Completing a course or roadmap stage earns a shareable certificate with a verification link you can add to LinkedIn or your CV.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq__item reveal">
+                        <h3 class="faq__heading">
+                            <button class="faq__question" aria-expanded="false" aria-controls="faq-panel-5" id="faq-btn-5">
+                                Can beginners start here?
+                                <span class="faq__icon" aria-hidden="true">+</span>
+                            </button>
+                        </h3>
+                        <div class="faq__panel" id="faq-panel-5" role="region" aria-labelledby="faq-btn-5" hidden>
+                            <p class="faq__answer">Absolutely — the platform is designed beginner-first. The roadmap starts at zero, every lab includes guided steps, and the Daily Challenge has an Easy tier every single day.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 9. Community CTA ============ -->
+        <section class="section section--alt" id="community" aria-labelledby="cta-title">
+            <div class="container">
+                <div class="cta reveal">
+                    <h2 class="cta__title" id="cta-title">Join the YushaCyber Community</h2>
+                    <p class="cta__text">Learn together.<br>Build together.<br>Hack responsibly.</p>
+                    <a href="#" class="btn btn--primary btn--lg">Join Community</a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============ 10. Footer ============ -->
+    <footer class="footer">
+        <div class="footer__grid container">
+            <div class="footer__brand">
+                <a href="#hero" class="navbar__logo">
+                    <span class="navbar__logo-mark" aria-hidden="true">&gt;_</span>
+                    <span class="navbar__logo-text">Yusha<span class="accent">Cyber</span></span>
+                </a>
+                <p class="footer__tagline">Learn to hack. Learn to defend.<br>Do both, legally.</p>
+            </div>
+
+            <nav class="footer__col" aria-label="Platform links">
+                <h4 class="footer__heading">Platform</h4>
+                <ul>
+                    <li><a href="#features">About</a></li>
+                    <li><a href="#roadmap">Roadmaps</a></li>
+                    <li><a href="#courses">Courses</a></li>
+                    <li><a href="#challenge">Daily Challenges</a></li>
+                    <li><a href="#ctf">CTF Arena</a></li>
+                </ul>
+            </nav>
+
+            <nav class="footer__col" aria-label="Resource links">
+                <h4 class="footer__heading">Resources</h4>
+                <ul>
+                    <li><a href="https://github.com" rel="noopener noreferrer" target="_blank">GitHub</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                    <li><a href="#community">Community</a></li>
+                </ul>
+            </nav>
+
+            <nav class="footer__col" aria-label="Legal links">
+                <h4 class="footer__heading">Legal</h4>
+                <ul>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <div class="footer__bottom container">
+            <p>© 2026 YushaCyber. All rights reserved.</p>
+            <p class="footer__mono">root@yushacyber:~# echo "happy hacking"</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
-
 </html>

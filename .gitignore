@@ -20,3 +20,7 @@ instance/
 
 # Windows
 Thumbs.db
+
+instance/
+.env
+__pycache__/

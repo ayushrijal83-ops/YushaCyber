@@ -1,0 +1,52 @@
+{% extends "auth/base.html" %}
+
+{% block title %}Sign in — YushaCyber{% endblock %}
+{% block eyebrow %}// authenticate{% endblock %}
+{% block heading %}Welcome Back{% endblock %}
+{% block subtitle %}<p class="auth-card__subtitle">Sign in to continue your journey.</p>{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}"
+      class="auth-form" id="login-form" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="auth-field {% if form.identifier.errors %}auth-field--invalid{% endif %}">
+        {{ form.identifier.label(class="auth-field__label") }}
+        {{ form.identifier(class="auth-field__input", placeholder="Username or email",
+                           autocomplete="username", spellcheck="false",
+                           **{"aria-describedby": "identifier-errors"}) }}
+        <div class="auth-field__errors" id="identifier-errors">
+            {% for error in form.identifier.errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    <div class="auth-field {% if form.password.errors %}auth-field--invalid{% endif %}">
+        {{ form.password.label(class="auth-field__label") }}
+        <div class="auth-field__wrap">
+            {{ form.password(class="auth-field__input", placeholder="Your password",
+                             autocomplete="current-password", id="password",
+                             **{"aria-describedby": "password-errors"}) }}
+            <button type="button" class="auth-field__toggle" data-toggle-password="password"
+                    aria-label="Show password" aria-pressed="false">👁</button>
+        </div>
+        <div class="auth-field__errors" id="password-errors">
+            {% for error in form.password.errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    <div class="auth-form__row">
+        <label class="auth-check">
+            {{ form.remember(class="auth-check__input") }}
+            <span class="auth-check__box" aria-hidden="true"></span>
+            <span class="auth-check__label">Remember me</span>
+        </label>
+        <a href="{{ url_for('auth.forgot_password') }}" class="auth-form__link">Forgot Password?</a>
+    </div>
+
+    {{ form.submit(class="btn btn--primary auth-form__submit", **{"data-loading-text": "Signing in…"}) }}
+</form>
+
+<p class="auth-card__switch">
+    Don't have an account? <a href="{{ url_for('auth.register') }}">Register</a>
+</p>
+{% endblock %}
