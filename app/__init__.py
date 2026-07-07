@@ -60,9 +60,11 @@ def _register_blueprints(app: Flask) -> None:
     """Attach feature blueprints."""
     from app.auth import auth_bp
     from app.dashboard import dashboard_bp
+    from app.roadmap import roadmap_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
+    app.register_blueprint(roadmap_bp, url_prefix="/roadmap")
 
 
 def _register_routes(app: Flask) -> None:

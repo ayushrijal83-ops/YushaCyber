@@ -136,7 +136,7 @@ def get_nav_items(active: str) -> list[dict[str, str | bool]]:
     """Sidebar navigation. Future feature pages plug in real endpoints."""
     items = [
         {"key": "dashboard", "label": "Dashboard", "icon": "grid", "url": "/dashboard/"},
-        {"key": "roadmap", "label": "Roadmap", "icon": "map", "url": "/#roadmap"},
+        {"key": "roadmap", "label": "Roadmap", "icon": "map", "url": "/roadmap/"},
         {"key": "courses", "label": "Courses", "icon": "book", "url": "/#courses"},
         {"key": "lessons", "label": "Lessons", "icon": "layers", "url": "#"},
         {"key": "quizzes", "label": "Quizzes", "icon": "help", "url": "#"},

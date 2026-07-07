@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roadmap — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='roadmap/css/roadmap.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {# Shared authenticated shell — same sidebar/topbar as the dashboard #}
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {# ---- Hero ---- #}
+            <section class="rm-hero" aria-labelledby="rm-title">
+                <p class="rm-hero__eyebrow">// choose your path</p>
+                <h1 class="rm-hero__title" id="rm-title">Cybersecurity Roadmap</h1>
+                <p class="rm-hero__subtitle">Master cybersecurity step by step with structured learning paths.</p>
+            </section>
+
+            {# ---- Tier cards ---- #}
+            {% from "dashboard/_icons.html" import icon %}
+            <section class="rm-tiers" aria-label="Roadmap difficulty tiers">
+                {% for tier in tiers %}
+                <article class="rm-tier rm-tier--{{ tier.color }}">
+                    <div class="rm-tier__icon">{{ icon(tier.icon, 22) }}</div>
+                    <h2 class="rm-tier__title">{{ tier.title }}</h2>
+                    <p class="rm-tier__blurb">{{ tier.blurb }}</p>
+                    <span class="rm-tier__badge">Coming Soon</span>
+                </article>
+                {% endfor %}
+            </section>
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='roadmap/js/roadmap.js') }}"></script>
+</body>
+</html>
