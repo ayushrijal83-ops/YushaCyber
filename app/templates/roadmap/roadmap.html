@@ -33,18 +33,57 @@
                 <p class="rm-hero__subtitle">Master cybersecurity step by step with structured learning paths.</p>
             </section>
 
-            {# ---- Tier cards ---- #}
+            {# ---- Roadmap categories (dynamic, from the service layer) ---- #}
             {% from "dashboard/_icons.html" import icon %}
-            <section class="rm-tiers" aria-label="Roadmap difficulty tiers">
-                {% for tier in tiers %}
-                <article class="rm-tier rm-tier--{{ tier.color }}">
-                    <div class="rm-tier__icon">{{ icon(tier.icon, 22) }}</div>
-                    <h2 class="rm-tier__title">{{ tier.title }}</h2>
-                    <p class="rm-tier__blurb">{{ tier.blurb }}</p>
-                    <span class="rm-tier__badge">Coming Soon</span>
-                </article>
+            {% if categories %}
+            <div class="rm-categories">
+                {% for category in categories %}
+                <section class="rm-cat rm-cat--{{ category.color }}" aria-label="{{ category.title }} category">
+                    <header class="rm-cat__head">
+                        <div class="rm-cat__icon">{{ icon(category.icon, 24) }}</div>
+                        <div class="rm-cat__heading">
+                            <h2 class="rm-cat__title">{{ category.title }}</h2>
+                            <p class="rm-cat__desc">{{ category.description or "Structured learning path." }}</p>
+                        </div>
+                        <div class="rm-cat__stats">
+                            <span class="rm-cat__stat">{{ category.module_count }} module{{ "s" if category.module_count != 1 }}</span>
+                            <span class="rm-cat__stat">{{ category.lesson_count }} lesson{{ "s" if category.lesson_count != 1 }}</span>
+                            <span class="rm-cat__stat rm-cat__stat--xp">+{{ "{:,}".format(category.total_xp) }} XP</span>
+                        </div>
+                    </header>
+
+                    <ul class="rm-modules">
+                        {% for module in category.modules %}
+                        <li class="rm-module {% if module.is_locked %}rm-module--locked{% endif %}">
+                            <div class="rm-module__info">
+                                <h3 class="rm-module__title">{{ module.title }}</h3>
+                                <div class="rm-module__meta">
+                                    <span class="rm-module__tag">{{ module.difficulty|capitalize }}</span>
+                                    <span class="rm-module__tag">⏱ {{ module.estimated_hours }}h</span>
+                                    <span class="rm-module__tag rm-module__tag--xp">+{{ module.xp_reward }} XP</span>
+                                </div>
+                            </div>
+                            <div class="rm-module__action">
+                                {% if module.is_locked %}
+                                <span class="rm-module__badge rm-module__badge--locked">{{ icon("lock", 12) }} Locked</span>
+                                <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--outline btn--sm">View</a>
+                                {% else %}
+                                <span class="rm-module__badge rm-module__badge--open">Unlocked</span>
+                                <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--primary btn--sm">Start Learning</a>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </section>
                 {% endfor %}
+            </div>
+            {% else %}
+            <section class="rm-empty" aria-label="No roadmap content">
+                <div class="rm-empty__icon">{{ icon("map", 26) }}</div>
+                <h2 class="rm-empty__title">No roadmap content available.</h2>
             </section>
+            {% endif %}
 
             <footer class="dash-footer">
                 <p>YushaCyber © 2026</p>

@@ -22,6 +22,7 @@ def create_app() -> Flask:
     _register_blueprints(app)
     _register_routes(app)
     _register_models()
+    _register_cli(app)
 
     return app
 
@@ -85,3 +86,21 @@ def _register_models() -> None:
     """
     from app.auth import models  # noqa: F401
     from app.roadmap import models as roadmap_models  # noqa: F401
+
+
+def _register_cli(app: Flask) -> None:
+    """Register custom Flask CLI commands."""
+
+    @app.cli.command("seed-roadmap")
+    def seed_roadmap_command() -> None:
+        """Seed the roadmap curriculum (idempotent — safe to re-run)."""
+        from app.roadmap.seed import seed_roadmap
+
+        result = seed_roadmap()
+        if result["created"]:
+            print("Roadmap seeded successfully.")
+        else:
+            print("Roadmap already populated — no changes made.")
+        print(f"  categories: {result['categories']}")
+        print(f"  modules:    {result['modules']}")
+        print(f"  lessons:    {result['lessons']}")
