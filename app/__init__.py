@@ -84,3 +84,4 @@ def _register_models() -> None:
     db.create_all() is intentionally absent from the project.
     """
     from app.auth import models  # noqa: F401
+    from app.roadmap import models as roadmap_models  # noqa: F401
