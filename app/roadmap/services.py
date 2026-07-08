@@ -343,17 +343,51 @@ def get_module_detail_context(user: User, module_slug: str) -> Optional[dict[str
 
 
 def get_roadmap_context(user: User) -> dict[str, Any]:
-    """Assemble everything the roadmap template needs.
+    """Assemble the full roadmap tree: categories → modules → lessons.
 
-    Built entirely from the YC-006.3 service functions
-    (get_all_categories / get_modules) so no SQLAlchemy query lives in
-    the route or the template. Inactive categories and modules are
-    already excluded by those functions.
+    Built entirely from the YC-006.3 service functions so no SQLAlchemy
+    query lives in the route or template. The category/module
+    relationships use selectin loading (declared on the models), so the
+    whole tree loads without N+1 queries. Progress values come from the
+    placeholder helpers and read 0% until completion logic exists.
     """
     categories: list[dict[str, Any]] = []
+
     for category in get_all_categories():
         modules = get_modules(category.id)
-        lesson_count = sum(len(m.lessons) for m in modules)
+        category_lessons = 0
+        module_views: list[dict[str, Any]] = []
+
+        for module in modules:
+            lessons = get_lessons(module.id)
+            category_lessons += len(lessons)
+            mod_progress = get_module_progress(user, module)
+
+            module_views.append({
+                "title": module.title,
+                "slug": module.slug,
+                "difficulty": module.difficulty,
+                "estimated_hours": module.estimated_hours,
+                "xp_reward": module.xp_reward,
+                "is_locked": module.is_locked,
+                "lesson_count": len(lessons),
+                "progress_percent": mod_progress["percent"],
+                "lessons": [
+                    {
+                        "title": lesson.title,
+                        "slug": lesson.slug,
+                        "module_slug": module.slug,
+                        "lesson_type": lesson.lesson_type,
+                        "xp_reward": lesson.xp_reward,
+                        "estimated_minutes": lesson.estimated_minutes,
+                        "is_preview": lesson.is_preview,
+                        "completed": lesson_completed(user, lesson),
+                    }
+                    for lesson in lessons
+                ],
+            })
+
+        cat_progress = get_category_progress(user).get(category.id, 0)
         categories.append({
             "id": category.id,
             "title": category.title,
@@ -361,19 +395,10 @@ def get_roadmap_context(user: User) -> dict[str, Any]:
             "icon": category.icon,
             "color": category.color,
             "module_count": len(modules),
-            "lesson_count": lesson_count,
+            "lesson_count": category_lessons,
             "total_xp": sum(m.xp_reward for m in modules),
-            "modules": [
-                {
-                    "title": m.title,
-                    "slug": m.slug,
-                    "difficulty": m.difficulty,
-                    "estimated_hours": m.estimated_hours,
-                    "xp_reward": m.xp_reward,
-                    "is_locked": m.is_locked,
-                }
-                for m in modules
-            ],
+            "progress_percent": cat_progress,
+            "modules": module_views,
         })
 
     return {
