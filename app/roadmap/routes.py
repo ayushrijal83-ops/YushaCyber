@@ -29,3 +29,13 @@ def module_detail(module_slug: str):
     if context is None:
         abort(404)
     return render_template("roadmap/module.html", user=current_user, **context)
+
+
+@roadmap_bp.route("/<module_slug>/<lesson_slug>/")
+@login_required
+def lesson_view(module_slug: str, lesson_slug: str):
+    """Render a single lesson's content, or 404 if module/lesson missing."""
+    context = services.get_lesson_view_context(current_user, module_slug, lesson_slug)
+    if context is None:
+        abort(404)
+    return render_template("roadmap/lesson.html", user=current_user, **context)

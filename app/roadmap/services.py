@@ -9,7 +9,11 @@ queries and the routes/templates stay untouched.
 
 from __future__ import annotations
 
+import os
+import re
 from typing import Any, Optional
+
+import markdown
 
 from app.auth.models import User
 from app.dashboard.services import get_nav_items
@@ -146,6 +150,154 @@ def lesson_completed(user: User, lesson: Lesson) -> bool:
     Always False until the progress system queries UserLessonProgress.
     """
     return False
+
+
+def get_lesson_view_context(
+    user: User, module_slug: str, lesson_slug: str
+) -> Optional[dict[str, Any]]:
+    """Assemble the lesson viewer context, or None if not found.
+
+    Built from get_module / get_lesson / get_lessons (for prev-next
+    ordering) so no SQLAlchemy query lives in the route. Loads and safely
+    renders the lesson's markdown; a missing file yields a friendly
+    "coming soon" flag rather than an error. Returns None when the module
+    or lesson is missing/inactive, letting the route raise a clean 404.
+    """
+    module = get_module(module_slug)
+    if module is None:
+        return None
+
+    lesson = get_lesson(module_slug, lesson_slug)
+    if lesson is None:
+        return None
+
+    # Prev/next by display_order among the module's active lessons.
+    siblings = get_lessons(module.id)
+    index = next((i for i, s in enumerate(siblings) if s.id == lesson.id), None)
+    prev_slug = siblings[index - 1].slug if index and index > 0 else None
+    next_slug = (
+        siblings[index + 1].slug
+        if index is not None and index + 1 < len(siblings)
+        else None
+    )
+
+    content_html, content_missing = render_lesson_markdown(lesson.content_path)
+
+    return {
+        "module": {"title": module.title, "slug": module.slug},
+        "lesson": {
+            "title": lesson.title,
+            "slug": lesson.slug,
+            "lesson_type": lesson.lesson_type,
+            "estimated_minutes": lesson.estimated_minutes,
+            "xp_reward": lesson.xp_reward,
+        },
+        "content_html": content_html,
+        "content_missing": content_missing,
+        "prev_slug": prev_slug,
+        "next_slug": next_slug,
+        "nav_items": get_nav_items(active="roadmap"),
+    }
+
+
+def render_lesson_markdown(content_path: Optional[str]) -> tuple[str, bool]:
+    """Load and safely render a lesson's markdown file.
+
+    Returns ``(html, missing)``. When the file is absent or unreadable,
+    ``missing`` is True and the html is a friendly placeholder — the
+    viewer never crashes on missing content. Content files live under the
+    app's ``content`` directory; paths are resolved safely so a stored
+    path cannot escape it.
+    """
+    placeholder = "<p class=\"lesson-content__soon\">This lesson is coming soon.</p>"
+    if not content_path:
+        return placeholder, True
+
+    from flask import current_app
+
+    content_root = os.path.join(current_app.root_path, "content")
+    # Resolve and confine to the content root (defence against traversal).
+    target = os.path.normpath(os.path.join(content_root, content_path))
+    if os.path.commonpath([content_root, target]) != content_root:
+        return placeholder, True
+    if not os.path.isfile(target):
+        return placeholder, True
+
+    try:
+        with open(target, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return placeholder, True
+
+    html = markdown.markdown(
+        text,
+        extensions=["fenced_code", "tables", "sane_lists"],
+        output_format="html5",
+    )
+    # Sanitise: the content is author-supplied markdown, but we strip any
+    # raw <script>/<iframe>/event-handler HTML that slipped through so the
+    # viewer renders safely.
+    html = _sanitise_lesson_html(html)
+    return html, False
+
+
+def _sanitise_lesson_html(html: str) -> str:
+    """Remove script/iframe/style blocks and inline event handlers."""
+    html = re.sub(r"(?is)<(script|iframe|style)\b.*?</\1>", "", html)
+    html = re.sub(r"(?is)<(script|iframe|style)\b[^>]*>", "", html)
+    html = re.sub(r"(?i)\son\w+\s*=\s*\"[^\"]*\"", "", html)
+    html = re.sub(r"(?i)\son\w+\s*=\s*'[^']*'", "", html)
+    html = re.sub(r"(?i)javascript:", "", html)
+    return html
+
+
+def get_lesson_view_context(
+    user: User, module_slug: str, lesson_slug: str
+) -> Optional[dict[str, Any]]:
+    """Assemble the lesson viewer context, or None if module/lesson missing.
+
+    Built from get_module / get_lesson / get_lessons plus the content
+    renderer — no SQLAlchemy in the route or template. Previous/next
+    navigation is derived from the module's lessons in display_order.
+    ``content_html`` is None when the markdown file doesn't exist yet,
+    letting the view show a "coming soon" message.
+    """
+    from app.roadmap.content_render import render_lesson_content
+
+    module = get_module(module_slug)
+    if module is None:
+        return None
+
+    lesson = get_lesson(module_slug, lesson_slug)
+    if lesson is None:
+        return None
+
+    # Ordered lessons of this module → locate previous / next neighbours.
+    ordered = get_lessons(module.id)
+    index = next((i for i, l in enumerate(ordered) if l.id == lesson.id), None)
+
+    prev_slug = ordered[index - 1].slug if index not in (None, 0) else None
+    next_slug = (
+        ordered[index + 1].slug
+        if index is not None and index + 1 < len(ordered)
+        else None
+    )
+
+    return {
+        "module": {"title": module.title, "slug": module.slug},
+        "lesson": {
+            "title": lesson.title,
+            "slug": lesson.slug,
+            "lesson_type": lesson.lesson_type,
+            "estimated_minutes": lesson.estimated_minutes,
+            "xp_reward": lesson.xp_reward,
+            "completed": lesson_completed(user, lesson),
+        },
+        "content_html": render_lesson_content(lesson.content_path),
+        "prev_slug": prev_slug,
+        "next_slug": next_slug,
+        "nav_items": get_nav_items(active="roadmap"),
+    }
 
 
 def get_module_detail_context(user: User, module_slug: str) -> Optional[dict[str, Any]]:

@@ -164,6 +164,366 @@
 }
 
 /* ==========================================================================
+   Lesson viewer (YC-006.7)
+   ========================================================================== */
+.lesson-hero {
+    background: linear-gradient(150deg, rgba(0, 255, 136, 0.10), rgba(22, 27, 34, 0.75) 55%);
+    border: 1px solid var(--color-primary-dim);
+    border-radius: var(--radius-lg);
+    padding: 30px 32px;
+}
+
+.lesson-hero__module {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--color-primary);
+    margin-bottom: 6px;
+}
+
+.lesson-hero__title {
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    margin-bottom: 14px;
+}
+
+.lesson-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Rendered markdown */
+.lesson-content {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 32px clamp(20px, 3vw, 40px);
+    line-height: 1.7;
+    color: var(--color-text);
+    overflow-wrap: break-word;
+}
+
+.lesson-content--empty {
+    text-align: center;
+    color: var(--color-text-muted);
+}
+
+.lesson-content__soon {
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    padding: 24px 0;
+}
+
+.lesson-content h1,
+.lesson-content h2,
+.lesson-content h3,
+.lesson-content h4 {
+    line-height: 1.25;
+    margin: 1.6em 0 0.6em;
+}
+
+.lesson-content h1 { font-size: 1.7rem; }
+.lesson-content h2 {
+    font-size: 1.35rem;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--color-border);
+}
+.lesson-content h3 { font-size: 1.12rem; }
+
+.lesson-content > *:first-child { margin-top: 0; }
+
+.lesson-content p { margin: 0.9em 0; }
+
+.lesson-content a {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.lesson-content ul,
+.lesson-content ol {
+    margin: 0.9em 0;
+    padding-left: 1.5em;
+}
+
+.lesson-content li { margin: 0.35em 0; }
+.lesson-content ul li { list-style: disc; }
+.lesson-content ol li { list-style: decimal; }
+
+.lesson-content blockquote {
+    margin: 1.1em 0;
+    padding: 0.6em 1.1em;
+    border-left: 3px solid var(--color-primary);
+    background-color: var(--color-primary-dim);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--color-text-muted);
+}
+
+/* Inline code */
+.lesson-content code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    padding: 0.12em 0.4em;
+}
+
+/* Fenced code blocks */
+.lesson-content pre {
+    margin: 1.1em 0;
+    padding: 16px 18px;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius);
+    overflow-x: auto;
+}
+
+.lesson-content pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.85rem;
+    color: var(--color-text);
+}
+
+/* Tables */
+.lesson-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2em 0;
+    font-size: 0.92rem;
+}
+
+.lesson-content th,
+.lesson-content td {
+    border: 1px solid var(--color-border);
+    padding: 9px 13px;
+    text-align: left;
+}
+
+.lesson-content th {
+    background-color: var(--color-surface-2);
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.lesson-content tr:nth-child(even) td {
+    background-color: rgba(240, 246, 252, 0.02);
+}
+
+.lesson-content hr {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 1.6em 0;
+}
+
+/* Footer navigation */
+.lesson-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.lesson-nav .btn--primary {
+    margin-inline: auto;
+}
+
+@media (max-width: 560px) {
+    .lesson-nav {
+        flex-direction: column;
+    }
+
+    .lesson-nav .btn {
+        width: 100%;
+        margin-inline: 0;
+    }
+}
+
+/* ==========================================================================
+   Lesson viewer (YC-006.7)
+   ========================================================================== */
+.rm-lesson-hero {
+    background: linear-gradient(150deg, rgba(0, 255, 136, 0.10), rgba(22, 27, 34, 0.75) 55%);
+    border: 1px solid var(--color-primary-dim);
+    border-radius: var(--radius-lg);
+    padding: 30px 32px;
+}
+
+.rm-lesson-hero__module {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-primary);
+    margin-bottom: 6px;
+}
+
+.rm-lesson-hero__title {
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    margin-bottom: 14px;
+}
+
+.rm-lesson-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Rendered markdown prose */
+.lesson-content {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 32px clamp(22px, 4vw, 40px);
+    line-height: 1.7;
+    color: var(--color-text);
+}
+
+.lesson-content > *:first-child { margin-top: 0; }
+.lesson-content > *:last-child  { margin-bottom: 0; }
+
+.lesson-content h1,
+.lesson-content h2,
+.lesson-content h3,
+.lesson-content h4 {
+    line-height: 1.3;
+    margin: 1.6em 0 0.6em;
+}
+
+.lesson-content h1 { font-size: 1.7rem; }
+.lesson-content h2 {
+    font-size: 1.4rem;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--color-border);
+}
+.lesson-content h3 { font-size: 1.15rem; }
+
+.lesson-content p,
+.lesson-content ul,
+.lesson-content ol,
+.lesson-content blockquote,
+.lesson-content table,
+.lesson-content pre {
+    margin-bottom: 1.1em;
+}
+
+.lesson-content ul,
+.lesson-content ol {
+    padding-left: 1.5em;
+}
+
+.lesson-content li {
+    margin-bottom: 0.4em;
+}
+
+.lesson-content a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.lesson-content strong { color: var(--color-text); font-weight: 700; }
+
+/* Inline code + fenced blocks */
+.lesson-content code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    padding: 2px 6px;
+    color: var(--color-primary);
+}
+
+.lesson-content pre {
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    overflow-x: auto;
+}
+
+.lesson-content pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-text);
+    font-size: 0.86rem;
+    line-height: 1.6;
+}
+
+/* Blockquotes */
+.lesson-content blockquote {
+    border-left: 3px solid var(--color-primary);
+    background-color: var(--color-primary-dim);
+    padding: 12px 18px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--color-text-muted);
+}
+
+.lesson-content blockquote > *:last-child { margin-bottom: 0; }
+
+/* Tables */
+.lesson-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.lesson-content th,
+.lesson-content td {
+    border: 1px solid var(--color-border);
+    padding: 9px 13px;
+    text-align: left;
+}
+
+.lesson-content th {
+    background-color: var(--color-surface-2);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+/* Coming-soon fallback */
+.lesson-content__soon {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+/* Prev / Complete / Next navigation */
+.lesson-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.lesson-nav .btn--primary {
+    margin-inline: auto;
+}
+
+@media (max-width: 560px) {
+    .lesson-nav {
+        flex-direction: column;
+    }
+
+    .lesson-nav .btn {
+        width: 100%;
+    }
+
+    .lesson-nav .btn--primary {
+        margin-inline: 0;
+        order: 3;
+    }
+}
+
+/* ==========================================================================
    Module detail page (YC-006.6)
    ========================================================================== */
 .rm-back {

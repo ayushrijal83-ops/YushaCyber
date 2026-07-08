@@ -66,7 +66,7 @@
                     <div class="rm-lesson__action">
                         <span class="rm-lesson__status">{{ "Completed" if lesson.completed else "Not Started" }}</span>
                         {% if lesson.is_preview %}
-                        <a href="#" class="btn btn--primary btn--sm">Start Lesson</a>
+                        <a href="{{ url_for('roadmap.lesson_view', module_slug=module.slug, lesson_slug=lesson.slug) }}" class="btn btn--primary btn--sm">Start Lesson</a>
                         {% else %}
                         <button class="btn btn--outline btn--sm" disabled>Locked</button>
                         {% endif %}
