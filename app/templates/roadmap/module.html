@@ -49,6 +49,12 @@
                     <span class="rm-module__tag">⏱ {{ module.estimated_hours }}h</span>
                     <span class="rm-module__tag rm-module__tag--xp">+{{ module.xp_reward }} XP</span>
                 </div>
+                {% if module.has_quiz %}
+                <div class="rm-mod-hero__actions">
+                    <a href="{{ url_for('roadmap.quiz_view', module_slug=module.slug) }}"
+                       class="btn btn--primary btn--sm">Take Quiz →</a>
+                </div>
+                {% endif %}
             </section>
 
             {# ---- Lessons ---- #}

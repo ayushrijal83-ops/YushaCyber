@@ -139,7 +139,7 @@ def get_nav_items(active: str) -> list[dict[str, str | bool]]:
         {"key": "roadmap", "label": "Roadmap", "icon": "map", "url": "/roadmap/"},
         {"key": "courses", "label": "Courses", "icon": "book", "url": "/#courses"},
         {"key": "lessons", "label": "Lessons", "icon": "layers", "url": "#"},
-        {"key": "quizzes", "label": "Quizzes", "icon": "help", "url": "#"},
+        {"key": "quizzes", "label": "Quizzes", "icon": "help", "url": "/roadmap/quizzes/"},
         {"key": "challenge", "label": "Daily Challenge", "icon": "zap", "url": "/#challenge"},
         {"key": "ctf", "label": "CTF Arena", "icon": "flag", "url": "/#ctf"},
         {"key": "achievements", "label": "Achievements", "icon": "award", "url": "#"},

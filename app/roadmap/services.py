@@ -23,10 +23,14 @@ from app.dashboard.services import award_xp, get_nav_items
 from app.extensions import db
 from app.roadmap.models import (
     Lesson,
+    Quiz,
+    QuizOption,
+    QuizQuestion,
     RoadmapCategory,
     RoadmapModule,
     UserLessonProgress,
     UserModuleProgress,
+    UserQuizAttempt,
 )
 
 
@@ -621,6 +625,8 @@ def get_module_detail_context(user: User, module_slug: str) -> Optional[dict[str
             "xp_reward": module.xp_reward,
             # Per-user status (YC-007.0); is_locked is deprecated.
             "status": module_status(user, module),
+            # Whether this module has a quiz to take (YC-007.3).
+            "has_quiz": get_quiz(module_slug) is not None,
         },
         "lessons": lesson_views,
         "nav_items": get_nav_items(active="roadmap"),
@@ -712,3 +718,294 @@ def _get_tiers() -> list[dict[str, str]]:
         {"key": "ai-security", "title": "AI Security", "icon": "flag", "color": "purple",
          "blurb": "Prompt injection, model attacks and securing AI systems."},
     ]
+
+
+# ===========================================================================
+# Quiz service layer (YC-007.2)
+#
+# Retrieval, attempt history, progress checks, and submission scoring for
+# quizzes. Pure data/logic: no XP awards, no module unlocking, no routes.
+# Every query lives here so routes and templates never touch the ORM.
+# ===========================================================================
+def get_quiz(module_slug: str) -> Optional[Quiz]:
+    """The active quiz for a module (by slug), or None.
+
+    A module owns at most one quiz; if several exist (data anomaly), the
+    lowest-id active quiz is returned deterministically.
+    """
+    module = get_module(module_slug)
+    if module is None:
+        return None
+    return (
+        Quiz.query
+        .filter_by(module_id=module.id, is_active=True)
+        .order_by(Quiz.id)
+        .first()
+    )
+
+
+def get_quiz_by_id(quiz_id: int) -> Optional[Quiz]:
+    """One active quiz by id, or None."""
+    return Quiz.query.filter_by(id=quiz_id, is_active=True).first()
+
+
+def get_questions(quiz_id: int) -> list[QuizQuestion]:
+    """Questions of a quiz in display order."""
+    return (
+        QuizQuestion.query
+        .filter_by(quiz_id=quiz_id)
+        .order_by(QuizQuestion.display_order)
+        .all()
+    )
+
+
+def get_question(question_id: int) -> Optional[QuizQuestion]:
+    """One question by id, or None."""
+    return QuizQuestion.query.filter_by(id=question_id).first()
+
+
+# ---------------------------------------------------------------------------
+# Attempt history
+# ---------------------------------------------------------------------------
+def get_user_attempts(user: User, quiz: Quiz) -> list[UserQuizAttempt]:
+    """All of a user's attempts at a quiz, newest first."""
+    if user is None or quiz is None:
+        return []
+    return (
+        UserQuizAttempt.query
+        .filter_by(user_id=user.id, quiz_id=quiz.id)
+        .order_by(UserQuizAttempt.created_at.desc())
+        .all()
+    )
+
+
+def get_latest_attempt(user: User, quiz: Quiz) -> Optional[UserQuizAttempt]:
+    """The user's most recent attempt at a quiz, or None."""
+    if user is None or quiz is None:
+        return None
+    return (
+        UserQuizAttempt.query
+        .filter_by(user_id=user.id, quiz_id=quiz.id)
+        .order_by(UserQuizAttempt.created_at.desc())
+        .first()
+    )
+
+
+def get_best_attempt(user: User, quiz: Quiz) -> Optional[UserQuizAttempt]:
+    """The user's highest-scoring attempt (ties broken by most recent).
+
+    Ranks by percentage, then recency — so the "best" attempt is the
+    highest score, and among equal scores the latest one.
+    """
+    if user is None or quiz is None:
+        return None
+    return (
+        UserQuizAttempt.query
+        .filter_by(user_id=user.id, quiz_id=quiz.id)
+        .order_by(
+            UserQuizAttempt.percentage.desc(),
+            UserQuizAttempt.created_at.desc(),
+        )
+        .first()
+    )
+
+
+# ---------------------------------------------------------------------------
+# Progress checks
+# ---------------------------------------------------------------------------
+def can_take_quiz(user: User, module_slug: str) -> bool:
+    """Whether a user may take a module's quiz.
+
+    True when the module has an active quiz with at least one question.
+    (Gating on lesson/module completion is intentionally out of scope for
+    this ticket — no unlock logic here.)
+    """
+    quiz = get_quiz(module_slug)
+    if quiz is None:
+        return False
+    return len(get_questions(quiz.id)) > 0
+
+
+def has_passed_quiz(user: User, module_slug: str) -> bool:
+    """Whether the user has any passing attempt at a module's quiz."""
+    quiz = get_quiz(module_slug)
+    if quiz is None or user is None:
+        return False
+    return (
+        UserQuizAttempt.query
+        .filter_by(user_id=user.id, quiz_id=quiz.id, passed=True)
+        .first()
+        is not None
+    )
+
+
+# ---------------------------------------------------------------------------
+# Submission
+# ---------------------------------------------------------------------------
+def submit_quiz(user: User, quiz: Quiz, answers: dict) -> dict[str, Any]:
+    """Score a quiz submission and persist a UserQuizAttempt.
+
+    ``answers`` maps question_id -> selected option_id (keys/values may be
+    strings or ints; they are coerced). Scoring counts a question correct
+    only when the chosen option is the question's correct option.
+
+    Returns a structured result:
+        {success, error, attempt, score, total, percentage, passed}
+
+    XP and unlocking are deliberately NOT handled here (out of scope);
+    this function only records the attempt. Rolls back on DB failure.
+    """
+    result = {
+        "success": False,
+        "error": None,
+        "attempt": None,
+        "score": 0,
+        "total": 0,
+        "percentage": 0,
+        "passed": False,
+    }
+
+    # Validate quiz.
+    if quiz is None or not quiz.is_active:
+        result["error"] = "quiz_not_found"
+        return result
+
+    questions = get_questions(quiz.id)
+    if not questions:
+        result["error"] = "quiz_has_no_questions"
+        return result
+
+    # Validate answers is a mapping.
+    if not isinstance(answers, dict):
+        result["error"] = "invalid_answers"
+        return result
+
+    # Normalise answer keys/values to ints where possible.
+    normalised: dict[int, int] = {}
+    for q_id, opt_id in answers.items():
+        try:
+            normalised[int(q_id)] = int(opt_id)
+        except (TypeError, ValueError):
+            # Skip malformed entries rather than failing the whole attempt.
+            continue
+
+    total = len(questions)
+    raw_score = 0
+    for question in questions:
+        chosen_option_id = normalised.get(question.id)
+        if chosen_option_id is None:
+            continue
+        correct = next(
+            (o for o in question.options if o.is_correct), None
+        )
+        if correct is not None and correct.id == chosen_option_id:
+            raw_score += 1
+
+    percentage = int(raw_score / total * 100) if total else 0
+    passed = percentage >= quiz.pass_percentage
+
+    try:
+        attempt = UserQuizAttempt(
+            user_id=user.id,
+            quiz_id=quiz.id,
+            score=raw_score,
+            percentage=percentage,
+            passed=passed,
+            completed_at=_utcnow(),
+        )
+        db.session.add(attempt)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception(
+            "Failed to record quiz attempt: user %s quiz %s", user.id, quiz.id
+        )
+        result["error"] = "persist_failed"
+        return result
+
+    result.update({
+        "success": True,
+        "attempt": attempt,
+        "score": raw_score,
+        "total": total,
+        "percentage": percentage,
+        "passed": passed,
+    })
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Quiz page contexts (YC-007.3) — compose the YC-007.2 services into plain
+# dicts for the templates. No ORM objects leak to routes/templates.
+# ---------------------------------------------------------------------------
+def get_quiz_index_context(user: User) -> dict[str, Any]:
+    """List every module's quiz with this user's status, for the index page."""
+    quizzes: list[dict[str, Any]] = []
+    for category in get_all_categories():
+        for module in get_modules(category.id):
+            quiz = get_quiz(module.slug)
+            if quiz is None:
+                continue
+            best = get_best_attempt(user, quiz)
+            quizzes.append({
+                "module_title": module.title,
+                "module_slug": module.slug,
+                "category_title": category.title,
+                "category_color": category.color,
+                "quiz_title": quiz.title,
+                "question_count": len(get_questions(quiz.id)),
+                "xp_reward": quiz.xp_reward,
+                "pass_percentage": quiz.pass_percentage,
+                "time_limit_minutes": quiz.time_limit_minutes,
+                "passed": has_passed_quiz(user, module.slug),
+                "best_percentage": best.percentage if best is not None else None,
+                "attempt_count": len(get_user_attempts(user, quiz)),
+            })
+    return {"quizzes": quizzes, "nav_items": get_nav_items(active="quizzes")}
+
+
+def _quiz_question_views(quiz: Quiz) -> list[dict[str, Any]]:
+    """Questions + options as plain dicts (no is_correct leaked to the page)."""
+    views: list[dict[str, Any]] = []
+    for question in get_questions(quiz.id):
+        views.append({
+            "id": question.id,
+            "question_text": question.question_text,
+            "options": [
+                {"id": o.id, "option_text": o.option_text}
+                for o in question.options
+            ],
+        })
+    return views
+
+
+def get_quiz_page_context(user: User, module_slug: str) -> Optional[dict[str, Any]]:
+    """Context for the quiz-taking page, or None if the module/quiz is missing.
+
+    Deliberately omits which option is correct — grading happens server
+    side in submit_quiz, so answers are never exposed to the client.
+    """
+    module = get_module(module_slug)
+    if module is None:
+        return None
+    quiz = get_quiz(module_slug)
+    if quiz is None:
+        return None
+
+    best = get_best_attempt(user, quiz)
+    return {
+        "module": {"title": module.title, "slug": module.slug},
+        "quiz": {
+            "id": quiz.id,
+            "title": quiz.title,
+            "description": quiz.description,
+            "xp_reward": quiz.xp_reward,
+            "pass_percentage": quiz.pass_percentage,
+            "time_limit_minutes": quiz.time_limit_minutes,
+        },
+        "questions": _quiz_question_views(quiz),
+        "passed": has_passed_quiz(user, module_slug),
+        "best_percentage": best.percentage if best is not None else None,
+        "attempt_count": len(get_user_attempts(user, quiz)),
+        "nav_items": get_nav_items(active="quizzes"),
+    }

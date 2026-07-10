@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ quiz.title }} — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='roadmap/css/roadmap.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="rm-back">← {{ module.title }}</a>
+
+            {# ---- Flash (quiz result) ---- #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="dash-flash" role="status">
+                        {% for category, message in messages %}
+                            <p class="dash-flash__item dash-flash__item--{{ category }}">{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {# ---- Quiz header ---- #}
+            <section class="rm-lesson-hero" aria-labelledby="quiz-title">
+                <p class="rm-lesson-hero__module">{{ module.title }}</p>
+                <h1 class="rm-lesson-hero__title" id="quiz-title">{{ quiz.title }}</h1>
+                {% if quiz.description %}
+                <p class="rm-mod-hero__desc">{{ quiz.description }}</p>
+                {% endif %}
+                <div class="rm-lesson-hero__meta">
+                    <span class="rm-module__tag">{{ questions|length }} questions</span>
+                    <span class="rm-module__tag rm-module__tag--xp">+{{ quiz.xp_reward }} XP</span>
+                    <span class="rm-module__tag">Pass: {{ quiz.pass_percentage }}%</span>
+                    {% if quiz.time_limit_minutes %}
+                    <span class="rm-module__tag">⏱ {{ quiz.time_limit_minutes }} min</span>
+                    {% endif %}
+                    {% if passed %}
+                    <span class="rm-module__badge rm-module__badge--done">✅ Passed</span>
+                    {% endif %}
+                </div>
+                {% if best_percentage is not none %}
+                <p class="quiz-beststat">Best score: {{ best_percentage }}% · Attempts: {{ attempt_count }}</p>
+                {% endif %}
+            </section>
+
+            {# ---- Quiz form ---- #}
+            <form method="POST" class="quiz-form"
+                  action="{{ url_for('roadmap.quiz_submit', module_slug=module.slug) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                {% for question in questions %}
+                <fieldset class="quiz-q">
+                    <legend class="quiz-q__title">
+                        <span class="quiz-q__num">{{ "%02d"|format(loop.index) }}</span>
+                        {{ question.question_text }}
+                    </legend>
+                    <div class="quiz-q__options">
+                        {% for option in question.options %}
+                        <label class="quiz-option">
+                            <input type="radio" name="question_{{ question.id }}"
+                                   value="{{ option.id }}" required>
+                            <span class="quiz-option__text">{{ option.option_text }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                {% endfor %}
+
+                <div class="quiz-form__actions">
+                    <button type="submit" class="btn btn--primary">Submit Quiz</button>
+                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}"
+                       class="btn btn--outline">Cancel</a>
+                </div>
+            </form>
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

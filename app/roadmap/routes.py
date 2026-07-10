@@ -7,7 +7,7 @@ without touching this module.
 
 from __future__ import annotations
 
-from flask import abort, flash, redirect, render_template, url_for
+from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.roadmap import roadmap_bp, services
@@ -74,3 +74,61 @@ def complete_lesson(module_slug: str, lesson_slug: str):
     return redirect(
         url_for("roadmap.lesson_view", module_slug=module_slug, lesson_slug=lesson_slug)
     )
+
+
+@roadmap_bp.route("/quizzes/")
+@login_required
+def quiz_index():
+    """List every module's quiz with the current user's status."""
+    context = services.get_quiz_index_context(current_user)
+    return render_template("roadmap/quiz_index.html", user=current_user, **context)
+
+
+@roadmap_bp.route("/<module_slug>/quiz/")
+@login_required
+def quiz_view(module_slug: str):
+    """Render a module's quiz, or 404 if the module/quiz is missing."""
+    context = services.get_quiz_page_context(current_user, module_slug)
+    if context is None:
+        abort(404)
+    return render_template("roadmap/quiz.html", user=current_user, **context)
+
+
+@roadmap_bp.route("/<module_slug>/quiz/submit", methods=["POST"])
+@login_required
+def quiz_submit(module_slug: str):
+    """Grade a quiz submission (POST, CSRF), then show the result page."""
+    quiz = services.get_quiz(module_slug)
+    if quiz is None:
+        abort(404)
+
+    # Collect answers from the form: question_<id> -> option id.
+    answers: dict[int, int] = {}
+    for key, value in request.form.items():
+        if key.startswith("question_"):
+            try:
+                answers[int(key.split("_", 1)[1])] = int(value)
+            except (ValueError, IndexError):
+                continue
+
+    result = services.submit_quiz(current_user, quiz, answers)
+
+    if not result["success"]:
+        flash("Unable to submit quiz. Please try again.", "error")
+        return redirect(url_for("roadmap.quiz_view", module_slug=module_slug))
+
+    if result["passed"]:
+        flash(
+            f"✅ Passed! You scored {result['percentage']}% "
+            f"({result['score']}/{result['total']}).",
+            "success",
+        )
+    else:
+        flash(
+            f"❌ Not passed. You scored {result['percentage']}% "
+            f"({result['score']}/{result['total']}). "
+            f"Need {quiz.pass_percentage}% to pass — try again!",
+            "error",
+        )
+
+    return redirect(url_for("roadmap.quiz_view", module_slug=module_slug))

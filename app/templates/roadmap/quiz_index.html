@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quizzes — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='roadmap/css/roadmap.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            <header class="dash-page-head">
+                <h1 class="dash-page-head__title">Quizzes</h1>
+                <p class="dash-page-head__sub">Test your knowledge — one quiz per module.</p>
+            </header>
+
+            {% if quizzes %}
+            <ul class="quiz-list">
+                {% for q in quizzes %}
+                <li class="quiz-list__item">
+                    <div class="quiz-list__info">
+                        <h2 class="quiz-list__title">{{ q.module_title }}</h2>
+                        <div class="quiz-list__meta">
+                            <span class="rm-module__tag">{{ q.category_title }}</span>
+                            <span class="rm-module__tag">{{ q.question_count }} questions</span>
+                            <span class="rm-module__tag rm-module__tag--xp">+{{ q.xp_reward }} XP</span>
+                            <span class="rm-module__tag">Pass: {{ q.pass_percentage }}%</span>
+                            {% if q.best_percentage is not none %}
+                            <span class="rm-module__tag">Best: {{ q.best_percentage }}%</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="quiz-list__action">
+                        {% if q.passed %}
+                        <span class="rm-module__badge rm-module__badge--done">✅ Passed</span>
+                        <a href="{{ url_for('roadmap.quiz_view', module_slug=q.module_slug) }}"
+                           class="btn btn--outline btn--sm">Retake</a>
+                        {% else %}
+                        <a href="{{ url_for('roadmap.quiz_view', module_slug=q.module_slug) }}"
+                           class="btn btn--primary btn--sm">
+                           {{ "Try Again" if q.attempt_count else "Start Quiz" }}</a>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <section class="rm-empty" aria-label="No quizzes">
+                <div class="rm-empty__icon">{{ icon("help", 26) }}</div>
+                <h2 class="rm-empty__title">No quizzes available yet.</h2>
+            </section>
+            {% endif %}
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

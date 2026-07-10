@@ -104,3 +104,17 @@ def _register_cli(app: Flask) -> None:
         print(f"  categories: {result['categories']}")
         print(f"  modules:    {result['modules']}")
         print(f"  lessons:    {result['lessons']}")
+
+    @app.cli.command("seed-quizzes")
+    def seed_quizzes_command() -> None:
+        """Seed one quiz per module (idempotent — safe to re-run)."""
+        from app.roadmap.quiz_seed import seed_quizzes
+
+        result = seed_quizzes()
+        if result["created"]:
+            print("Quizzes seeded successfully.")
+        else:
+            print("Quizzes already populated — no changes made.")
+        print(f"  quizzes:   {result['quizzes']}")
+        print(f"  questions: {result['questions']}")
+        print(f"  options:   {result['options']}")
