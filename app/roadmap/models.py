@@ -213,3 +213,119 @@ class UserModuleProgress(BaseModel):
 
     def __repr__(self) -> str:  # pragma: no cover — debugging aid
         return f"<UserModuleProgress user={self.user_id} module={self.module_id}>"
+
+
+class Quiz(BaseModel):
+    """A quiz attached to a roadmap module."""
+
+    __tablename__ = "quizzes"
+
+    module_id = db.Column(
+        db.Integer, db.ForeignKey("roadmap_modules.id"), nullable=False, index=True
+    )
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    xp_reward = db.Column(db.Integer, nullable=False, default=0)
+    # Minimum percent (0–100) required to pass.
+    pass_percentage = db.Column(db.Integer, nullable=False, default=70)
+    # Optional per-quiz time limit in minutes; NULL means untimed.
+    time_limit_minutes = db.Column(db.Integer, nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    module = db.relationship(
+        "RoadmapModule",
+        backref=db.backref("quizzes", lazy="selectin",
+                           cascade="all, delete-orphan"),
+    )
+    questions = db.relationship(
+        "QuizQuestion",
+        back_populates="quiz",
+        order_by="QuizQuestion.display_order",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    attempts = db.relationship(
+        "UserQuizAttempt",
+        back_populates="quiz",
+        order_by="desc(UserQuizAttempt.created_at)",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover — debugging aid
+        return f"<Quiz {self.title} (module {self.module_id})>"
+
+
+class QuizQuestion(BaseModel):
+    """A single question within a quiz."""
+
+    __tablename__ = "quiz_questions"
+
+    quiz_id = db.Column(
+        db.Integer, db.ForeignKey("quizzes.id"), nullable=False, index=True
+    )
+    question_text = db.Column(db.Text, nullable=False)
+    explanation = db.Column(db.Text, nullable=True)
+    display_order = db.Column(db.Integer, nullable=False, default=0, index=True)
+
+    quiz = db.relationship("Quiz", back_populates="questions")
+    options = db.relationship(
+        "QuizOption",
+        back_populates="question",
+        order_by="QuizOption.display_order",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover — debugging aid
+        return f"<QuizQuestion {self.id} (quiz {self.quiz_id})>"
+
+
+class QuizOption(BaseModel):
+    """One answer option for a quiz question."""
+
+    __tablename__ = "quiz_options"
+
+    question_id = db.Column(
+        db.Integer, db.ForeignKey("quiz_questions.id"), nullable=False, index=True
+    )
+    option_text = db.Column(db.Text, nullable=False)
+    is_correct = db.Column(db.Boolean, nullable=False, default=False)
+    display_order = db.Column(db.Integer, nullable=False, default=0, index=True)
+
+    question = db.relationship("QuizQuestion", back_populates="options")
+
+    def __repr__(self) -> str:  # pragma: no cover — debugging aid
+        return f"<QuizOption {self.id} (question {self.question_id})>"
+
+
+class UserQuizAttempt(BaseModel):
+    """One user's attempt at a quiz."""
+
+    __tablename__ = "user_quiz_attempts"
+
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id"), nullable=False, index=True
+    )
+    quiz_id = db.Column(
+        db.Integer, db.ForeignKey("quizzes.id"), nullable=False, index=True
+    )
+    # Raw number of correct answers.
+    score = db.Column(db.Integer, nullable=False, default=0)
+    # Score as a percent (0–100).
+    percentage = db.Column(db.Integer, nullable=False, default=0)
+    passed = db.Column(db.Boolean, nullable=False, default=False)
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    # Wall-clock time the user spent on the attempt, in seconds; NULL if untracked.
+    time_taken_seconds = db.Column(db.Integer, nullable=True)
+
+    quiz = db.relationship("Quiz", back_populates="attempts")
+    # Attached from this side so the User model file stays untouched:
+    #   some_user.quiz_attempts -> query of UserQuizAttempt rows
+    user = db.relationship(
+        "User",
+        backref=db.backref("quiz_attempts", lazy="dynamic"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover — debugging aid
+        return f"<UserQuizAttempt user={self.user_id} quiz={self.quiz_id} score={self.score}>"

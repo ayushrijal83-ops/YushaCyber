@@ -12,12 +12,12 @@
         <div class="banner__progress">
             <div class="banner__progress-head">
                 <span class="banner__progress-label">Progress to Level {{ xp_info.level + 1 }}</span>
-                <span class="progress-row__percent" data-percent="{{ xp_info.percent }}">0%</span>
+                <span class="progress-row__percent" data-percent="{{ xp_info.percent }}">{{ xp_info.percent }}%</span>
             </div>
             <div class="progress-bar progress-bar--banner" role="progressbar"
                  aria-valuenow="{{ xp_info.percent }}" aria-valuemin="0" aria-valuemax="100"
                  aria-label="Progress to level {{ xp_info.level + 1 }}">
-                <div class="progress-bar__fill" data-progress="{{ xp_info.percent }}"></div>
+                <div class="progress-bar__fill" data-progress="{{ xp_info.percent }}" style="width: {{ xp_info.percent }}%"></div>
             </div>
             <p class="banner__progress-note">{{ xp_info.xp_into_level }} / {{ xp_info.xp_span }} XP earned this level</p>
         </div>

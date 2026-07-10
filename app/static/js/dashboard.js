@@ -125,11 +125,22 @@
                 parseInt(fill.dataset.progress, 10) || 0));
             fill.style.width = percent + "%";
 
-            const row = fill.closest(".progress-row");
-            const label = row && row.querySelector(".progress-row__percent");
+            // The percent label lives in a sibling head element. Different
+            // layouts use different containers (.progress-row for the
+            // learning-progress list, .banner__progress for the welcome
+            // banner), so search from the nearest common ancestor rather
+            // than assuming one class.
+            const container =
+                fill.closest(".progress-row") ||
+                fill.closest(".banner__progress") ||
+                fill.parentElement.parentElement;
+            const label = container &&
+                container.querySelector(".progress-row__percent");
             if (label) label.textContent = percent + "%";
         }
 
+        // Reveal immediately (covers bars already in view, e.g. the banner
+        // above the fold), then also observe for any that scroll into view.
         const observer = new IntersectionObserver(
             (entries, obs) => {
                 entries.forEach((entry) => {
@@ -139,10 +150,18 @@
                     }
                 });
             },
-            { threshold: 0.4 }
+            { threshold: 0.1 }
         );
 
-        bars.forEach((bar) => observer.observe(bar));
+        bars.forEach((bar) => {
+            const rect = bar.getBoundingClientRect();
+            const visible = rect.top < window.innerHeight && rect.bottom > 0;
+            if (visible) {
+                reveal(bar);          // already on screen — fill now
+            } else {
+                observer.observe(bar); // fill when scrolled into view
+            }
+        });
     }
 
     /* ----------------------------------------------------------------------
