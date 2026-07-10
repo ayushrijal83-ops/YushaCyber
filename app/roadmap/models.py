@@ -174,3 +174,42 @@ class UserLessonProgress(BaseModel):
 
     def __repr__(self) -> str:  # pragma: no cover — debugging aid
         return f"<UserLessonProgress user={self.user_id} lesson={self.lesson_id}>"
+
+
+class UserModuleProgress(BaseModel):
+    """One user's progression state for one module (at most one row per pair).
+
+    Per-user unlock/completion state, replacing the deprecated global
+    ``RoadmapModule.is_locked`` flag. ``bonus_awarded`` guards the
+    module's one-time XP bonus so it can never be granted twice.
+    """
+
+    __tablename__ = "user_module_progress"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "module_id", name="uq_module_progress_user_module"),
+    )
+
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id"), nullable=False, index=True
+    )
+    module_id = db.Column(
+        db.Integer, db.ForeignKey("roadmap_modules.id"), nullable=False, index=True
+    )
+
+    unlocked = db.Column(db.Boolean, nullable=False, default=False)
+    completed = db.Column(db.Boolean, nullable=False, default=False)
+    bonus_awarded = db.Column(db.Boolean, nullable=False, default=False)
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    module = db.relationship("RoadmapModule", backref=db.backref(
+        "user_progress", lazy="dynamic", cascade="all, delete-orphan"))
+
+    # Attached from this side so the User model file stays untouched:
+    #   some_user.module_progress -> query of UserModuleProgress rows
+    user = db.relationship(
+        "User",
+        backref=db.backref("module_progress", lazy="dynamic"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover — debugging aid
+        return f"<UserModuleProgress user={self.user_id} module={self.module_id}>"

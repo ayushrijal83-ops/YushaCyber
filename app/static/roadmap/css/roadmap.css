@@ -1005,3 +1005,32 @@
     .rm-cat__progress { grid-template-columns: 1fr; }
     .rm-cat__continue { grid-column: 1; grid-row: auto; }
 }
+
+/* ==========================================================================
+   YC-007.0: per-user module status (completed / available / locked)
+   ========================================================================== */
+.rm-module__badge--done {
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    background-color: var(--color-primary-dim);
+}
+
+.rm-module-block--completed {
+    border-color: var(--color-primary);
+}
+
+.rm-module-block--completed:hover {
+    border-color: var(--color-primary);
+}
+
+.rm-module-block--available:hover {
+    border-color: var(--tier-color, var(--color-primary));
+}
+
+.rm-module-block--locked {
+    opacity: 0.7;
+}
+
+.rm-module-block--locked:hover {
+    border-color: var(--color-border);
+}

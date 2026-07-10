@@ -69,7 +69,7 @@
 
                     <ul class="rm-modules rm-modules--stacked">
                         {% for module in category.modules %}
-                        <li class="rm-module-block {% if module.is_locked %}rm-module-block--locked{% endif %}">
+                        <li class="rm-module-block rm-module-block--{{ module.status }}">
                             <div class="rm-module-block__head">
                                 <div class="rm-module__info">
                                     <h3 class="rm-module__title">{{ module.title }}</h3>
@@ -82,12 +82,15 @@
                                     </div>
                                 </div>
                                 <div class="rm-module__action">
-                                    {% if module.is_locked %}
-                                    <span class="rm-module__badge rm-module__badge--locked">{{ icon("lock", 12) }} Locked</span>
-                                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--outline btn--sm">View</a>
-                                    {% else %}
-                                    <span class="rm-module__badge rm-module__badge--open">Unlocked</span>
+                                    {% if module.status == "completed" %}
+                                    <span class="rm-module__badge rm-module__badge--done">✅ Completed</span>
+                                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--outline btn--sm">Review</a>
+                                    {% elif module.status == "available" %}
+                                    <span class="rm-module__badge rm-module__badge--open">🟢 Available</span>
                                     <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--primary btn--sm">Start Learning</a>
+                                    {% else %}
+                                    <span class="rm-module__badge rm-module__badge--locked">🔒 Locked</span>
+                                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--outline btn--sm">View</a>
                                     {% endif %}
                                 </div>
                             </div>

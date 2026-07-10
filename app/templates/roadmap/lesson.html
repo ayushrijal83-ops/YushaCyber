@@ -29,6 +29,17 @@
 
             <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="rm-back">← {{ module.title }}</a>
 
+            {# ---- Flash messages (completion feedback) ---- #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="dash-flash" role="status">
+                        {% for category, message in messages %}
+                            <p class="dash-flash__item dash-flash__item--{{ category }}">{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
             {# ---- Lesson header ---- #}
             <section class="rm-lesson-hero" aria-labelledby="lesson-title">
                 <p class="rm-lesson-hero__module">{{ module.title }}</p>
@@ -63,7 +74,15 @@
                 <button class="btn btn--outline btn--sm" disabled>← Previous Lesson</button>
                 {% endif %}
 
-                <button class="btn btn--primary btn--sm" type="button" id="mark-complete">Mark Complete</button>
+                {% if lesson.completed %}
+                <button class="btn btn--primary btn--sm" disabled>✓ Completed</button>
+                {% else %}
+                <form method="POST" class="lesson-complete-form"
+                      action="{{ url_for('roadmap.complete_lesson', module_slug=module.slug, lesson_slug=lesson.slug) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn--primary btn--sm" type="submit">Complete Lesson</button>
+                </form>
+                {% endif %}
 
                 {% if next_slug %}
                 <a href="{{ url_for('roadmap.lesson_view', module_slug=module.slug, lesson_slug=next_slug) }}"

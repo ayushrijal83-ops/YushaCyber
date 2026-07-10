@@ -11,13 +11,23 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import markdown
+from flask import current_app
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth.models import User
-from app.dashboard.services import get_nav_items
-from app.roadmap.models import Lesson, RoadmapCategory, RoadmapModule
+from app.dashboard.services import award_xp, get_nav_items
+from app.extensions import db
+from app.roadmap.models import (
+    Lesson,
+    RoadmapCategory,
+    RoadmapModule,
+    UserLessonProgress,
+    UserModuleProgress,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -122,34 +132,67 @@ def get_dashboard_roadmap() -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Progress placeholders — real implementations arrive with the progress
-# system (later YC-006.x). Signatures are final so callers written now
-# will not need to change; only the bodies will.
+# Progress — backed by the real UserLessonProgress table (YC-006.9).
 # ---------------------------------------------------------------------------
-def get_category_progress(user: User) -> dict[int, int]:
-    """PLACEHOLDER: percent complete per category for this user.
+def lesson_completed(user: User, lesson: Lesson) -> bool:
+    """True if this user has a completed progress row for this lesson."""
+    if user is None or lesson is None:
+        return False
+    row = UserLessonProgress.query.filter_by(
+        user_id=user.id, lesson_id=lesson.id, completed=True
+    ).first()
+    return row is not None
 
-    Returns {category_id: percent}; all zeros until UserLessonProgress
-    is consulted by the real implementation.
-    """
-    return {category.id: 0 for category in get_all_categories()}
+
+def _completed_lesson_ids(user: User, lesson_ids: list[int]) -> set[int]:
+    """Completed lesson ids for this user within the given set (one query)."""
+    if user is None or not lesson_ids:
+        return set()
+    rows = (
+        UserLessonProgress.query
+        .filter(
+            UserLessonProgress.user_id == user.id,
+            UserLessonProgress.completed.is_(True),
+            UserLessonProgress.lesson_id.in_(lesson_ids),
+        )
+        .all()
+    )
+    return {r.lesson_id for r in rows}
+
+
+def _percent(done: int, total: int) -> int:
+    """Integer percent (floored), 0 when there is nothing to complete."""
+    if total <= 0:
+        return 0
+    return int(done / total * 100)
 
 
 def get_module_progress(user: User, module: RoadmapModule) -> dict[str, int]:
-    """PLACEHOLDER: this user's progress within one module.
-
-    Real lesson totals, zero completion — the shape the UI will bind to.
-    """
+    """This user's completion within one module (real counts)."""
     total = len(module.lessons) if module is not None else 0
-    return {"completed_lessons": 0, "total_lessons": total, "percent": 0}
+    if total == 0 or user is None:
+        return {"completed_lessons": 0, "total_lessons": total, "percent": 0}
+
+    lesson_ids = [l.id for l in module.lessons]
+    done = len(_completed_lesson_ids(user, lesson_ids))
+    return {
+        "completed_lessons": done,
+        "total_lessons": total,
+        "percent": _percent(done, total),
+    }
 
 
-def lesson_completed(user: User, lesson: Lesson) -> bool:
-    """PLACEHOLDER: whether this user completed this lesson.
-
-    Always False until the progress system queries UserLessonProgress.
-    """
-    return False
+def get_category_progress(user: User) -> dict[int, int]:
+    """Percent complete per category id for this user (real counts)."""
+    progress: dict[int, int] = {}
+    for category in get_all_categories():
+        # Gather every lesson id under this category's active modules.
+        lesson_ids: list[int] = []
+        for module in get_modules(category.id):
+            lesson_ids.extend(l.id for l in module.lessons)
+        done = len(_completed_lesson_ids(user, lesson_ids))
+        progress[category.id] = _percent(done, len(lesson_ids))
+    return progress
 
 
 def get_lesson_view_context(
@@ -300,6 +343,247 @@ def get_lesson_view_context(
     }
 
 
+def _get_or_create_module_progress(user, module) -> "UserModuleProgress":
+    """Fetch this user's progress row for a module, creating it if absent.
+
+    New rows default to locked/incomplete. The first module of a category
+    is unlocked here so progression works even for modules created after
+    the user registered. Caller is responsible for committing.
+    """
+    row = UserModuleProgress.query.filter_by(
+        user_id=user.id, module_id=module.id
+    ).first()
+    if row is None:
+        siblings = get_modules(module.category_id)
+        is_first = bool(siblings) and siblings[0].id == module.id
+        row = UserModuleProgress(
+            user_id=user.id, module_id=module.id,
+            unlocked=is_first, completed=False, bonus_awarded=False,
+        )
+        db.session.add(row)
+    return row
+
+
+def initialize_user_progression(user) -> None:
+    """Create module-progress rows for a user, unlocking each category's first.
+
+    Idempotent: modules that already have a row are left untouched, so
+    this is safe to call on registration and safe to re-run. Commits once.
+    """
+    try:
+        for category in get_all_categories():
+            modules = get_modules(category.id)
+            for index, module in enumerate(modules):
+                existing = UserModuleProgress.query.filter_by(
+                    user_id=user.id, module_id=module.id
+                ).first()
+                if existing is not None:
+                    continue
+                db.session.add(UserModuleProgress(
+                    user_id=user.id, module_id=module.id,
+                    unlocked=(index == 0), completed=False, bonus_awarded=False,
+                ))
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception(
+            "Failed to initialize module progression for user %s", user.id
+        )
+
+
+def is_module_completed(user: User, module: RoadmapModule) -> bool:
+    """True if this user's UserModuleProgress row for the module is completed."""
+    if user is None or module is None:
+        return False
+    row = UserModuleProgress.query.filter_by(
+        user_id=user.id, module_id=module.id, completed=True
+    ).first()
+    return row is not None
+
+
+def module_status(user: User, module: RoadmapModule) -> str:
+    """Per-user module status: completed | available | locked.
+
+    Read from UserModuleProgress only — never from RoadmapModule.is_locked
+    (deprecated). A missing row is treated as locked, except the first
+    module of a category, which is implicitly available so the roadmap is
+    never fully locked for a user whose rows predate a new module.
+    """
+    if module is None:
+        return "locked"
+    row = UserModuleProgress.query.filter_by(
+        user_id=user.id, module_id=module.id
+    ).first()
+    if row is not None:
+        if row.completed:
+            return "completed"
+        return "available" if row.unlocked else "locked"
+
+    # No row yet: first module of the category is available, others locked.
+    siblings = get_modules(module.category_id)
+    if siblings and siblings[0].id == module.id:
+        return "available"
+    return "locked"
+
+
+def unlock_next_module(user: User, module: RoadmapModule) -> Optional[RoadmapModule]:
+    """Unlock the next module in the same category for THIS user.
+
+    Returns the newly-unlocked module (or None if there is no next module).
+    Idempotent: if the next module is already unlocked, nothing changes and
+    it is still returned for messaging. Caller commits.
+    """
+    if module is None:
+        return None
+    siblings = get_modules(module.category_id)
+    index = next((i for i, m in enumerate(siblings) if m.id == module.id), None)
+    if index is None or index + 1 >= len(siblings):
+        return None
+
+    nxt = siblings[index + 1]
+    row = _get_or_create_module_progress(user, nxt)
+    row.unlocked = True
+    return nxt
+
+
+def complete_module(user: User, module: RoadmapModule) -> dict[str, Any]:
+    """Mark a module completed for a user and award its bonus XP once.
+
+    Duplicate-safe via the ``bonus_awarded`` flag: XP is granted through
+    award_xp() only on the first completion, and never again. Unlocks the
+    next module for this user. Returns {awarded_xp, next_module,
+    newly_completed}. Caller's surrounding transaction commits.
+    """
+    row = _get_or_create_module_progress(user, module)
+
+    if row.completed and row.bonus_awarded:
+        # Already fully processed — no XP, no re-unlock side effects.
+        return {"awarded_xp": 0, "next_module": None, "newly_completed": False}
+
+    awarded = 0
+    if not row.bonus_awarded:
+        award_xp(user, module.xp_reward)
+        awarded = module.xp_reward
+        row.bonus_awarded = True
+
+    row.completed = True
+    row.completed_at = _utcnow()
+
+    nxt = unlock_next_module(user, module)
+    return {"awarded_xp": awarded, "next_module": nxt, "newly_completed": True}
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC timestamp."""
+    return datetime.now(timezone.utc)
+
+
+def complete_lesson(user: User, module_slug: str, lesson_slug: str) -> dict[str, Any]:
+    """Mark a lesson complete for a user, awarding XP exactly once.
+
+    Returns a structured result:
+        {success, already_completed, lesson, xp_awarded}
+
+    - Missing lesson  -> success=False, lesson=None.
+    - Already done    -> success=True, already_completed=True, xp_awarded=0,
+                         and NO database changes.
+    - First time      -> creates the progress row, awards lesson.xp_reward
+                         through the existing award_xp() engine, commits.
+    XP is never written to user.xp directly, and the unique
+    (user_id, lesson_id) constraint guarantees one row per pair.
+    """
+    result = {
+        "success": False,
+        "already_completed": False,
+        "lesson": None,
+        "xp_awarded": 0,
+        # Module-completion outcome (YC-007.0), populated on the transition.
+        "module_completed": False,
+        "module_xp_awarded": 0,
+        "module_title": None,
+        "unlocked_module_title": None,
+    }
+
+    lesson = get_lesson(module_slug, lesson_slug)
+    if lesson is None:
+        return result
+    result["lesson"] = lesson
+
+    # Idempotency: if a completed row exists, change nothing and award nothing.
+    existing = UserLessonProgress.query.filter_by(
+        user_id=user.id, lesson_id=lesson.id
+    ).first()
+    if existing is not None and existing.completed:
+        result["success"] = True
+        result["already_completed"] = True
+        return result
+
+    module = get_module(module_slug)
+
+    try:
+        if existing is None:
+            existing = UserLessonProgress(user_id=user.id, lesson_id=lesson.id)
+            db.session.add(existing)
+
+        now = _utcnow()
+        existing.completed = True
+        existing.completed_at = now
+        existing.last_opened = now
+        existing.time_spent = existing.time_spent or 0
+        existing.score = None
+
+        # Award lesson XP through the engine (recalculates level + commits).
+        award_xp(user, lesson.xp_reward)
+
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception(
+            "Failed to complete lesson %s for user %s", lesson.id, user.id
+        )
+        return result
+
+    result["success"] = True
+    result["xp_awarded"] = lesson.xp_reward
+
+    # --- Module-completion transition (YC-007.0 per-user) ------------------
+    # Detect completion from the lessons (all lessons now done), then record
+    # it in UserModuleProgress via complete_module(), which awards the bonus
+    # once (bonus_awarded guard) and unlocks the next module for this user.
+    if module is not None and _all_lessons_completed(user, module):
+        already = UserModuleProgress.query.filter_by(
+            user_id=user.id, module_id=module.id, completed=True
+        ).first()
+        if already is None:
+            try:
+                outcome = complete_module(user, module)
+                db.session.commit()
+            except SQLAlchemyError:
+                db.session.rollback()
+                current_app.logger.exception(
+                    "Failed to complete module %s for user %s", module.id, user.id
+                )
+                outcome = None
+
+            if outcome and outcome["newly_completed"]:
+                result["module_completed"] = True
+                result["module_xp_awarded"] = outcome["awarded_xp"]
+                result["module_title"] = module.title
+                if outcome["next_module"] is not None:
+                    result["unlocked_module_title"] = outcome["next_module"].title
+
+    return result
+
+
+def _all_lessons_completed(user: User, module: RoadmapModule) -> bool:
+    """True if every lesson in the module has a completed progress row."""
+    lessons = module.lessons
+    if not lessons:
+        return False
+    done = len(_completed_lesson_ids(user, [l.id for l in lessons]))
+    return done == len(lessons)
+
+
 def get_module_detail_context(user: User, module_slug: str) -> Optional[dict[str, Any]]:
     """Assemble the module detail page context, or None if not found.
 
@@ -335,7 +619,8 @@ def get_module_detail_context(user: User, module_slug: str) -> Optional[dict[str
             "difficulty": module.difficulty,
             "estimated_hours": module.estimated_hours,
             "xp_reward": module.xp_reward,
-            "is_locked": module.is_locked,
+            # Per-user status (YC-007.0); is_locked is deprecated.
+            "status": module_status(user, module),
         },
         "lessons": lesson_views,
         "nav_items": get_nav_items(active="roadmap"),
@@ -351,6 +636,12 @@ def get_roadmap_context(user: User) -> dict[str, Any]:
     whole tree loads without N+1 queries. Progress values come from the
     placeholder helpers and read 0% until completion logic exists.
     """
+    # Ensure this user has module-progression rows (idempotent). Done here
+    # rather than in the auth flow so authentication code stays untouched;
+    # the first roadmap load after registration initializes progression,
+    # unlocking each category's first module.
+    initialize_user_progression(user)
+
     categories: list[dict[str, Any]] = []
 
     for category in get_all_categories():
@@ -369,7 +660,9 @@ def get_roadmap_context(user: User) -> dict[str, Any]:
                 "difficulty": module.difficulty,
                 "estimated_hours": module.estimated_hours,
                 "xp_reward": module.xp_reward,
-                "is_locked": module.is_locked,
+                # Per-user unlock/completion status (YC-007.0):
+                # "available" | "locked" | "completed".
+                "status": module_status(user, module),
                 "lesson_count": len(lessons),
                 "progress_percent": mod_progress["percent"],
                 "lessons": [

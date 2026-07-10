@@ -33,10 +33,12 @@
             <section class="rm-mod-hero" aria-labelledby="mod-title">
                 <div class="rm-mod-hero__top">
                     <h1 class="rm-mod-hero__title" id="mod-title">{{ module.title }}</h1>
-                    {% if module.is_locked %}
-                    <span class="rm-module__badge rm-module__badge--locked">{{ icon("lock", 13) }} Locked</span>
+                    {% if module.status == "completed" %}
+                    <span class="rm-module__badge rm-module__badge--done">✅ Completed</span>
+                    {% elif module.status == "available" %}
+                    <span class="rm-module__badge rm-module__badge--open">🟢 Available</span>
                     {% else %}
-                    <span class="rm-module__badge rm-module__badge--open">Unlocked</span>
+                    <span class="rm-module__badge rm-module__badge--locked">🔒 Locked</span>
                     {% endif %}
                 </div>
                 {% if module.description %}

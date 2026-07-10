@@ -7,7 +7,7 @@ without touching this module.
 
 from __future__ import annotations
 
-from flask import abort, render_template
+from flask import abort, flash, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
 from app.roadmap import roadmap_bp, services
@@ -39,3 +39,38 @@ def lesson_view(module_slug: str, lesson_slug: str):
     if context is None:
         abort(404)
     return render_template("roadmap/lesson.html", user=current_user, **context)
+
+
+@roadmap_bp.route("/<module_slug>/<lesson_slug>/complete", methods=["POST"])
+@login_required
+def complete_lesson(module_slug: str, lesson_slug: str):
+    """Mark a lesson complete (POST, CSRF-protected), then return to it."""
+    result = services.complete_lesson(current_user, module_slug, lesson_slug)
+
+    if result["lesson"] is None:
+        abort(404)
+
+    if result["already_completed"]:
+        flash("You have already completed this lesson.", "error")
+    elif result["success"]:
+        flash(
+            f"Lesson completed successfully! +{result['xp_awarded']} XP awarded.",
+            "success",
+        )
+        # Module-completion + unlock feedback (YC-007.0).
+        if result["module_completed"]:
+            flash(
+                f"🎉 Module Completed! +{result['module_xp_awarded']} Bonus XP",
+                "success",
+            )
+            if result["unlocked_module_title"]:
+                flash(
+                    f"🔓 New Module Unlocked! {result['unlocked_module_title']}",
+                    "success",
+                )
+    else:
+        flash("Unable to complete lesson.", "error")
+
+    return redirect(
+        url_for("roadmap.lesson_view", module_slug=module_slug, lesson_slug=lesson_slug)
+    )
