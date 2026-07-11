@@ -86,6 +86,9 @@ def _register_models() -> None:
     """
     from app.auth import models  # noqa: F401
     from app.roadmap import models as roadmap_models  # noqa: F401
+    from app.achievement import models as achievement_models  # noqa: F401
+    from app.certificates import models as certificate_models  # noqa: F401
+    from app.ctf import models as ctf_models  # noqa: F401
 
 
 def _register_cli(app: Flask) -> None:
@@ -118,3 +121,40 @@ def _register_cli(app: Flask) -> None:
         print(f"  quizzes:   {result['quizzes']}")
         print(f"  questions: {result['questions']}")
         print(f"  options:   {result['options']}")
+
+    @app.cli.command("seed-achievements")
+    def seed_achievements_command() -> None:
+        """Seed achievement definitions (idempotent — safe to re-run)."""
+        from app.achievement.seed import seed_achievements
+
+        result = seed_achievements()
+        if result["created"]:
+            print("Achievements seeded successfully.")
+        else:
+            print("Achievements already populated — no changes made.")
+        print(f"  achievements: {result['achievements']}")
+
+    @app.cli.command("seed-certificates")
+    def seed_certificates_command() -> None:
+        """Seed certificate definitions (idempotent — safe to re-run)."""
+        from app.certificates.seed import seed_certificates
+
+        result = seed_certificates()
+        if result["created"]:
+            print("Certificates seeded successfully.")
+        else:
+            print("Certificates already populated — no changes made.")
+        print(f"  certificates: {result['certificates']}")
+
+    @app.cli.command("seed-ctf")
+    def seed_ctf_command() -> None:
+        """Seed CTF categories and challenges (idempotent — safe to re-run)."""
+        from app.ctf.seed import seed_ctf
+
+        result = seed_ctf()
+        if result["created"]:
+            print("CTF seeded successfully.")
+        else:
+            print("CTF already populated — no changes made.")
+        print(f"  categories: {result['categories']}")
+        print(f"  challenges: {result['challenges']}")

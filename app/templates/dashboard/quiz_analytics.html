@@ -1,0 +1,87 @@
+{% from "dashboard/_icons.html" import icon %}
+{% set qa = quiz_analytics %}
+{% set st = qa.statistics %}
+
+<section class="dash-section quiz-analytics" aria-labelledby="quiz-analytics-title">
+    <h2 class="dash-section__title" id="quiz-analytics-title">Quiz Analytics</h2>
+
+    {% if not qa.has_attempts %}
+    {# ---- Empty state ---- #}
+    <div class="quiz-analytics__empty">
+        <div class="rm-empty__icon">{{ icon("help", 26) }}</div>
+        <h3 class="rm-empty__title">No quiz attempts yet.</h3>
+        <p class="rm-empty__text">Complete a module's lessons, then take its quiz to start tracking your performance.</p>
+        <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary">Go to Roadmap</a>
+    </div>
+    {% else %}
+
+    {# ---- Stat cards ---- #}
+    <div class="quiz-stats-grid">
+        <div class="quiz-stat-card">
+            <span class="quiz-stat-card__value">{{ st.quizzes_completed }}</span>
+            <span class="quiz-stat-card__label">Quizzes Attempted</span>
+        </div>
+        <div class="quiz-stat-card">
+            <span class="quiz-stat-card__value">{{ st.quizzes_passed }}</span>
+            <span class="quiz-stat-card__label">Quizzes Passed</span>
+        </div>
+        <div class="quiz-stat-card">
+            <span class="quiz-stat-card__value">{{ qa.pass_rate }}%</span>
+            <span class="quiz-stat-card__label">Pass Rate</span>
+        </div>
+        <div class="quiz-stat-card">
+            <span class="quiz-stat-card__value">{{ st.best_score }}%</span>
+            <span class="quiz-stat-card__label">Best Score</span>
+        </div>
+        <div class="quiz-stat-card">
+            <span class="quiz-stat-card__value">{{ st.average_score }}%</span>
+            <span class="quiz-stat-card__label">Average Score</span>
+        </div>
+        <div class="quiz-stat-card quiz-stat-card--xp">
+            <span class="quiz-stat-card__value">+{{ st.total_xp_from_quizzes }}</span>
+            <span class="quiz-stat-card__label">XP From Quizzes</span>
+        </div>
+    </div>
+
+    {# ---- Performance bars (pure HTML/CSS) ---- #}
+    <div class="dash-card quiz-perf">
+        <h3 class="quiz-perf__title">Performance</h3>
+        {% for row in [
+            ("Best Score", st.best_score),
+            ("Average Score", st.average_score),
+            ("Pass Rate", qa.pass_rate),
+        ] %}
+        <div class="quiz-perf__row">
+            <div class="quiz-perf__head">
+                <span>{{ row[0] }}</span>
+                <span class="quiz-perf__pct">{{ row[1] }}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-bar__fill" style="width: {{ row[1] }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# ---- Recent attempts ---- #}
+    <div class="dash-card quiz-recent">
+        <h3 class="quiz-recent__title">Recent Attempts</h3>
+        <div class="quiz-recent__list">
+            {% for a in qa.recent_attempts %}
+            <div class="quiz-recent__row">
+                <div class="quiz-recent__info">
+                    <span class="quiz-recent__quiz">{{ a.quiz_title }}</span>
+                    <span class="quiz-recent__module">{{ a.module_title }}</span>
+                </div>
+                <span class="quiz-recent__score">{{ a.score }} · {{ a.percentage }}%</span>
+                <span class="quiz-recent__badge quiz-recent__badge--{{ 'pass' if a.passed else 'fail' }}">
+                    {{ "PASS" if a.passed else "FAIL" }}
+                </span>
+                <span class="quiz-recent__date">{{ a.completed_at }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% endif %}
+</section>

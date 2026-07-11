@@ -38,6 +38,9 @@
             {# ---- 1. Welcome banner ---- #}
             {% include "dashboard/welcome_banner.html" %}
 
+            {# ---- 1b. Quiz analytics (YC-007.5) ---- #}
+            {% include "dashboard/quiz_analytics.html" %}
+
             {# ---- 2. Statistics cards ---- #}
             {% from "dashboard/stats_card.html" import stats_card %}
             <section class="stats-grid" aria-label="Your statistics">

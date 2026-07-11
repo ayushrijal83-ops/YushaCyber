@@ -396,6 +396,63 @@
     color: var(--color-primary);
 }
 
+/* Banner XP progress (uses the shared .progress-bar component) */
+.banner__progress {
+    margin-top: 20px;
+    max-width: 460px;
+}
+
+.banner__progress-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 7px;
+}
+
+.banner__progress-label {
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+.progress-bar--banner {
+    height: 10px;
+    background-color: rgba(13, 17, 23, 0.7);
+}
+
+.banner__progress-note {
+    margin-top: 7px;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--color-text-muted);
+}
+
+/* ---------- Flash messages ---------- */
+.dash-flash {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dash-flash__item {
+    font-size: 0.9rem;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    border: 1px solid var(--color-border-strong);
+    animation: dropdown-in 0.25s ease;
+}
+
+.dash-flash__item--success {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-dim);
+}
+
+.dash-flash__item--error {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+    background-color: rgba(255, 92, 92, 0.1);
+}
+
 /* ---------- Stats cards ---------- */
 .stats-grid {
     display: grid;
@@ -794,3 +851,259 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================================
+   Quiz Analytics (YC-007.5)
+   ========================================================================== */
+.quiz-analytics { margin-bottom: 28px; }
+
+/* Empty state */
+.quiz-analytics__empty {
+    text-align: center;
+    background-color: var(--color-surface);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    padding: 48px 28px;
+}
+.quiz-analytics__empty .rm-empty__icon {
+    width: 56px; height: 56px; margin: 0 auto 16px;
+    display: grid; place-items: center; border-radius: 50%;
+    color: var(--color-primary); background-color: var(--color-primary-dim);
+    border: 1px solid rgba(0, 255, 136, 0.35);
+}
+.quiz-analytics__empty .rm-empty__title { font-size: 1.2rem; margin-bottom: 8px; }
+.quiz-analytics__empty .rm-empty__text {
+    color: var(--color-text-muted); max-width: 44ch; margin: 0 auto 20px;
+}
+
+/* Stat cards */
+.quiz-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.quiz-stat-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: transform var(--transition), border-color var(--transition);
+}
+.quiz-stat-card:hover { transform: translateY(-3px); border-color: var(--color-primary); }
+.quiz-stat-card__value {
+    font-size: 1.8rem; font-weight: 700; color: var(--color-text);
+    font-family: var(--font-mono);
+}
+.quiz-stat-card--xp .quiz-stat-card__value { color: var(--color-primary); }
+.quiz-stat-card__label {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--color-text-muted); font-family: var(--font-mono);
+}
+
+/* Performance bars */
+.quiz-perf { margin-bottom: 18px; }
+.quiz-perf__title, .quiz-recent__title {
+    font-size: 1.05rem; margin-bottom: 16px;
+}
+.quiz-perf__row { margin-bottom: 14px; }
+.quiz-perf__row:last-child { margin-bottom: 0; }
+.quiz-perf__head {
+    display: flex; justify-content: space-between; margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+.quiz-perf__pct { font-family: var(--font-mono); color: var(--color-primary); }
+
+/* Recent attempts */
+.quiz-recent__list { display: flex; flex-direction: column; gap: 8px; }
+.quiz-recent__row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    transition: border-color var(--transition);
+}
+.quiz-recent__row:hover { border-color: var(--color-primary); }
+.quiz-recent__info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.quiz-recent__quiz { font-weight: 600; font-size: 0.92rem; }
+.quiz-recent__module {
+    font-size: 0.75rem; color: var(--color-text-muted); font-family: var(--font-mono);
+}
+.quiz-recent__score {
+    font-family: var(--font-mono); font-size: 0.82rem; color: var(--color-text-muted);
+    white-space: nowrap;
+}
+.quiz-recent__badge {
+    font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.06em;
+    padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+}
+.quiz-recent__badge--pass {
+    color: var(--color-primary); border: 1px solid var(--color-primary);
+    background-color: var(--color-primary-dim);
+}
+.quiz-recent__badge--fail {
+    color: #FF7B72; border: 1px solid #FF7B72; background-color: rgba(255, 123, 114, 0.1);
+}
+.quiz-recent__date {
+    font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+    .quiz-recent__row { grid-template-columns: 1fr auto; grid-row-gap: 6px; }
+    .quiz-recent__date { grid-column: 1 / -1; }
+}
+
+/* ==========================================================================
+   Achievements page (YC-008.3)
+   ========================================================================== */
+.ach-head { margin-bottom: 24px; }
+.ach-head__title { font-size: clamp(1.6rem, 3vw, 2.2rem); margin-bottom: 18px; }
+.ach-head__stats {
+    display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px;
+}
+.ach-head__stat {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 14px 22px;
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 96px;
+}
+.ach-head__stat-value {
+    font-size: 1.5rem; font-weight: 700; font-family: var(--font-mono);
+    color: var(--color-primary);
+}
+.ach-head__stat-label {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--color-text-muted); font-family: var(--font-mono);
+}
+.ach-head__bar { margin-top: 4px; }
+
+/* Filter tabs */
+.ach-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.ach-filter {
+    font-family: var(--font-mono); font-size: 0.8rem;
+    padding: 8px 16px; border-radius: 999px; cursor: pointer;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    transition: border-color var(--transition), color var(--transition),
+                background-color var(--transition);
+}
+.ach-filter:hover { border-color: var(--color-primary); color: var(--color-text); }
+.ach-filter.is-active {
+    color: var(--color-primary); border-color: var(--color-primary);
+    background-color: var(--color-primary-dim);
+}
+
+/* Grid */
+.ach-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+/* Card */
+.ach-card {
+    display: flex; gap: 14px;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    transition: transform var(--transition), border-color var(--transition);
+}
+.ach-card:hover { transform: translateY(-3px); border-color: var(--color-primary); }
+.ach-card__icon {
+    width: 44px; height: 44px; flex-shrink: 0;
+    display: grid; place-items: center; border-radius: 12px;
+    background-color: var(--color-bg); border: 1px solid var(--color-border-strong);
+}
+.ach-card--unlocked .ach-card__icon {
+    color: var(--color-primary);
+    background-color: var(--color-primary-dim);
+    border-color: rgba(0, 255, 136, 0.4);
+}
+.ach-card--locked { opacity: 0.62; }
+.ach-card--locked .ach-card__icon { color: var(--color-text-muted); }
+.ach-card__body { flex: 1; min-width: 0; }
+.ach-card__top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 10px; margin-bottom: 6px;
+}
+.ach-card__title { font-size: 1rem; }
+.ach-card__status {
+    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.04em;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+}
+.ach-card__status--unlocked {
+    color: var(--color-primary); border: 1px solid var(--color-primary);
+    background-color: var(--color-primary-dim);
+}
+.ach-card__status--locked {
+    color: var(--color-text-muted); border: 1px solid var(--color-border-strong);
+}
+.ach-card__desc {
+    font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 12px;
+    line-height: 1.5;
+}
+.ach-card__meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ach-card__badge {
+    font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.04em;
+    padding: 3px 9px; border-radius: 999px;
+    background-color: var(--color-bg); border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+}
+.ach-card__xp {
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-primary);
+}
+.ach-card__date {
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-text-muted);
+    margin-left: auto;
+}
+
+/* Empty state */
+.ach-empty {
+    text-align: center;
+    background-color: var(--color-surface);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    padding: 48px 28px;
+    margin-bottom: 20px;
+}
+.ach-empty__icon {
+    width: 60px; height: 60px; margin: 0 auto 16px;
+    display: grid; place-items: center; border-radius: 50%;
+    color: var(--color-primary); background-color: var(--color-primary-dim);
+    border: 1px solid rgba(0, 255, 136, 0.35);
+}
+.ach-empty__title { font-size: 1.25rem; margin-bottom: 8px; }
+.ach-empty__text { color: var(--color-text-muted); max-width: 44ch; margin: 0 auto 20px; }
+
+@media (max-width: 620px) {
+    .ach-head__stats { gap: 10px; }
+    .ach-head__stat { flex: 1; min-width: 70px; padding: 12px 14px; }
+    .ach-grid { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
+   My Certificates page (YC-009.3) — builds on the .ach-* card styles
+   ========================================================================== */
+.cert-card__code {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em;
+    color: var(--color-primary);
+    background-color: var(--color-primary-dim);
+    border: 1px solid rgba(0, 255, 136, 0.35);
+    padding: 3px 9px; border-radius: 6px;
+}
+.cert-card__req {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: var(--color-text-muted);
+}
+.cert-card__actions { display: flex; gap: 10px; margin-top: 14px; }
+.cert-card__actions .btn[disabled] { opacity: 0.5; cursor: not-allowed; }

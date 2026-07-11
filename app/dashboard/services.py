@@ -121,6 +121,8 @@ def get_xp_info(user: User) -> dict[str, int]:
 
 def get_dashboard_context(user: User) -> dict[str, Any]:
     """Assemble everything the dashboard template needs."""
+    from app.roadmap.quiz_services import get_dashboard_quiz_context
+
     return {
         "xp_info": get_xp_info(user),
         "stats": _get_stats(user),
@@ -128,6 +130,7 @@ def get_dashboard_context(user: User) -> dict[str, Any]:
         "recent_activity": _get_recent_activity(user),
         "learning_progress": _get_learning_progress(user),
         "achievements": _get_achievements(user),
+        "quiz_analytics": get_dashboard_quiz_context(user),
         "nav_items": get_nav_items(active="dashboard"),
     }
 
@@ -142,7 +145,8 @@ def get_nav_items(active: str) -> list[dict[str, str | bool]]:
         {"key": "quizzes", "label": "Quizzes", "icon": "help", "url": "/roadmap/quizzes/"},
         {"key": "challenge", "label": "Daily Challenge", "icon": "zap", "url": "/#challenge"},
         {"key": "ctf", "label": "CTF Arena", "icon": "flag", "url": "/#ctf"},
-        {"key": "achievements", "label": "Achievements", "icon": "award", "url": "#"},
+        {"key": "achievements", "label": "Achievements", "icon": "award", "url": "/dashboard/achievements"},
+        {"key": "certificates", "label": "Certificates", "icon": "file-text", "url": "/dashboard/certificates"},
         {"key": "settings", "label": "Settings", "icon": "settings", "url": "#"},
     ]
     for item in items:

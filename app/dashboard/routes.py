@@ -21,6 +21,30 @@ def index():
     return render_template("dashboard/dashboard.html", user=current_user, **context)
 
 
+@dashboard_bp.route("/achievements")
+@login_required
+def achievements():
+    """Render the achievements page (auth-only)."""
+    from app.achievement.services import get_achievements_page_context
+
+    context = get_achievements_page_context(current_user)
+    return render_template(
+        "dashboard/achievements.html", user=current_user, **context
+    )
+
+
+@dashboard_bp.route("/certificates")
+@login_required
+def certificates():
+    """Render the My Certificates page (auth-only)."""
+    from app.certificates.services import get_certificates_page_context
+
+    context = get_certificates_page_context(current_user)
+    return render_template(
+        "dashboard/certificates.html", user=current_user, **context
+    )
+
+
 # ===========================================================================
 # REMOVE BEFORE PRODUCTION — development-only XP testing route.
 #

@@ -308,11 +308,16 @@ def get_quiz_statistics(user: User) -> dict[str, Any]:
     bests = list(best_per_quiz.values())
 
     # XP from quizzes = sum of xp_reward over distinct passed quizzes
-    # (award-once), so it matches what award_xp actually granted.
+    # (award-once), so it matches what award_xp actually granted. Select
+    # only the column to avoid loading Quiz objects (whose questions are
+    # selectin-loaded).
     total_xp = 0
     if passed_quizzes:
-        rows = Quiz.query.filter(Quiz.id.in_(passed_quizzes)).all()
-        total_xp = sum(q.xp_reward for q in rows)
+        total_xp = (
+            db.session.query(db.func.coalesce(db.func.sum(Quiz.xp_reward), 0))
+            .filter(Quiz.id.in_(passed_quizzes))
+            .scalar()
+        ) or 0
 
     return {
         "quizzes_completed": len(best_per_quiz),
@@ -342,4 +347,62 @@ def get_quiz_context(user: User, module_slug: str) -> Optional[dict[str, Any]]:
         "passed_before": has_passed_quiz(user, quiz),
         "best_attempt": get_best_attempt(user, quiz),
         "latest_attempt": get_latest_attempt(user, quiz),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dashboard analytics context (YC-007.5)
+# ---------------------------------------------------------------------------
+def get_dashboard_quiz_context(user: User) -> dict[str, Any]:
+    """Preformatted quiz analytics for the dashboard.
+
+    Returns {statistics, recent_attempts, has_attempts, pass_rate}. Uses
+    at most two queries: get_quiz_statistics (one aggregate read) and one
+    joinedload'd read for the latest attempts with their quiz + module —
+    so there is no N+1 when rendering quiz/module names.
+    """
+    stats = get_quiz_statistics(user)
+
+    recent: list[dict[str, Any]] = []
+    if user is not None:
+        # Select only the columns we render, joining quiz + module directly.
+        # Avoids loading the Quiz ORM object (whose questions/options are
+        # selectin-loaded) — keeping this to a single flat query, no N+1.
+        rows = (
+            db.session.query(
+                UserQuizAttempt.score,
+                UserQuizAttempt.percentage,
+                UserQuizAttempt.passed,
+                UserQuizAttempt.completed_at,
+                UserQuizAttempt.created_at,
+                Quiz.title,
+                RoadmapModule.title,
+            )
+            .join(Quiz, UserQuizAttempt.quiz_id == Quiz.id)
+            .join(RoadmapModule, Quiz.module_id == RoadmapModule.id)
+            .filter(UserQuizAttempt.user_id == user.id)
+            .order_by(UserQuizAttempt.created_at.desc())
+            .limit(5)
+            .all()
+        )
+        for score, percentage, passed, completed_at, created_at, quiz_title, module_title in rows:
+            when = completed_at or created_at
+            recent.append({
+                "quiz_title": quiz_title or "Quiz",
+                "module_title": module_title or "—",
+                "score": score,
+                "percentage": percentage,
+                "passed": passed,
+                "completed_at": when.strftime("%b %d, %Y") if when else "",
+            })
+
+    # Pass rate over distinct attempted quizzes (completed = attempted).
+    completed = stats["quizzes_completed"]
+    pass_rate = int(stats["quizzes_passed"] / completed * 100) if completed else 0
+
+    return {
+        "statistics": stats,
+        "recent_attempts": recent,
+        "has_attempts": completed > 0,
+        "pass_rate": pass_rate,
     }
