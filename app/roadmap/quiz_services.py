@@ -21,6 +21,7 @@ from flask import current_app
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth.models import User
+from app.dashboard.services import award_xp
 from app.extensions import db
 from app.roadmap.models import (
     Quiz,
@@ -203,17 +204,23 @@ def calculate_score(quiz: Quiz, submitted_answers: dict) -> dict[str, Any]:
 
 
 def submit_quiz(user: User, quiz: Quiz, submitted_answers: dict) -> dict[str, Any]:
-    """Score a submission and persist a UserQuizAttempt.
+    """Score a submission, persist a UserQuizAttempt, and award XP on first pass.
 
-    Validates the quiz, scores via calculate_score, records the attempt,
-    and commits (rolling back on failure). Does NOT award XP, unlock
-    modules, or mark the module completed — those are later tickets.
+    XP rules (YC-007.4):
+    - A passing attempt awards ``quiz.xp_reward`` through the existing
+      award_xp() engine — but only the FIRST time the user passes this
+      quiz. Subsequent passes (retakes) award nothing.
+    - Failing attempts are saved but award no XP.
+    - Retakes are always allowed; attempts are always recorded.
+    user.xp is never modified directly. Rolls back on failure.
 
-    Returns {success, error, attempt, correct, total, percentage, passed}.
+    Returns {success, error, attempt, correct, total, percentage, passed,
+    xp_awarded, already_awarded}.
     """
     result = {
         "success": False, "error": None, "attempt": None,
         "correct": 0, "total": 0, "percentage": 0, "passed": False,
+        "xp_awarded": 0, "already_awarded": False,
     }
 
     if quiz is None or not quiz.is_active:
@@ -225,6 +232,10 @@ def submit_quiz(user: User, quiz: Quiz, submitted_answers: dict) -> dict[str, An
         result["error"] = "quiz_has_no_questions"
         return result
 
+    # Capture prior-pass state BEFORE recording this attempt, so a first
+    # pass is distinguishable from a retake.
+    passed_before = has_passed_quiz(user, quiz)
+
     try:
         attempt = UserQuizAttempt(
             user_id=user.id,
@@ -235,7 +246,13 @@ def submit_quiz(user: User, quiz: Quiz, submitted_answers: dict) -> dict[str, An
             completed_at=_utcnow(),
         )
         db.session.add(attempt)
-        db.session.commit()
+
+        # Award XP once, on the first passing attempt only.
+        if score["passed"] and not passed_before:
+            award_xp(user, quiz.xp_reward)  # commits within the engine
+            result["xp_awarded"] = quiz.xp_reward
+        else:
+            db.session.commit()
     except SQLAlchemyError:
         db.session.rollback()
         current_app.logger.exception(
@@ -243,6 +260,10 @@ def submit_quiz(user: User, quiz: Quiz, submitted_answers: dict) -> dict[str, An
         )
         result["error"] = "persist_failed"
         return result
+
+    # A pass that earned no XP because the user had already passed before.
+    if score["passed"] and passed_before:
+        result["already_awarded"] = True
 
     result.update({
         "success": True, "attempt": attempt,
@@ -258,25 +279,24 @@ def submit_quiz(user: User, quiz: Quiz, submitted_answers: dict) -> dict[str, An
 def get_quiz_statistics(user: User) -> dict[str, Any]:
     """Aggregate quiz stats for a user across all their attempts.
 
-    Returns quizzes_completed (distinct quizzes attempted), quizzes_passed
-    (distinct quizzes with a passing attempt), average_percentage (mean of
-    each attempted quiz's best percentage), and best_percentage (single
-    highest across all attempts).
+    Returns:
+    - quizzes_completed: distinct quizzes the user has attempted
+    - quizzes_passed:    distinct quizzes with at least one passing attempt
+    - best_score:        highest single percentage across all attempts
+    - average_score:     mean of each attempted quiz's best percentage
+    - total_xp_from_quizzes: sum of xp_reward for each distinct passed quiz
+      (mirrors the award-once rule, so it equals XP actually granted)
     """
     empty = {"quizzes_completed": 0, "quizzes_passed": 0,
-             "average_percentage": 0, "best_percentage": 0}
+             "best_score": 0, "average_score": 0,
+             "total_xp_from_quizzes": 0}
     if user is None:
         return empty
 
-    attempts = (
-        UserQuizAttempt.query
-        .filter_by(user_id=user.id)
-        .all()
-    )
+    attempts = UserQuizAttempt.query.filter_by(user_id=user.id).all()
     if not attempts:
         return empty
 
-    # Best percentage per quiz.
     best_per_quiz: dict[int, int] = {}
     passed_quizzes: set[int] = set()
     for a in attempts:
@@ -286,11 +306,20 @@ def get_quiz_statistics(user: User) -> dict[str, Any]:
             passed_quizzes.add(a.quiz_id)
 
     bests = list(best_per_quiz.values())
+
+    # XP from quizzes = sum of xp_reward over distinct passed quizzes
+    # (award-once), so it matches what award_xp actually granted.
+    total_xp = 0
+    if passed_quizzes:
+        rows = Quiz.query.filter(Quiz.id.in_(passed_quizzes)).all()
+        total_xp = sum(q.xp_reward for q in rows)
+
     return {
         "quizzes_completed": len(best_per_quiz),
         "quizzes_passed": len(passed_quizzes),
-        "average_percentage": int(sum(bests) / len(bests)) if bests else 0,
-        "best_percentage": max(bests) if bests else 0,
+        "best_score": max(bests) if bests else 0,
+        "average_score": int(sum(bests) / len(bests)) if bests else 0,
+        "total_xp_from_quizzes": total_xp,
     }
 
 

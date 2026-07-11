@@ -56,8 +56,12 @@
                         <span class="quiz-result-stat__label">Percentage</span>
                     </div>
                     <div class="quiz-result-stat">
-                        <span class="quiz-result-stat__value">+0 XP</span>
-                        <span class="quiz-result-stat__label">XP Earned</span>
+                        {% set xp_earned = request.args.get('xp', '0')|int %}
+                        {% set already = request.args.get('already') == '1' %}
+                        <span class="quiz-result-stat__value">+{{ xp_earned }} XP</span>
+                        <span class="quiz-result-stat__label">
+                            {% if already %}Already awarded{% else %}XP Earned{% endif %}
+                        </span>
                     </div>
                 </div>
 

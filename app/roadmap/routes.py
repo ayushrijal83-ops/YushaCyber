@@ -120,11 +120,19 @@ def quiz_submit(module_slug: str):
         return redirect(url_for("roadmap.quiz_view", module_slug=module_slug))
 
     if result["passed"]:
-        flash(
-            f"✅ Passed! You scored {result['percentage']}% "
-            f"({result['correct']}/{result['total']}).",
-            "success",
-        )
+        if result["xp_awarded"]:
+            flash(
+                f"✅ Passed! You scored {result['percentage']}% "
+                f"({result['correct']}/{result['total']}). +{result['xp_awarded']} XP awarded!",
+                "success",
+            )
+        else:
+            flash(
+                f"✅ Passed! You scored {result['percentage']}% "
+                f"({result['correct']}/{result['total']}). "
+                f"(XP already awarded on a previous pass.)",
+                "success",
+            )
     else:
         flash(
             f"❌ Not passed. You scored {result['percentage']}% "
@@ -134,5 +142,11 @@ def quiz_submit(module_slug: str):
         )
 
     return redirect(
-        url_for("roadmap.quiz_view", module_slug=module_slug, result=1)
+        url_for(
+            "roadmap.quiz_view",
+            module_slug=module_slug,
+            result=1,
+            xp=result["xp_awarded"],
+            already=1 if result["already_awarded"] else 0,
+        )
     )
