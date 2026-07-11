@@ -98,7 +98,9 @@ def quiz_view(module_slug: str):
 @login_required
 def quiz_submit(module_slug: str):
     """Grade a quiz submission (POST, CSRF), then show the result page."""
-    quiz = services.get_quiz(module_slug)
+    from app.roadmap import quiz_services
+
+    quiz = quiz_services.get_module_quiz(module_slug)
     if quiz is None:
         abort(404)
 
@@ -111,7 +113,7 @@ def quiz_submit(module_slug: str):
             except (ValueError, IndexError):
                 continue
 
-    result = services.submit_quiz(current_user, quiz, answers)
+    result = quiz_services.submit_quiz(current_user, quiz, answers)
 
     if not result["success"]:
         flash("Unable to submit quiz. Please try again.", "error")
@@ -120,15 +122,17 @@ def quiz_submit(module_slug: str):
     if result["passed"]:
         flash(
             f"✅ Passed! You scored {result['percentage']}% "
-            f"({result['score']}/{result['total']}).",
+            f"({result['correct']}/{result['total']}).",
             "success",
         )
     else:
         flash(
             f"❌ Not passed. You scored {result['percentage']}% "
-            f"({result['score']}/{result['total']}). "
+            f"({result['correct']}/{result['total']}). "
             f"Need {quiz.pass_percentage}% to pass — try again!",
             "error",
         )
 
-    return redirect(url_for("roadmap.quiz_view", module_slug=module_slug))
+    return redirect(
+        url_for("roadmap.quiz_view", module_slug=module_slug, result=1)
+    )

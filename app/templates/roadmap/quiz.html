@@ -29,56 +29,123 @@
 
             <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="rm-back">← {{ module.title }}</a>
 
-            {# ---- Flash (quiz result) ---- #}
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="dash-flash" role="status">
-                        {% for category, message in messages %}
-                            <p class="dash-flash__item dash-flash__item--{{ category }}">{{ message }}</p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+            {% set show_result = request.args.get('result') and latest_attempt %}
 
-            {# ---- Quiz header ---- #}
-            <section class="rm-lesson-hero" aria-labelledby="quiz-title">
-                <p class="rm-lesson-hero__module">{{ module.title }}</p>
-                <h1 class="rm-lesson-hero__title" id="quiz-title">{{ quiz.title }}</h1>
-                {% if quiz.description %}
-                <p class="rm-mod-hero__desc">{{ quiz.description }}</p>
-                {% endif %}
-                <div class="rm-lesson-hero__meta">
-                    <span class="rm-module__tag">{{ questions|length }} questions</span>
-                    <span class="rm-module__tag rm-module__tag--xp">+{{ quiz.xp_reward }} XP</span>
-                    <span class="rm-module__tag">Pass: {{ quiz.pass_percentage }}%</span>
-                    {% if quiz.time_limit_minutes %}
-                    <span class="rm-module__tag">⏱ {{ quiz.time_limit_minutes }} min</span>
-                    {% endif %}
-                    {% if passed %}
-                    <span class="rm-module__badge rm-module__badge--done">✅ Passed</span>
-                    {% endif %}
+            {# =========================================================
+               STATE 1 — RESULT SCREEN (just submitted)
+               ========================================================= #}
+            {% if show_result %}
+            <section class="quiz-result-card">
+                <div class="quiz-result-card__icon quiz-result-card__icon--{{ 'pass' if latest_attempt.passed else 'fail' }}">
+                    {{ "✅" if latest_attempt.passed else "❌" }}
                 </div>
-                {% if best_percentage is not none %}
-                <p class="quiz-beststat">Best score: {{ best_percentage }}% · Attempts: {{ attempt_count }}</p>
-                {% endif %}
+                <h1 class="quiz-result-card__title">
+                    {{ "Quiz Passed!" if latest_attempt.passed else "Not Passed" }}
+                </h1>
+                <span class="quiz-result-card__badge quiz-result-card__badge--{{ 'pass' if latest_attempt.passed else 'fail' }}">
+                    {{ "PASS" if latest_attempt.passed else "FAIL" }}
+                </span>
+
+                <div class="quiz-result-card__stats">
+                    <div class="quiz-result-stat">
+                        <span class="quiz-result-stat__value">{{ latest_attempt.score }} / {{ quiz.question_count }}</span>
+                        <span class="quiz-result-stat__label">Score</span>
+                    </div>
+                    <div class="quiz-result-stat">
+                        <span class="quiz-result-stat__value">{{ latest_attempt.percentage }}%</span>
+                        <span class="quiz-result-stat__label">Percentage</span>
+                    </div>
+                    <div class="quiz-result-stat">
+                        <span class="quiz-result-stat__value">+0 XP</span>
+                        <span class="quiz-result-stat__label">XP Earned</span>
+                    </div>
+                </div>
+
+                <div class="progress-bar progress-bar--banner">
+                    <div class="progress-bar__fill" style="width: {{ latest_attempt.percentage }}%"></div>
+                </div>
+                <p class="quiz-result-card__passmark">Passing score: {{ quiz.pass_percentage }}%</p>
+
+                <div class="quiz-result-card__actions">
+                    <a href="{{ url_for('roadmap.quiz_view', module_slug=module.slug) }}" class="btn btn--primary">Retake Quiz</a>
+                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--outline">Back to Module</a>
+                </div>
             </section>
 
-            {# ---- Quiz form ---- #}
-            <form method="POST" class="quiz-form"
+            {# =========================================================
+               STATE 2 — LOCKED SCREEN (lessons incomplete)
+               ========================================================= #}
+            {% elif not can_take %}
+            <section class="quiz-locked-card">
+                <div class="quiz-locked-card__icon">{{ icon("lock", 30) }}</div>
+                <h1 class="quiz-locked-card__title">🔒 Quiz Locked</h1>
+                <p class="quiz-locked-card__text">
+                    Complete all lessons in this module before taking the quiz.
+                </p>
+
+                <div class="quiz-locked-card__progress">
+                    <div class="quiz-locked-card__count">
+                        <span class="quiz-locked-card__count-label">Lessons Completed</span>
+                        <span class="quiz-locked-card__count-value">
+                            {{ lesson_progress.completed }} / {{ lesson_progress.total }}
+                        </span>
+                    </div>
+                    <div class="progress-bar progress-bar--banner">
+                        <div class="progress-bar__fill" style="width: {{ lesson_progress.percent }}%"></div>
+                    </div>
+                    <span class="quiz-locked-card__percent">{{ lesson_progress.percent }}%</span>
+                </div>
+
+                <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--primary">Back to Module</a>
+            </section>
+
+            {# =========================================================
+               STATE 3 — QUIZ (unlocked, one question at a time)
+               ========================================================= #}
+            {% else %}
+            <section class="quiz-header-card">
+                <p class="rm-lesson-hero__module">{{ module.title }}</p>
+                <h1 class="quiz-header-card__title">{{ quiz.title }}</h1>
+                {% if quiz.description %}
+                <p class="quiz-header-card__desc">{{ quiz.description }}</p>
+                {% endif %}
+                <div class="quiz-header-card__meta">
+                    <span class="rm-module__tag rm-module__tag--xp">+{{ quiz.xp_reward }} XP</span>
+                    <span class="rm-module__tag">Pass: {{ quiz.pass_percentage }}%</span>
+                    <span class="rm-module__tag">{{ quiz.question_count }} questions</span>
+                    <span class="rm-module__tag">
+                        {% if quiz.time_limit_minutes %}⏱ {{ quiz.time_limit_minutes }} min{% else %}No Time Limit{% endif %}
+                    </span>
+                    {% if passed %}<span class="rm-module__badge rm-module__badge--done">✅ Passed</span>{% endif %}
+                </div>
+            </section>
+
+            <form method="POST" id="quiz-form"
                   action="{{ url_for('roadmap.quiz_submit', module_slug=module.slug) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
+                {# Progress #}
+                <div class="quiz-progress">
+                    <div class="quiz-progress__head">
+                        <span id="quiz-progress-label">Question 1 of {{ questions|length }}</span>
+                        <span id="quiz-progress-pct" class="quiz-progress__pct">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar__fill" id="quiz-progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                {# Questions (only one visible at a time) #}
                 {% for question in questions %}
-                <fieldset class="quiz-q">
+                <fieldset class="quiz-q quiz-slide" data-index="{{ loop.index0 }}" {% if not loop.first %}hidden{% endif %}>
                     <legend class="quiz-q__title">
-                        <span class="quiz-q__num">{{ "%02d"|format(loop.index) }}</span>
+                        <span class="quiz-q__num">Question {{ loop.index }} of {{ questions|length }}</span>
                         {{ question.question_text }}
                     </legend>
                     <div class="quiz-q__options">
                         {% for option in question.options %}
                         <label class="quiz-option">
-                            <input type="radio" name="question_{{ question.id }}"
-                                   value="{{ option.id }}" required>
+                            <input type="radio" name="question_{{ question.id }}" value="{{ option.id }}">
                             <span class="quiz-option__text">{{ option.option_text }}</span>
                         </label>
                         {% endfor %}
@@ -86,12 +153,81 @@
                 </fieldset>
                 {% endfor %}
 
-                <div class="quiz-form__actions">
-                    <button type="submit" class="btn btn--primary">Submit Quiz</button>
-                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}"
-                       class="btn btn--outline">Cancel</a>
+                {# Navigation #}
+                <div class="quiz-nav">
+                    <button type="button" class="btn btn--outline" id="quiz-prev" disabled>← Previous</button>
+                    <button type="button" class="btn btn--primary" id="quiz-next">Next →</button>
+                    <button type="button" class="btn btn--primary" id="quiz-finish" hidden>Finish Quiz</button>
                 </div>
             </form>
+
+            {# Confirmation modal #}
+            <div class="quiz-modal" id="quiz-modal" hidden>
+                <div class="quiz-modal__backdrop" id="quiz-modal-cancel"></div>
+                <div class="quiz-modal__card" role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title">
+                    <h2 class="quiz-modal__title" id="quiz-modal-title">Submit Quiz?</h2>
+                    <p class="quiz-modal__text">You cannot change your answers afterwards.</p>
+                    <div class="quiz-modal__actions">
+                        <button type="button" class="btn btn--outline" id="quiz-modal-cancel-btn">Cancel</button>
+                        <button type="button" class="btn btn--primary" id="quiz-modal-submit">Submit</button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+            (function () {
+                const slides = Array.from(document.querySelectorAll(".quiz-slide"));
+                const total = slides.length;
+                let current = 0;
+
+                const prevBtn = document.getElementById("quiz-prev");
+                const nextBtn = document.getElementById("quiz-next");
+                const finishBtn = document.getElementById("quiz-finish");
+                const label = document.getElementById("quiz-progress-label");
+                const pct = document.getElementById("quiz-progress-pct");
+                const fill = document.getElementById("quiz-progress-fill");
+                const form = document.getElementById("quiz-form");
+                const modal = document.getElementById("quiz-modal");
+
+                function render() {
+                    slides.forEach((s, i) => { s.hidden = (i !== current); });
+                    label.textContent = "Question " + (current + 1) + " of " + total;
+                    // Progress = questions answered so far, by radio selection.
+                    const answered = slides.filter(
+                        s => s.querySelector("input[type=radio]:checked")).length;
+                    const percent = Math.round((answered / total) * 100);
+                    pct.textContent = percent + "%";
+                    fill.style.width = percent + "%";
+
+                    prevBtn.disabled = (current === 0);
+                    const isLast = (current === total - 1);
+                    nextBtn.hidden = isLast;
+                    finishBtn.hidden = !isLast;
+                }
+
+                prevBtn.addEventListener("click", () => {
+                    if (current > 0) { current--; render(); }
+                });
+                nextBtn.addEventListener("click", () => {
+                    if (current < total - 1) { current++; render(); }
+                });
+                // Selecting an option updates the progress bar; answers persist
+                // because the radios stay in the DOM (slides are only hidden).
+                form.addEventListener("change", render);
+
+                // Finish -> confirmation modal
+                finishBtn.addEventListener("click", () => { modal.hidden = false; });
+                document.getElementById("quiz-modal-cancel-btn")
+                    .addEventListener("click", () => { modal.hidden = true; });
+                document.getElementById("quiz-modal-cancel")
+                    .addEventListener("click", () => { modal.hidden = true; });
+                document.getElementById("quiz-modal-submit")
+                    .addEventListener("click", () => { form.submit(); });
+
+                render();
+            })();
+            </script>
+            {% endif %}
 
             <footer class="dash-footer">
                 <p>YushaCyber © 2026</p>
