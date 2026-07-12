@@ -20,6 +20,21 @@ def index():
     return render_template("ctf/index.html", user=current_user, **context)
 
 
+@ctf_bp.route("/leaderboard")
+@login_required
+def leaderboard():
+    """Render the global CTF leaderboard (auth-only, read-only)."""
+    try:
+        page = int(request.args.get("page", 1))
+    except (TypeError, ValueError):
+        page = 1
+
+    context = services.get_leaderboard_page_context(
+        current_user, page=page, per_page=25
+    )
+    return render_template("ctf/leaderboard.html", user=current_user, **context)
+
+
 @ctf_bp.route("/<category_slug>/<challenge_slug>/", methods=["GET"])
 @login_required
 def challenge_detail(category_slug: str, challenge_slug: str):

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTF Leaderboard — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            <a href="{{ url_for('ctf.index') }}" class="rm-back">← All Challenges</a>
+
+            <header class="ctf-head">
+                <h1 class="ctf-head__title">🏆 CTF Leaderboard</h1>
+                <p class="ctf-head__sub">See how you stack up against other players.</p>
+            </header>
+
+            {% if not has_data %}
+            <section class="ach-empty">
+                <div class="ach-empty__icon">{{ icon("flag", 30) }}</div>
+                <h2 class="ach-empty__title">No leaderboard data available.</h2>
+                <p class="ach-empty__text">Be the first to solve a challenge and claim the top spot.</p>
+                <a href="{{ url_for('ctf.index') }}" class="btn btn--primary">Browse Challenges</a>
+            </section>
+            {% else %}
+
+            {# ---- Top cards ---- #}
+            <div class="quiz-stats-grid lb-cards">
+                <div class="quiz-stat-card lb-card--champ">
+                    <span class="quiz-stat-card__value">🥇 {{ champion.username }}</span>
+                    <span class="quiz-stat-card__label">Top Player · {{ champion.points }} pts</span>
+                </div>
+                <div class="quiz-stat-card">
+                    <span class="quiz-stat-card__value">{{ total_solves }}</span>
+                    <span class="quiz-stat-card__label">Total Solves</span>
+                </div>
+                <div class="quiz-stat-card">
+                    <span class="quiz-stat-card__value">{{ total_players }}</span>
+                    <span class="quiz-stat-card__label">Active Players</span>
+                </div>
+                <div class="quiz-stat-card quiz-stat-card--xp">
+                    <span class="quiz-stat-card__value">
+                        {% if my_rank %}#{{ my_rank }}{% else %}—{% endif %}
+                    </span>
+                    <span class="quiz-stat-card__label">Your Rank</span>
+                </div>
+            </div>
+
+            {# ---- Leaderboard table ---- #}
+            <div class="lb-table" role="table" aria-label="CTF leaderboard">
+                <div class="lb-row lb-row--head" role="row">
+                    <span class="lb-col lb-col--rank">#</span>
+                    <span class="lb-col lb-col--user">Player</span>
+                    <span class="lb-col lb-col--num">Level</span>
+                    <span class="lb-col lb-col--num">XP</span>
+                    <span class="lb-col lb-col--num">Points</span>
+                    <span class="lb-col lb-col--num">Solved</span>
+                    <span class="lb-col lb-col--num">Complete</span>
+                </div>
+
+                {% for r in rows %}
+                <div class="lb-row{% if r.is_current_user %} lb-row--me{% endif %}" role="row">
+                    <span class="lb-col lb-col--rank">
+                        {% if r.rank == 1 %}🥇{% elif r.rank == 2 %}🥈{% elif r.rank == 3 %}🥉{% else %}{{ r.rank }}{% endif %}
+                    </span>
+                    <span class="lb-col lb-col--user">
+                        {% if r.avatar %}
+                        <img src="{{ r.avatar }}" alt="" class="lb-avatar">
+                        {% else %}
+                        <span class="lb-avatar lb-avatar--initial">{{ r.username[:1]|upper }}</span>
+                        {% endif %}
+                        <span class="lb-user__name">{{ r.username }}</span>
+                        {% if r.is_current_user %}
+                        <span class="lb-you">⭐ You</span>
+                        {% endif %}
+                    </span>
+                    <span class="lb-col lb-col--num">{{ r.level }}</span>
+                    <span class="lb-col lb-col--num">{{ r.xp }}</span>
+                    <span class="lb-col lb-col--num lb-col--pts">{{ r.points }}</span>
+                    <span class="lb-col lb-col--num">{{ r.solved }}</span>
+                    <span class="lb-col lb-col--num">{{ r.completion }}%</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            {# ---- Pagination ---- #}
+            {% if total_pages > 1 %}
+            <nav class="lb-pager" aria-label="Leaderboard pages">
+                {% if page > 1 %}
+                <a href="{{ url_for('ctf.leaderboard', page=page-1) }}" class="btn btn--outline btn--sm">← Prev</a>
+                {% endif %}
+                <span class="lb-pager__info">Page {{ page }} of {{ total_pages }}</span>
+                {% if page < total_pages %}
+                <a href="{{ url_for('ctf.leaderboard', page=page+1) }}" class="btn btn--outline btn--sm">Next →</a>
+                {% endif %}
+            </nav>
+            {% endif %}
+
+            {% endif %}
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

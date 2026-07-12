@@ -30,6 +30,9 @@
             <header class="ctf-head">
                 <h1 class="ctf-head__title">🚩 Capture The Flag</h1>
                 <p class="ctf-head__sub">Practice real cybersecurity challenges.</p>
+                <div class="ctf-head__actions">
+                    <a href="{{ url_for('ctf.leaderboard') }}" class="btn btn--outline btn--sm">🏆 Leaderboard</a>
+                </div>
             </header>
 
             {% if not has_any_challenges %}

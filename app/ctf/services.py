@@ -375,3 +375,128 @@ def get_challenge_page_context(user: User, category_slug: str,
         "solved_date": solved_at.strftime("%b %d, %Y") if solved_at else None,
         "nav_items": _ctf_nav_items(),
     }
+
+
+# ===========================================================================
+# Leaderboard (YC-010.5) — read-only aggregation over existing solve records.
+#
+# SECURITY: only public profile fields (username, profile_image, level, xp)
+# ever leave this module. Email, password_hash, and other private fields are
+# never selected.
+# ===========================================================================
+def _leaderboard_rows() -> list[dict[str, Any]]:
+    """Aggregate every user's CTF standing, ranked.
+
+    One grouped query over challenge_solves joined to users and challenges:
+      - points  = SUM(challenge.points) over solved challenges
+      - solved  = COUNT(solved challenges)
+      - last_solved_at = MAX(solved_at)  (earliest finisher wins ties)
+
+    Ranking: points DESC, then solves DESC, then earliest completion time
+    (the user who reached their total first ranks higher).
+    """
+    total_challenges = Challenge.query.filter_by(is_active=True).count()
+
+    rows = (
+        db.session.query(
+            User.id,
+            User.username,
+            User.profile_image,
+            User.level,
+            User.xp,
+            db.func.coalesce(db.func.sum(Challenge.points), 0).label("points"),
+            db.func.count(ChallengeSolve.id).label("solved"),
+            db.func.max(ChallengeSolve.solved_at).label("finished_at"),
+        )
+        .join(ChallengeSolve, ChallengeSolve.user_id == User.id)
+        .join(Challenge, ChallengeSolve.challenge_id == Challenge.id)
+        .filter(ChallengeSolve.solved.is_(True), Challenge.is_active.is_(True))
+        .group_by(User.id)
+        .all()
+    )
+
+    entries: list[dict[str, Any]] = []
+    for (uid, username, avatar, level, xp,
+         points, solved, finished_at) in rows:
+        entries.append({
+            "user_id": uid,
+            "username": username,
+            "avatar": avatar,
+            "level": level or 1,
+            "xp": xp or 0,
+            "points": int(points or 0),
+            "solved": int(solved or 0),
+            "completion": (
+                int(solved / total_challenges * 100) if total_challenges else 0
+            ),
+            "finished_at": finished_at,
+        })
+
+    # Sort: points desc, solves desc, earliest finish first.
+    # A NULL finish time sorts last among equals.
+    def sort_key(e):
+        f = e["finished_at"]
+        return (
+            -e["points"],
+            -e["solved"],
+            f.timestamp() if f is not None else float("inf"),
+        )
+
+    entries.sort(key=sort_key)
+    for i, e in enumerate(entries, start=1):
+        e["rank"] = i
+    return entries
+
+
+def get_leaderboard(limit: int = 100) -> list[dict[str, Any]]:
+    """The top ``limit`` ranked CTF players (public fields only)."""
+    entries = _leaderboard_rows()
+    if limit is not None and limit > 0:
+        return entries[:limit]
+    return entries
+
+
+def get_user_rank(user: User) -> Optional[int]:
+    """A user's leaderboard rank, or None if they have no solves."""
+    if user is None:
+        return None
+    for entry in _leaderboard_rows():
+        if entry["user_id"] == user.id:
+            return entry["rank"]
+    return None
+
+
+def get_leaderboard_page_context(user: User, page: int = 1,
+                                 per_page: int = 25) -> dict[str, Any]:
+    """Context for the leaderboard page: ranked rows, top cards, pagination."""
+    entries = _leaderboard_rows()
+    total_players = len(entries)
+    total_solves = sum(e["solved"] for e in entries)
+
+    # Pagination
+    per_page = max(1, per_page)
+    total_pages = max(1, (total_players + per_page - 1) // per_page)
+    page = min(max(1, page), total_pages)
+    start = (page - 1) * per_page
+    page_rows = entries[start:start + per_page]
+
+    # Mark the current user's row.
+    for e in page_rows:
+        e["is_current_user"] = (user is not None and e["user_id"] == user.id)
+
+    champion = entries[0] if entries else None
+    my_rank = get_user_rank(user)
+
+    return {
+        "rows": page_rows,
+        "champion": champion,
+        "total_players": total_players,
+        "total_solves": total_solves,
+        "my_rank": my_rank,
+        "my_stats": get_ctf_statistics(user),
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "has_data": total_players > 0,
+        "nav_items": _ctf_nav_items(),
+    }
