@@ -62,10 +62,12 @@ def _register_blueprints(app: Flask) -> None:
     from app.auth import auth_bp
     from app.dashboard import dashboard_bp
     from app.roadmap import roadmap_bp
+    from app.ctf import ctf_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
     app.register_blueprint(roadmap_bp, url_prefix="/roadmap")
+    app.register_blueprint(ctf_bp, url_prefix="/ctf")
 
 
 def _register_routes(app: Flask) -> None:

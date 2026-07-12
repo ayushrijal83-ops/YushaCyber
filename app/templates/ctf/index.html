@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture The Flag — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            {# ---- Header ---- #}
+            <header class="ctf-head">
+                <h1 class="ctf-head__title">🚩 Capture The Flag</h1>
+                <p class="ctf-head__sub">Practice real cybersecurity challenges.</p>
+            </header>
+
+            {% if not has_any_challenges %}
+            <section class="ach-empty">
+                <div class="ach-empty__icon">{{ icon("flag", 30) }}</div>
+                <h2 class="ach-empty__title">No challenges available.</h2>
+            </section>
+            {% else %}
+
+            {# ---- Statistics ---- #}
+            <div class="quiz-stats-grid">
+                <div class="quiz-stat-card">
+                    <span class="quiz-stat-card__value">{{ statistics.total_challenges }}</span>
+                    <span class="quiz-stat-card__label">Total</span>
+                </div>
+                <div class="quiz-stat-card">
+                    <span class="quiz-stat-card__value">{{ statistics.solved }}</span>
+                    <span class="quiz-stat-card__label">Solved</span>
+                </div>
+                <div class="quiz-stat-card">
+                    <span class="quiz-stat-card__value">{{ statistics.unsolved }}</span>
+                    <span class="quiz-stat-card__label">Unsolved</span>
+                </div>
+                <div class="quiz-stat-card">
+                    <span class="quiz-stat-card__value">{{ statistics.completion_percentage }}%</span>
+                    <span class="quiz-stat-card__label">Complete</span>
+                </div>
+                <div class="quiz-stat-card quiz-stat-card--xp">
+                    <span class="quiz-stat-card__value">{{ statistics.total_points }}</span>
+                    <span class="quiz-stat-card__label">Points Earned</span>
+                </div>
+            </div>
+
+            {# ---- Progress bar ---- #}
+            <div class="progress-bar progress-bar--banner ctf-progress">
+                <div class="progress-bar__fill" style="width: {{ statistics.completion_percentage }}%"></div>
+            </div>
+
+            {# ---- Filters ---- #}
+            <div class="ach-filters" role="tablist" aria-label="Challenge filters">
+                <button class="ach-filter is-active" data-filter="all">All</button>
+                <button class="ach-filter" data-filter="Easy">Easy</button>
+                <button class="ach-filter" data-filter="Medium">Medium</button>
+                <button class="ach-filter" data-filter="Hard">Hard</button>
+                <button class="ach-filter" data-filter="Insane">Insane</button>
+                <button class="ach-filter" data-filter="solved">Solved</button>
+                <button class="ach-filter" data-filter="unsolved">Unsolved</button>
+            </div>
+
+            <div class="ctf-search">
+                <input type="search" id="ctf-search-input" class="ctf-search__input"
+                       placeholder="Search challenges…" aria-label="Search challenges">
+            </div>
+
+            {# ---- Categories + challenge cards ---- #}
+            {% for cat in categories %}
+            <section class="ctf-category" data-category="{{ cat.slug }}">
+                <h2 class="ctf-category__title">{{ cat.name }}</h2>
+                <div class="ctf-grid">
+                    {% for ch in cat.challenges %}
+                    <article class="ctf-card"
+                             data-difficulty="{{ ch.difficulty }}"
+                             data-solved="{{ '1' if ch.solved else '0' }}"
+                             data-title="{{ ch.title|lower }}">
+                        <div class="ctf-card__top">
+                            <span class="ctf-diff ctf-diff--{{ ch.difficulty|lower }}">{{ ch.difficulty }}</span>
+                            {% if ch.solved %}
+                            <span class="ctf-card__status ctf-card__status--solved">✓ Solved</span>
+                            {% else %}
+                            <span class="ctf-card__status ctf-card__status--unsolved">Unsolved</span>
+                            {% endif %}
+                        </div>
+                        <h3 class="ctf-card__title">{{ ch.title }}</h3>
+                        <p class="ctf-card__cat">{{ cat.name }}</p>
+                        <p class="ctf-card__desc">{{ ch.description }}</p>
+                        <div class="ctf-card__meta">
+                            <span class="ctf-card__pts">{{ ch.points }} pts</span>
+                            <span class="ctf-card__xp">+{{ ch.xp_reward }} XP</span>
+                            {% if ch.estimated_minutes %}
+                            <span class="ctf-card__time">⏱ {{ ch.estimated_minutes }}m</span>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn--primary btn--sm ctf-card__btn" disabled>
+                            Start Challenge
+                        </button>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endfor %}
+
+            {% endif %}
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+(function () {
+    const filters = document.querySelectorAll(".ach-filter");
+    const searchInput = document.getElementById("ctf-search-input");
+    const cards = Array.from(document.querySelectorAll(".ctf-card"));
+    if (!cards.length) return;
+
+    let activeFilter = "all";
+
+    function matches(card) {
+        // Difficulty / solved filter
+        if (activeFilter === "solved" && card.dataset.solved !== "1") return false;
+        if (activeFilter === "unsolved" && card.dataset.solved !== "0") return false;
+        if (["Easy", "Medium", "Hard", "Insane"].includes(activeFilter)
+            && card.dataset.difficulty !== activeFilter) return false;
+        // Search
+        const q = (searchInput.value || "").trim().toLowerCase();
+        if (q && !card.dataset.title.includes(q)) return false;
+        return true;
+    }
+
+    function apply() {
+        cards.forEach((card) => { card.style.display = matches(card) ? "" : "none"; });
+        // Hide category sections that have no visible cards.
+        document.querySelectorAll(".ctf-category").forEach((sec) => {
+            const anyVisible = Array.from(sec.querySelectorAll(".ctf-card"))
+                .some((c) => c.style.display !== "none");
+            sec.style.display = anyVisible ? "" : "none";
+        });
+    }
+
+    filters.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            filters.forEach((b) => b.classList.remove("is-active"));
+            btn.classList.add("is-active");
+            activeFilter = btn.dataset.filter;
+            apply();
+        });
+    });
+    searchInput.addEventListener("input", apply);
+})();
+</script>
+</body>
+</html>

@@ -185,3 +185,66 @@ def get_ctf_statistics(user: User) -> dict[str, int]:
         "completion_percentage": completion,
         "total_points": total_points,
     }
+
+
+# ===========================================================================
+# Challenge browser page context (YC-010.2) — preformatted for the UI.
+# Reuses get_categories/get_all_challenges/get_ctf_statistics/has_solved;
+# no ORM leaks to the template.
+# ===========================================================================
+def get_ctf_page_context(user: User) -> dict[str, Any]:
+    """Everything the CTF browser needs, grouped by category and preformatted.
+
+    Returns {statistics, categories, has_any_challenges}. Each category is a
+    plain dict with its challenge cards (including per-user solved status),
+    so the template renders without touching the ORM.
+    """
+    stats = get_ctf_statistics(user)
+
+    # Solved challenge ids for this user (one query), for O(1) status lookup.
+    solved_ids: set[int] = set()
+    if user is not None:
+        solved_ids = {
+            r.challenge_id
+            for r in ChallengeSolve.query
+            .filter_by(user_id=user.id, solved=True)
+            .all()
+        }
+
+    categories: list[dict[str, Any]] = []
+    for category in get_categories():
+        cards: list[dict[str, Any]] = []
+        for ch in category.challenges:
+            if not ch.is_active:
+                continue
+            cards.append({
+                "title": ch.title,
+                "slug": ch.slug,
+                "description": ch.description,
+                "difficulty": ch.difficulty,
+                "points": ch.points,
+                "xp_reward": ch.xp_reward,
+                "estimated_minutes": ch.estimated_minutes,
+                "solved": ch.id in solved_ids,
+            })
+        categories.append({
+            "name": category.name,
+            "slug": category.slug,
+            "icon": category.icon,
+            "description": category.description,
+            "challenges": cards,
+        })
+
+    total = stats["total_challenges"]
+    return {
+        "statistics": stats,
+        "categories": categories,
+        "has_any_challenges": total > 0,
+        "nav_items": _ctf_nav_items(),
+    }
+
+
+def _ctf_nav_items() -> list:
+    """Sidebar nav with the CTF item active (reuses dashboard nav)."""
+    from app.dashboard.services import get_nav_items
+    return get_nav_items(active="ctf")
