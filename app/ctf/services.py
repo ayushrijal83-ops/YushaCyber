@@ -248,3 +248,74 @@ def _ctf_nav_items() -> list:
     """Sidebar nav with the CTF item active (reuses dashboard nav)."""
     from app.dashboard.services import get_nav_items
     return get_nav_items(active="ctf")
+
+
+# ===========================================================================
+# Challenge detail page context (YC-010.3)
+#
+# SECURITY: the flag, its hash, and any solution metadata are NEVER included
+# in the context — the client only ever receives public challenge fields.
+# ===========================================================================
+def _render_description(text: Optional[str]) -> str:
+    """Render a challenge description as safe HTML (reuses the project's
+    markdown renderer + sanitiser used by the lesson viewer)."""
+    if not text:
+        return ""
+    import markdown as _markdown
+    from app.roadmap.services import _sanitise_lesson_html
+
+    html = _markdown.markdown(
+        text,
+        extensions=["fenced_code", "tables", "sane_lists"],
+        output_format="html5",
+    )
+    return _sanitise_lesson_html(html)
+
+
+def get_user_solve(user: User, challenge: Challenge) -> Optional[ChallengeSolve]:
+    """The user's solve row for a challenge (solved or not), or None."""
+    if user is None or challenge is None:
+        return None
+    return (
+        ChallengeSolve.query
+        .filter_by(user_id=user.id, challenge_id=challenge.id)
+        .first()
+    )
+
+
+def get_challenge_page_context(user: User, category_slug: str,
+                               challenge_slug: str) -> Optional[dict[str, Any]]:
+    """Context for the challenge detail page, or None if not found.
+
+    Never includes the flag or its hash. Returns the public challenge
+    fields plus this user's solved state, attempt count, and solve date.
+    """
+    category = get_category(category_slug)
+    if category is None:
+        return None
+    challenge = get_challenge(challenge_slug)
+    if challenge is None or challenge.category_id != category.id:
+        return None
+
+    solve = get_user_solve(user, challenge)
+    solved = has_solved(user, challenge)
+    solved_at = solve.solved_at if (solve and solve.solved_at) else None
+
+    return {
+        "category": {"name": category.name, "slug": category.slug},
+        "challenge": {
+            "title": challenge.title,
+            "slug": challenge.slug,
+            "description_html": _render_description(challenge.description),
+            "difficulty": challenge.difficulty,
+            "points": challenge.points,
+            "xp_reward": challenge.xp_reward,
+            "estimated_minutes": challenge.estimated_minutes,
+            "author": challenge.author,
+            "hint": challenge.hint,
+        },
+        "solved": solved,
+        "attempts": solve.attempts if solve else 0,
+        "solved_date": solved_at.strftime("%b %d, %Y") if solved_at else None,
+        "nav_items": _ctf_nav_items(),
+    }

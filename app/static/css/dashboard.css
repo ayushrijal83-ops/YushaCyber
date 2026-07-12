@@ -1107,3 +1107,181 @@
 }
 .cert-card__actions { display: flex; gap: 10px; margin-top: 14px; }
 .cert-card__actions .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ==========================================================================
+   CTF challenge browser (YC-010.2)
+   ========================================================================== */
+.ctf-head { margin-bottom: 22px; }
+.ctf-head__title { font-size: clamp(1.6rem, 3vw, 2.2rem); margin-bottom: 6px; }
+.ctf-head__sub { color: var(--color-text-muted); }
+.ctf-progress { margin-bottom: 20px; }
+
+.ctf-search { margin-bottom: 22px; }
+.ctf-search__input {
+    width: 100%; max-width: 360px;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    font-family: var(--font-sans); font-size: 0.9rem;
+    padding: 10px 14px;
+}
+.ctf-search__input:focus { outline: none; border-color: var(--color-primary); }
+
+.ctf-category { margin-bottom: 26px; }
+.ctf-category__title {
+    font-size: 1.1rem; margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--color-border);
+}
+
+.ctf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+}
+
+.ctf-card {
+    display: flex; flex-direction: column;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    transition: transform var(--transition), border-color var(--transition);
+}
+.ctf-card:hover { transform: translateY(-3px); border-color: var(--color-primary); }
+.ctf-card__top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+}
+.ctf-card__title { font-size: 1.02rem; margin-bottom: 2px; }
+.ctf-card__cat {
+    font-size: 0.72rem; color: var(--color-text-muted);
+    font-family: var(--font-mono); margin-bottom: 10px;
+}
+.ctf-card__desc {
+    font-size: 0.85rem; color: var(--color-text-muted); line-height: 1.5;
+    margin-bottom: 14px; flex: 1;
+}
+.ctf-card__meta {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin-bottom: 14px; font-family: var(--font-mono); font-size: 0.75rem;
+}
+.ctf-card__pts { color: var(--color-text); }
+.ctf-card__xp { color: var(--color-primary); }
+.ctf-card__time { color: var(--color-text-muted); }
+.ctf-card__btn { width: 100%; opacity: 0.6; cursor: not-allowed; }
+
+/* Status */
+.ctf-card__status {
+    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.04em;
+    padding: 3px 8px; border-radius: 999px;
+}
+.ctf-card__status--solved {
+    color: var(--color-primary); border: 1px solid var(--color-primary);
+    background-color: var(--color-primary-dim);
+}
+.ctf-card__status--unsolved {
+    color: var(--color-text-muted); border: 1px solid var(--color-border-strong);
+}
+
+/* Difficulty badges */
+.ctf-diff {
+    font-family: var(--font-mono); font-size: 0.62rem; font-weight: 700;
+    letter-spacing: 0.05em; padding: 3px 9px; border-radius: 6px;
+}
+.ctf-diff--easy   { color: #3FB950; background-color: rgba(63, 185, 80, 0.12);  border: 1px solid rgba(63, 185, 80, 0.4); }
+.ctf-diff--medium { color: #D29922; background-color: rgba(210, 153, 34, 0.12); border: 1px solid rgba(210, 153, 34, 0.4); }
+.ctf-diff--hard   { color: #F85149; background-color: rgba(248, 81, 73, 0.12);  border: 1px solid rgba(248, 81, 73, 0.4); }
+.ctf-diff--insane { color: #BC8CFF; background-color: rgba(188, 140, 255, 0.12); border: 1px solid rgba(188, 140, 255, 0.4); }
+
+@media (max-width: 620px) {
+    .ctf-grid { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
+   CTF challenge detail (YC-010.3)
+   ========================================================================== */
+.chal-head {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-bottom: 18px;
+}
+.chal-head__top {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 12px;
+}
+.chal-head__title { font-size: clamp(1.4rem, 3vw, 2rem); margin-bottom: 4px; }
+.chal-head__cat {
+    font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--color-text-muted); margin-bottom: 14px;
+}
+.chal-head__meta {
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    font-family: var(--font-mono); font-size: 0.8rem;
+}
+.chal-head__author { color: var(--color-text-muted); }
+
+.chal-body {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-bottom: 18px;
+}
+
+/* Hint */
+.chal-hint { margin-bottom: 18px; }
+.chal-hint__body {
+    margin-top: 12px;
+    background-color: var(--color-surface);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    padding: 18px 22px;
+}
+.chal-hint__body[hidden] { display: none; }
+.chal-hint__text { color: var(--color-text-muted); }
+
+/* Submission */
+.chal-submit {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+}
+.chal-submit__title { font-size: 1.15rem; margin-bottom: 6px; }
+.chal-submit__attempts {
+    font-family: var(--font-mono); font-size: 0.78rem;
+    color: var(--color-text-muted); margin-bottom: 14px;
+}
+.chal-submit__form { display: flex; gap: 10px; flex-wrap: wrap; }
+.chal-submit__input {
+    flex: 1; min-width: 220px;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    font-family: var(--font-mono); font-size: 0.9rem;
+    padding: 11px 14px;
+}
+.chal-submit__input:focus { outline: none; border-color: var(--color-primary); }
+
+/* Solved panel */
+.chal-solved {
+    text-align: center;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+}
+.chal-solved__icon { font-size: 2.6rem; margin-bottom: 6px; }
+.chal-solved__title { font-size: 1.4rem; margin-bottom: 20px; color: var(--color-primary); }
+.chal-solved__stats {
+    display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 22px;
+}
+
+@media (max-width: 560px) {
+    .chal-submit__form { flex-direction: column; }
+    .chal-submit__form .btn { width: 100%; }
+}

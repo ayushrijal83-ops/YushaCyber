@@ -112,9 +112,10 @@
                             <span class="ctf-card__time">⏱ {{ ch.estimated_minutes }}m</span>
                             {% endif %}
                         </div>
-                        <button type="button" class="btn btn--primary btn--sm ctf-card__btn" disabled>
-                            Start Challenge
-                        </button>
+                        <a href="{{ url_for('ctf.challenge_detail', category_slug=cat.slug, challenge_slug=ch.slug) }}"
+                           class="btn btn--primary btn--sm ctf-card__btn">
+                            {{ "View Challenge" if ch.solved else "Start Challenge" }}
+                        </a>
                     </article>
                     {% endfor %}
                 </div>

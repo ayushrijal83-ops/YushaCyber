@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ challenge.title }} — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            <a href="{{ url_for('ctf.index') }}" class="rm-back">← All Challenges</a>
+
+            {# ---- Flash (submission result) ---- #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="dash-flash" role="status">
+                        {% for category, message in messages %}
+                            <p class="dash-flash__item dash-flash__item--{{ category }}">{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {# ---- Header ---- #}
+            <section class="chal-head">
+                <div class="chal-head__top">
+                    <span class="ctf-diff ctf-diff--{{ challenge.difficulty|lower }}">{{ challenge.difficulty }}</span>
+                    {% if solved %}
+                    <span class="ctf-card__status ctf-card__status--solved">✓ Solved</span>
+                    {% endif %}
+                </div>
+                <h1 class="chal-head__title">{{ challenge.title }}</h1>
+                <p class="chal-head__cat">{{ category.name }}</p>
+
+                <div class="chal-head__meta">
+                    <span class="ctf-card__pts">{{ challenge.points }} pts</span>
+                    <span class="ctf-card__xp">+{{ challenge.xp_reward }} XP</span>
+                    {% if challenge.estimated_minutes %}
+                    <span class="ctf-card__time">⏱ {{ challenge.estimated_minutes }}m</span>
+                    {% endif %}
+                    {% if challenge.author %}
+                    <span class="chal-head__author">by {{ challenge.author }}</span>
+                    {% endif %}
+                </div>
+            </section>
+
+            {# ---- Description ---- #}
+            <section class="chal-body">
+                <div class="rm-lesson-content">
+                    {{ challenge.description_html|safe }}
+                </div>
+            </section>
+
+            {# ---- Hint (collapsed by default) ---- #}
+            {% if challenge.hint %}
+            <section class="chal-hint">
+                <button type="button" class="btn btn--outline btn--sm" id="hint-toggle">
+                    💡 Reveal Hint
+                </button>
+                <div class="chal-hint__body" id="hint-body" hidden>
+                    <p class="chal-hint__text">{{ challenge.hint }}</p>
+                </div>
+            </section>
+            {% endif %}
+
+            {# ---- Solved info OR submission form ---- #}
+            {% if solved %}
+            <section class="chal-solved">
+                <div class="chal-solved__icon">✅</div>
+                <h2 class="chal-solved__title">Challenge Solved</h2>
+                <div class="chal-solved__stats">
+                    {% if solved_date %}
+                    <div class="quiz-result-stat">
+                        <span class="quiz-result-stat__value">{{ solved_date }}</span>
+                        <span class="quiz-result-stat__label">Solved On</span>
+                    </div>
+                    {% endif %}
+                    <div class="quiz-result-stat">
+                        <span class="quiz-result-stat__value">{{ attempts }}</span>
+                        <span class="quiz-result-stat__label">Attempts</span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn--primary" disabled>Already Solved</button>
+            </section>
+            {% else %}
+            <section class="chal-submit">
+                <h2 class="chal-submit__title">Submit Flag</h2>
+                {% if attempts %}
+                <p class="chal-submit__attempts">Attempts so far: {{ attempts }}</p>
+                {% endif %}
+                <form method="POST"
+                      action="{{ url_for('ctf.challenge_submit', category_slug=category.slug, challenge_slug=challenge.slug) }}"
+                      class="chal-submit__form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="flag" class="chal-submit__input"
+                           placeholder="flag{...}" autocomplete="off" required
+                           aria-label="Flag">
+                    <button type="submit" class="btn btn--primary">Submit</button>
+                </form>
+            </section>
+            {% endif %}
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+(function () {
+    const toggle = document.getElementById("hint-toggle");
+    const body = document.getElementById("hint-body");
+    if (!toggle || !body) return;
+    toggle.addEventListener("click", () => {
+        const hidden = body.hasAttribute("hidden");
+        if (hidden) {
+            body.removeAttribute("hidden");
+            toggle.textContent = "🙈 Hide Hint";
+        } else {
+            body.setAttribute("hidden", "");
+            toggle.textContent = "💡 Reveal Hint";
+        }
+    });
+})();
+</script>
+</body>
+</html>
