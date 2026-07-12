@@ -107,32 +107,59 @@ def _get_or_create_solve(user: User, challenge: Challenge) -> ChallengeSolve:
 
 def submit_flag(user: User, challenge: Challenge,
                 submitted_flag: str) -> dict[str, Any]:
-    """Validate a flag submission and record the attempt.
+    """Validate a flag submission, record the attempt, and reward first solves.
 
-    Compares the submitted flag against the challenge's hashed flag,
-    creates or updates the user's ChallengeSolve, increments attempts, and
-    on a first correct solve marks it solved with a timestamp. Does NOT
-    award XP (that integration comes later). Returns:
-        {"correct": True,  "xp": challenge.xp_reward, "already_solved": bool}
-        {"correct": False, "error": "invalid"}   (bad input)
-        {"correct": False}                        (wrong flag)
-    Rolls back on persistence failure.
+    Rules (YC-010.4):
+    - Correct flag, never solved before -> mark solved, record solved_at,
+      award ``challenge.xp_reward`` through the existing XP engine
+      (award_xp, which recalculates level), then trigger the existing
+      achievement service. XP is awarded exactly ONCE per challenge.
+    - Correct flag, already solved -> no XP, no achievement trigger;
+      returns already_solved=True.
+    - Wrong flag -> nothing awarded; the attempt is still recorded.
+    ``user.xp`` is never modified directly. The solve row and its XP are
+    committed together, so a failure rolls back both — never a
+    ChallengeSolve without XP, nor XP without a ChallengeSolve.
+
+    Returns:
+        {"correct": True,  "already_solved": False,
+         "xp_awarded": int, "level_up": bool, "xp": int}
+        {"correct": True,  "already_solved": True, "xp_awarded": 0}
+        {"correct": False}                     (wrong flag)
+        {"correct": False, "error": "invalid" | "persist_failed"}
     """
     if user is None or challenge is None or not challenge.is_active:
         return {"correct": False, "error": "invalid"}
+
+    level_before = user.level or 1
+    xp_awarded = 0
+    first_solve = False
 
     try:
         row = _get_or_create_solve(user, challenge)
         row.attempts = (row.attempts or 0) + 1
 
         correct = challenge.check_flag(submitted_flag)
+        # Capture prior state BEFORE marking solved, so a first solve is
+        # distinguishable from a retry on an already-solved challenge.
         already_solved = bool(row.solved)
 
-        if correct and not row.solved:
+        if correct and not already_solved:
+            first_solve = True
             row.solved = True
             row.solved_at = datetime.now(timezone.utc)
 
-        db.session.commit()
+            # Award XP through the existing engine (never touch user.xp).
+            # award_xp commits, persisting the solve row in the same
+            # transaction — so solve + XP land together or not at all.
+            if challenge.xp_reward:
+                from app.dashboard.services import award_xp
+                award_xp(user, challenge.xp_reward)
+                xp_awarded = challenge.xp_reward
+            else:
+                db.session.commit()
+        else:
+            db.session.commit()
     except SQLAlchemyError:
         db.session.rollback()
         current_app.logger.exception(
@@ -141,10 +168,39 @@ def submit_flag(user: User, challenge: Challenge,
         )
         return {"correct": False, "error": "persist_failed"}
 
-    if correct:
-        return {"correct": True, "xp": challenge.xp_reward,
-                "already_solved": already_solved}
-    return {"correct": False}
+    if not correct:
+        return {"correct": False}
+
+    if already_solved:
+        current_app.logger.info(
+            "CTF re-solve (no XP): user=%s challenge=%s already_solved=True",
+            user.id, challenge.slug,
+        )
+        return {"correct": True, "already_solved": True, "xp_awarded": 0}
+
+    # First solve: trigger the existing achievement engine (it computes its
+    # own metrics and never double-unlocks).
+    if first_solve:
+        try:
+            from app.achievement.services import check_and_unlock_achievements
+            check_and_unlock_achievements(user)
+        except Exception:  # noqa: BLE001 — never fail a solve on this
+            current_app.logger.exception(
+                "Achievement check failed after CTF solve: user %s", user.id
+            )
+
+    level_up = (user.level or 1) > level_before
+    current_app.logger.info(
+        "CTF solve: user=%s challenge=%s xp_awarded=%s level_up=%s",
+        user.id, challenge.slug, xp_awarded, level_up,
+    )
+    return {
+        "correct": True,
+        "already_solved": False,
+        "xp_awarded": xp_awarded,
+        "level_up": level_up,
+        "xp": challenge.xp_reward,
+    }
 
 
 def get_ctf_statistics(user: User) -> dict[str, int]:

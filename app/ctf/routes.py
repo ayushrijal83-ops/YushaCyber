@@ -54,7 +54,13 @@ def challenge_submit(category_slug: str, challenge_slug: str):
     if result.get("error"):
         flash("Unable to submit flag. Please try again.", "error")
     elif result["correct"]:
-        flash("✅ Correct Flag — Challenge Solved!", "success")
+        if result.get("xp_awarded"):
+            msg = f"✅ Correct Flag — Challenge Solved! +{result['xp_awarded']} XP"
+            if result.get("level_up"):
+                msg += " — Level Up!"
+            flash(msg, "success")
+        else:
+            flash("✅ Correct Flag — Challenge Solved!", "success")
     else:
         flash("❌ Incorrect Flag — Please try again.", "error")
 
