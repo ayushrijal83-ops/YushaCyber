@@ -1,0 +1,124 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'challenges' %}
+{% block title %}{{ "Edit" if challenge else "New" }} Challenge{% endblock %}
+{% block heading %}{{ "Edit Challenge" if challenge else "New Challenge" }}{% endblock %}
+{% block subheading %}{{ challenge.slug if challenge else "Define the challenge, its flag and rewards." }}{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<form method="POST"
+      action="{% if challenge %}{{ url_for('admin.ctf_challenge_update', challenge_id=challenge.id) }}{% else %}{{ url_for('admin.ctf_challenge_create') }}{% endif %}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {# ---- Details ---- #}
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("flag", 16) }} Challenge details</h2>
+        </header>
+        <div class="adm-grid">
+            <label class="adm-field adm-field--wide">
+                <span class="adm-label">Title <em>*</em></span>
+                <input type="text" name="title" class="adm-input" required
+                       placeholder="SQL Injection 101"
+                       value="{{ challenge.title if challenge else (form.title if form else '') }}">
+            </label>
+
+            <label class="adm-field">
+                <span class="adm-label">Slug</span>
+                <input type="text" name="slug" class="adm-input" placeholder="auto from title"
+                       value="{{ challenge.slug if challenge else (form.slug if form else '') }}">
+            </label>
+
+            <label class="adm-field">
+                <span class="adm-label">Category <em>*</em></span>
+                <select name="category_id" class="adm-input" required>
+                    {% for c in categories %}
+                    <option value="{{ c.id }}" {% if challenge and challenge.category_id == c.id %}selected{% endif %}>
+                        {{ c.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="adm-field">
+                <span class="adm-label">Difficulty <em>*</em></span>
+                <select name="difficulty" class="adm-input" required>
+                    {% for d in difficulties %}
+                    <option value="{{ d }}" {% if challenge and challenge.difficulty == d %}selected{% endif %}>{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="adm-field adm-field--full">
+                <span class="adm-label">Description <small>markdown supported</small></span>
+                <textarea name="description" class="adm-input adm-textarea" rows="7"
+                          placeholder="Describe the challenge…">{{ challenge.description if challenge and challenge.description else '' }}</textarea>
+            </label>
+        </div>
+    </section>
+
+    {# ---- Flag ---- #}
+    <section class="adm-card adm-card--accent">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("lock", 16) }} Flag</h2>
+        </header>
+        <label class="adm-field adm-field--full">
+            <span class="adm-label">
+                Flag {% if challenge %}<small>leave blank to keep the current flag</small>{% else %}<em>*</em>{% endif %}
+            </span>
+            <input type="text" name="flag" class="adm-input adm-input--mono" autocomplete="off"
+                   placeholder="YC{your_flag_here}" {% if not challenge %}required{% endif %}>
+        </label>
+        <p class="adm-note">
+            {{ icon("shield", 13) }}
+            Flags are hashed before storage and are never displayed again — not even here.
+        </p>
+    </section>
+
+    {# ---- Rewards ---- #}
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("award", 16) }} Rewards &amp; metadata</h2>
+        </header>
+        <div class="adm-grid">
+            <label class="adm-field">
+                <span class="adm-label">Points</span>
+                <input type="number" name="points" class="adm-input" min="0"
+                       value="{{ challenge.points if challenge else 100 }}">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">XP Reward</span>
+                <input type="number" name="xp_reward" class="adm-input" min="0"
+                       value="{{ challenge.xp_reward if challenge else 50 }}">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Estimated minutes</span>
+                <input type="number" name="estimated_minutes" class="adm-input" min="0"
+                       value="{{ challenge.estimated_minutes if challenge and challenge.estimated_minutes else '' }}">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Author</span>
+                <input type="text" name="author" class="adm-input"
+                       value="{{ challenge.author if challenge and challenge.author else '' }}">
+            </label>
+            <label class="adm-field adm-field--narrow">
+                <span class="adm-label">Display order</span>
+                <input type="number" name="display_order" class="adm-input"
+                       value="{{ challenge.display_order if challenge else 0 }}">
+            </label>
+            <label class="adm-toggle">
+                <input type="checkbox" name="is_active" {% if not challenge or challenge.is_active %}checked{% endif %}>
+                <span>Active <small>visible in the CTF arena</small></span>
+            </label>
+        </div>
+    </section>
+
+    <div class="adm-stickyfoot">
+        <a href="{{ url_for('admin.ctf_challenges') }}" class="btn btn--outline btn--sm">Cancel</a>
+        <button type="submit" class="btn btn--primary btn--sm">
+            {{ "Save Changes" if challenge else "Create Challenge" }}
+        </button>
+    </div>
+</form>
+{% endblock %}

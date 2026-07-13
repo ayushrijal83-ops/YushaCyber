@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YushaCyber — Master Cybersecurity Through Real Practice</title>
+    <meta name="description" content="Learn ethical hacking, Linux, networking, web security, digital forensics, SOC and CTFs through structured paths, interactive labs and real-world challenges.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+<body class="lp-body">
+
+<!-- ============ Nav ============ -->
+<header class="lp-nav">
+    <div class="lp-nav__inner">
+        <a href="{{ url_for('index') }}" class="lp-brand">
+            <span class="lp-brand__mark">&gt;_</span>
+            <span class="lp-brand__name">Yusha<span>Cyber</span></span>
+        </a>
+        <nav class="lp-nav__links" aria-label="Primary">
+            <a href="#features">Features</a>
+            <a href="#journey">Journey</a>
+            <a href="#why">Why us</a>
+            <a href="#faq">FAQ</a>
+        </nav>
+        <div class="lp-nav__cta">
+            <a href="{{ url_for('auth.login') }}" class="btn btn--outline btn--sm">Sign in</a>
+            <a href="{{ url_for('auth.register') }}" class="btn btn--primary btn--sm">Get Started</a>
+        </div>
+    </div>
+</header>
+
+<main>
+
+<!-- ============ 1. Hero ============ -->
+<section class="lp-hero">
+    <div class="lp-hero__bg" aria-hidden="true">
+        <div class="lp-orb lp-orb--1"></div>
+        <div class="lp-orb lp-orb--2"></div>
+        <div class="lp-orb lp-orb--3"></div>
+        <div class="lp-grid"></div>
+    </div>
+
+    <div class="lp-hero__inner">
+        <span class="lp-pill">
+            <span class="lp-pill__dot"></span> Learn by doing — not by watching
+        </span>
+        <h1 class="lp-hero__title">
+            Master Cybersecurity Through <span class="lp-glow">Real Practice</span>
+        </h1>
+        <p class="lp-hero__sub">
+            Learn ethical hacking, Linux, networking, web security, digital forensics,
+            SOC, and CTFs through structured learning paths, interactive labs, and
+            real-world challenges.
+        </p>
+        <div class="lp-hero__actions">
+            <a href="{{ url_for('auth.register') }}" class="btn btn--primary lp-btn">🚀 Get Started</a>
+            <a href="{{ url_for('roadmap.index') }}" class="btn btn--outline lp-btn">📚 Explore Roadmaps</a>
+            <a href="{{ url_for('ctf.index') }}" class="btn btn--outline lp-btn">🏴 Enter CTF Arena</a>
+            <a href="{{ url_for('labs.index') }}" class="btn btn--outline lp-btn">🧪 Explore Labs</a>
+        </div>
+
+        <div class="lp-hero__trust">
+            <span>Linux</span><span>Networking</span><span>Web Security</span>
+            <span>Forensics</span><span>SOC</span><span>CTF</span>
+        </div>
+    </div>
+</section>
+
+<!-- ============ 2. Features ============ -->
+<section class="lp-section" id="features">
+    <div class="lp-section__head">
+        <span class="lp-kicker">Platform</span>
+        <h2 class="lp-h2">Everything you need to go from zero to hired</h2>
+        <p class="lp-lead">One platform covering the full journey — structured theory, hands-on labs, and competitive challenges.</p>
+    </div>
+
+    <div class="lp-features">
+        <article class="lp-feature">
+            <div class="lp-feature__icon">🗺️</div>
+            <h3 class="lp-feature__title">Roadmaps</h3>
+            <p class="lp-feature__text">Structured learning paths that take you from fundamentals to advanced offensive and defensive skills.</p>
+        </article>
+        <article class="lp-feature">
+            <div class="lp-feature__icon">🧪</div>
+            <h3 class="lp-feature__title">Interactive Labs</h3>
+            <p class="lp-feature__text">Practice real techniques in guided, hands-on labs across Linux, networking, web and more.</p>
+        </article>
+        <article class="lp-feature">
+            <div class="lp-feature__icon">🏴</div>
+            <h3 class="lp-feature__title">CTF Challenges</h3>
+            <p class="lp-feature__text">Sharpen your skills on capture-the-flag challenges across eight categories and four difficulties.</p>
+        </article>
+        <article class="lp-feature">
+            <div class="lp-feature__icon">🏆</div>
+            <h3 class="lp-feature__title">Achievements</h3>
+            <p class="lp-feature__text">Earn achievements as you progress and stay motivated with visible milestones.</p>
+        </article>
+        <article class="lp-feature">
+            <div class="lp-feature__icon">📜</div>
+            <h3 class="lp-feature__title">Certificates</h3>
+            <p class="lp-feature__text">Complete learning paths to earn verifiable certificates you can showcase.</p>
+        </article>
+        <article class="lp-feature lp-feature--soon">
+            <div class="lp-feature__icon">🤖</div>
+            <h3 class="lp-feature__title">AI Mentor <span class="lp-soon">Coming Soon</span></h3>
+            <p class="lp-feature__text">Personalised guidance that adapts to your progress and helps you when you get stuck.</p>
+        </article>
+    </div>
+</section>
+
+<!-- ============ 3. Learning Journey ============ -->
+<section class="lp-section lp-section--alt" id="journey">
+    <div class="lp-section__head">
+        <span class="lp-kicker">The Path</span>
+        <h2 class="lp-h2">Your learning journey</h2>
+        <p class="lp-lead">A clear, structured route from complete beginner to a cybersecurity career.</p>
+    </div>
+
+    <ol class="lp-journey">
+        {% for step in [
+            ("Beginner", "Start with zero assumptions", "🌱"),
+            ("Roadmaps", "Follow a structured path", "🗺️"),
+            ("Lessons", "Learn the theory", "📖"),
+            ("Quizzes", "Test your knowledge", "❓"),
+            ("Cyber Labs", "Practice hands-on", "🧪"),
+            ("CTFs", "Apply under pressure", "🏴"),
+            ("Achievements", "Track your milestones", "🏆"),
+            ("Certificates", "Prove your skills", "📜"),
+            ("Career", "Land the role", "💼"),
+        ] %}
+        <li class="lp-step">
+            <span class="lp-step__node">{{ step[2] }}</span>
+            <div class="lp-step__body">
+                <span class="lp-step__title">{{ step[0] }}</span>
+                <span class="lp-step__desc">{{ step[1] }}</span>
+            </div>
+        </li>
+        {% endfor %}
+    </ol>
+</section>
+
+<!-- ============ 4. Statistics ============ -->
+<section class="lp-section" id="stats">
+    <div class="lp-stats">
+        <div class="lp-stat" data-count="32">
+            <span class="lp-stat__value" data-target="32">0</span>
+            <span class="lp-stat__label">Lessons</span>
+        </div>
+        <div class="lp-stat" data-count="15">
+            <span class="lp-stat__value" data-target="15">0</span>
+            <span class="lp-stat__label">Interactive Labs</span>
+        </div>
+        <div class="lp-stat" data-count="50">
+            <span class="lp-stat__value" data-target="50" data-suffix="+">0</span>
+            <span class="lp-stat__label">CTF Challenges</span>
+        </div>
+        <div class="lp-stat" data-count="5000">
+            <span class="lp-stat__value" data-target="5000">0</span>
+            <span class="lp-stat__label">XP Available</span>
+        </div>
+    </div>
+</section>
+
+<!-- ============ 5. Why choose ============ -->
+<section class="lp-section lp-section--alt" id="why">
+    <div class="lp-section__head">
+        <span class="lp-kicker">Why YushaCyber</span>
+        <h2 class="lp-h2">Built for people who learn by doing</h2>
+    </div>
+
+    <div class="lp-why">
+        <article class="lp-why__card">
+            <div class="lp-why__icon">🛠️</div>
+            <h3 class="lp-why__title">Hands-on Practice</h3>
+            <p class="lp-why__text">Every concept is reinforced with labs and challenges, so you build real, demonstrable skills — not just theory.</p>
+        </article>
+        <article class="lp-why__card">
+            <div class="lp-why__icon">📐</div>
+            <h3 class="lp-why__title">Structured Learning</h3>
+            <p class="lp-why__text">Clear roadmaps guide you step by step, so you always know what to learn next and never feel lost.</p>
+        </article>
+        <article class="lp-why__card">
+            <div class="lp-why__icon">🎮</div>
+            <h3 class="lp-why__title">Gamified Progress</h3>
+            <p class="lp-why__text">XP, levels, achievements and certificates keep you motivated and make your progress visible.</p>
+        </article>
+    </div>
+</section>
+
+<!-- ============ 6. FAQ ============ -->
+<section class="lp-section" id="faq">
+    <div class="lp-section__head">
+        <span class="lp-kicker">FAQ</span>
+        <h2 class="lp-h2">Frequently asked questions</h2>
+    </div>
+
+    <div class="lp-faq">
+        {% for q, a in [
+            ("What is YushaCyber?", "YushaCyber is a hands-on cybersecurity learning platform. It combines structured roadmaps, lessons, quizzes, interactive labs and CTF challenges so you can learn ethical hacking and defensive security by actually doing it."),
+            ("Is it free?", "You can start learning right away by creating a free account and following the roadmaps, labs and challenges available on the platform."),
+            ("Do I need experience?", "No. The roadmaps begin with complete fundamentals and no assumptions, then gradually build up to advanced offensive and defensive topics at your own pace."),
+            ("Will I earn certificates?", "Yes. As you complete learning paths and meet their requirements, you earn certificates you can showcase — each with a unique verification code."),
+        ] %}
+        <details class="lp-faq__item">
+            <summary class="lp-faq__q">
+                <span>{{ q }}</span>
+                <span class="lp-faq__chev">+</span>
+            </summary>
+            <div class="lp-faq__a">{{ a }}</div>
+        </details>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="lp-cta">
+    <div class="lp-cta__inner">
+        <h2 class="lp-cta__title">Ready to start hacking — the right way?</h2>
+        <p class="lp-cta__sub">Create a free account and begin your first roadmap today.</p>
+        <a href="{{ url_for('auth.register') }}" class="btn btn--primary lp-btn">🚀 Get Started Free</a>
+    </div>
+</section>
+
+</main>
+
+<!-- ============ 7. Footer ============ -->
+<footer class="lp-foot">
+    <div class="lp-foot__inner">
+        <div class="lp-foot__brand">
+            <a href="{{ url_for('index') }}" class="lp-brand">
+                <span class="lp-brand__mark">&gt;_</span>
+                <span class="lp-brand__name">Yusha<span>Cyber</span></span>
+            </a>
+            <p class="lp-foot__tag">Master cybersecurity through real practice.</p>
+        </div>
+
+        <nav class="lp-foot__col" aria-label="Platform">
+            <h4>Platform</h4>
+            <a href="{{ url_for('roadmap.index') }}">Roadmaps</a>
+            <a href="{{ url_for('labs.index') }}">Labs</a>
+            <a href="{{ url_for('ctf.index') }}">CTFs</a>
+        </nav>
+
+        <nav class="lp-foot__col" aria-label="Company">
+            <h4>Company</h4>
+            <a href="#features">About</a>
+            <a href="https://github.com/ayushrijal83-ops" target="_blank" rel="noopener">GitHub</a>
+            <a href="#faq">Contact</a>
+        </nav>
+
+        <nav class="lp-foot__col" aria-label="Legal">
+            <h4>Legal</h4>
+            <a href="#faq">Privacy</a>
+            <a href="#faq">Terms</a>
+        </nav>
+    </div>
+    <div class="lp-foot__bar">
+        <p>YushaCyber © 2026 · Built for learners, by learners.</p>
+    </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+</body>
+</html>

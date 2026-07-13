@@ -1,0 +1,182 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'hints' %}
+{% block title %}Hints{% endblock %}
+{% block heading %}Hints{% endblock %}
+{% block subheading %}Add, edit and reorder hints for each challenge.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+{% set total_hints = groups | map(attribute='hints') | map('length') | sum %}
+{% set with_hints = groups | selectattr('hints') | list | length %}
+
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("help", 18) }}</span>
+        <span class="adm-stat__value">{{ total_hints }}</span>
+        <span class="adm-stat__label">Total Hints</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("flag", 18) }}</span>
+        <span class="adm-stat__value">{{ with_hints }}</span>
+        <span class="adm-stat__label">Challenges With Hints</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("layers", 18) }}</span>
+        <span class="adm-stat__value">{{ groups|length }}</span>
+        <span class="adm-stat__label">Total Challenges</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("lock", 18) }}</span>
+        <span class="adm-stat__value">{{ groups|length - with_hints }}</span>
+        <span class="adm-stat__label">Without Hints</span>
+    </article>
+</div>
+
+{# ---- Add hint ---- #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("zap", 16) }} Add hint</h2>
+    </header>
+    <form method="POST" action="{{ url_for('admin.ctf_hint_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="adm-grid">
+            <label class="adm-field">
+                <span class="adm-label">Challenge <em>*</em></span>
+                <select name="challenge_id" class="adm-input" required>
+                    {% for g in groups %}
+                    <option value="{{ g.id }}">{{ g.title }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Title</span>
+                <input type="text" name="title" class="adm-input" placeholder="Hint #1">
+            </label>
+            <label class="adm-field adm-field--narrow">
+                <span class="adm-label">Position</span>
+                <input type="number" name="display_order" class="adm-input" min="1" placeholder="auto">
+            </label>
+            <label class="adm-field adm-field--full">
+                <span class="adm-label">Content <em>*</em></span>
+                <textarea name="content" class="adm-input adm-textarea" rows="3" required
+                          placeholder="Nudge the player in the right direction…"></textarea>
+            </label>
+            <label class="adm-toggle">
+                <input type="checkbox" name="is_free" checked>
+                <span>Free hint</span>
+            </label>
+        </div>
+        <div class="adm-formfoot">
+            <button type="submit" class="btn btn--primary btn--sm">+ Add Hint</button>
+        </div>
+    </form>
+</section>
+
+{# ---- Search ---- #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("help", 16) }} All hints</h2>
+        <div class="adm-card__tools">
+            <div class="adm-search">
+                <span class="adm-search__icon">{{ icon("search", 14) }}</span>
+                <input type="search" id="adm-search" class="adm-search__input"
+                       placeholder="Search challenges…" aria-label="Search hints">
+            </div>
+        </div>
+    </header>
+
+    {% if total_hints == 0 %}
+    <div class="adm-empty">
+        <div class="adm-empty__art">{{ icon("help", 30) }}</div>
+        <h3 class="adm-empty__title">No hints yet</h3>
+        <p class="adm-empty__text">Add a hint above to help players who get stuck.</p>
+    </div>
+    {% else %}
+    <div id="adm-rows">
+        {% for g in groups %}
+        {% if g.hints %}
+        <div class="adm-group" data-search="{{ (g.title ~ ' ' ~ g.slug)|lower }}">
+            <div class="adm-group__head">
+                <span class="adm-group__title">{{ g.title }}</span>
+                <span class="adm-chip adm-chip--count">{{ g.hints|length }} hint{{ '' if g.hints|length == 1 else 's' }}</span>
+            </div>
+
+            {% for h in g.hints %}
+            <div class="adm-hint">
+                <form method="POST" action="{{ url_for('admin.ctf_hint_edit', hint_id=h.id) }}"
+                      class="adm-hint__form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="display_order" value="{{ h.display_order }}">
+
+                    <span class="adm-hint__pos">#{{ h.display_order }}</span>
+
+                    <input type="text" name="title" value="{{ h.title }}"
+                           class="adm-input adm-input--sm" aria-label="Hint title">
+                    <input type="text" name="content" value="{{ h.content }}"
+                           class="adm-input" required aria-label="Hint content">
+
+                    <label class="adm-toggle adm-toggle--tight">
+                        <input type="checkbox" name="is_free" {% if h.is_free %}checked{% endif %}>
+                        <span>Free</span>
+                    </label>
+
+                    <button type="submit" class="adm-btn adm-btn--edit">
+                        {{ icon("shield", 14) }}<span>Save</span>
+                    </button>
+                </form>
+
+                <div class="adm-hint__actions">
+                    <form method="POST" action="{{ url_for('admin.ctf_hint_reorder', hint_id=h.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="direction" value="up">
+                        <button type="submit" class="adm-btn adm-btn--ghost adm-btn--icon" title="Move up">↑</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.ctf_hint_reorder', hint_id=h.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="direction" value="down">
+                        <button type="submit" class="adm-btn adm-btn--ghost adm-btn--icon" title="Move down">↓</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.ctf_hint_delete', hint_id=h.id) }}"
+                          data-confirm="Delete this hint? This cannot be undone.">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="adm-btn adm-btn--del adm-btn--icon" title="Delete hint">
+                            {{ icon("flame", 14) }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="adm-empty adm-empty--inline" id="adm-noresults" hidden>
+        <div class="adm-empty__art">{{ icon("search", 26) }}</div>
+        <h3 class="adm-empty__title">No matching challenges</h3>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const input = document.getElementById("adm-search");
+    const groups = Array.from(document.querySelectorAll("#adm-rows .adm-group"));
+    const noResults = document.getElementById("adm-noresults");
+    if (!input || !groups.length) return;
+    input.addEventListener("input", () => {
+        const q = input.value.trim().toLowerCase();
+        let shown = 0;
+        groups.forEach((g) => {
+            const match = !q || g.dataset.search.includes(q);
+            g.style.display = match ? "" : "none";
+            if (match) shown++;
+        });
+        noResults.hidden = shown !== 0;
+    });
+})();
+</script>
+{% endblock %}

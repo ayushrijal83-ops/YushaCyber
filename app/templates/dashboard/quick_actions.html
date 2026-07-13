@@ -1,0 +1,13 @@
+{% from "dashboard/_icons.html" import icon %}
+
+<section class="dash-section" aria-labelledby="actions-title">
+    <h2 class="dash-section__title" id="actions-title">Quick Actions</h2>
+    <div class="actions">
+        {% for action in quick_actions %}
+        <a href="{{ action.url }}" class="action-btn action-btn--{{ action.style }}">
+            {{ icon(action.icon, 19) }}
+            <span>{{ action.label }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>

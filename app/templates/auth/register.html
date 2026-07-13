@@ -1,0 +1,73 @@
+{% extends "auth/base.html" %}
+
+{% block title %}Create account — YushaCyber{% endblock %}
+{% block eyebrow %}// new operative{% endblock %}
+{% block heading %}Welcome to Yusha<span class="accent">Cyber</span>{% endblock %}
+{% block subtitle %}<p class="auth-card__subtitle">Create your account and start your journey.</p>{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('auth.register') }}" class="auth-form" id="register-form" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="auth-field {% if form.username.errors %}auth-field--invalid{% endif %}">
+        {{ form.username.label(class="auth-field__label") }}
+        {{ form.username(class="auth-field__input", placeholder="e.g. zer0day_zoe",
+                         autocomplete="username", spellcheck="false",
+                         **{"aria-describedby": "username-errors"}) }}
+        <div class="auth-field__errors" id="username-errors">
+            {% for error in form.username.errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    <div class="auth-field {% if form.email.errors %}auth-field--invalid{% endif %}">
+        {{ form.email.label(class="auth-field__label") }}
+        {{ form.email(class="auth-field__input", placeholder="you@example.com",
+                      autocomplete="email", type="email",
+                      **{"aria-describedby": "email-errors"}) }}
+        <div class="auth-field__errors" id="email-errors">
+            {% for error in form.email.errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    <div class="auth-field {% if form.password.errors %}auth-field--invalid{% endif %}">
+        {{ form.password.label(class="auth-field__label") }}
+        <div class="auth-field__wrap">
+            {{ form.password(class="auth-field__input", placeholder="Minimum 8 characters",
+                             autocomplete="new-password", id="password",
+                             **{"aria-describedby": "password-errors password-strength"}) }}
+            <button type="button" class="auth-field__toggle" data-toggle-password="password"
+                    aria-label="Show password" aria-pressed="false">👁</button>
+        </div>
+        <div class="auth-strength" id="password-strength" data-strength-for="password" aria-live="polite">
+            <div class="auth-strength__bars" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+            </div>
+            <p class="auth-strength__label">Password strength</p>
+        </div>
+        <div class="auth-field__errors" id="password-errors">
+            {% for error in form.password.errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    <div class="auth-field {% if form.confirm_password.errors %}auth-field--invalid{% endif %}">
+        {{ form.confirm_password.label(class="auth-field__label") }}
+        <div class="auth-field__wrap">
+            {{ form.confirm_password(class="auth-field__input", placeholder="Repeat your password",
+                                     autocomplete="new-password", id="confirm-password",
+                                     **{"data-match": "password",
+                                        "aria-describedby": "confirm-errors"}) }}
+            <button type="button" class="auth-field__toggle" data-toggle-password="confirm-password"
+                    aria-label="Show password" aria-pressed="false">👁</button>
+        </div>
+        <div class="auth-field__errors" id="confirm-errors">
+            {% for error in form.confirm_password.errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    {{ form.submit(class="btn btn--primary auth-form__submit", **{"data-loading-text": "Creating account…"}) }}
+</form>
+
+<p class="auth-card__switch">
+    Already have an account? <a href="{{ url_for('auth.login') }}">Login</a>
+</p>
+{% endblock %}

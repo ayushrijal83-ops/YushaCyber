@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Certificates — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            {# ---- Header ---- #}
+            <header class="ach-head">
+                <h1 class="ach-head__title">🏅 My Certificates</h1>
+                <div class="ach-head__stats">
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.total }}</span>
+                        <span class="ach-head__stat-label">Total</span>
+                    </div>
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.earned }}</span>
+                        <span class="ach-head__stat-label">Earned</span>
+                    </div>
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.remaining }}</span>
+                        <span class="ach-head__stat-label">Remaining</span>
+                    </div>
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.percentage }}%</span>
+                        <span class="ach-head__stat-label">Complete</span>
+                    </div>
+                </div>
+
+                {# ---- Progress bar ---- #}
+                <div class="progress-bar progress-bar--banner ach-head__bar">
+                    <div class="progress-bar__fill" style="width: {{ statistics.percentage }}%"></div>
+                </div>
+            </header>
+
+            {% if statistics.total == 0 %}
+            <section class="ach-empty">
+                <div class="ach-empty__icon">{{ icon("file-text", 30) }}</div>
+                <h2 class="ach-empty__title">No certificates available yet.</h2>
+            </section>
+            {% else %}
+
+            {# ---- Filter tabs ---- #}
+            <div class="ach-filters" role="tablist" aria-label="Certificate filters">
+                <button class="ach-filter is-active" data-filter="all">All</button>
+                <button class="ach-filter" data-filter="earned">Earned</button>
+                <button class="ach-filter" data-filter="locked">Locked</button>
+                <button class="ach-filter" data-filter="foundations">Foundations</button>
+                <button class="ach-filter" data-filter="offensive">Offensive</button>
+                <button class="ach-filter" data-filter="defensive">Defensive</button>
+                <button class="ach-filter" data-filter="special">Special</button>
+            </div>
+
+            {# ---- Empty state (nothing earned yet) ---- #}
+            {% if not has_any_earned %}
+            <section class="ach-empty" id="cert-empty-earned">
+                <div class="ach-empty__icon">{{ icon("file-text", 30) }}</div>
+                <h2 class="ach-empty__title">No certificates earned yet.</h2>
+                <p class="ach-empty__text">Complete learning paths to unlock certificates.</p>
+                <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary">Go to Roadmap</a>
+            </section>
+            {% endif %}
+
+            {# ---- Certificate grid ---- #}
+            <section class="ach-grid" id="cert-grid" aria-label="Certificates">
+                {% for c in certificates %}
+                <article class="cert-card ach-card ach-card--{{ 'unlocked' if c.earned else 'locked' }}"
+                         data-earned="{{ '1' if c.earned else '0' }}"
+                         data-category="{{ c.category }}">
+                    <div class="ach-card__icon">{{ icon(c.icon, 22) }}</div>
+                    <div class="ach-card__body">
+                        <div class="ach-card__top">
+                            <h3 class="ach-card__title">{{ c.title }}</h3>
+                            {% if c.earned %}
+                            <span class="ach-card__status ach-card__status--unlocked">✓ Earned</span>
+                            {% else %}
+                            <span class="ach-card__status ach-card__status--locked">🔒 Locked</span>
+                            {% endif %}
+                        </div>
+                        <p class="ach-card__desc">{{ c.description }}</p>
+
+                        <div class="ach-card__meta">
+                            <span class="ach-card__badge">{{ c.category|capitalize }}</span>
+                            {% if c.earned %}
+                            <span class="cert-card__code">{{ c.certificate_code }}</span>
+                            <span class="ach-card__date">{{ c.issued_date }}</span>
+                            {% else %}
+                            <span class="cert-card__req">{{ c.requirement_summary }}</span>
+                            {% endif %}
+                        </div>
+
+                        {% if c.earned %}
+                        <div class="cert-card__actions">
+                            <button type="button" class="btn btn--outline btn--sm" disabled>View</button>
+                            <button type="button" class="btn btn--outline btn--sm" disabled>Download</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            </section>
+
+            {% endif %}
+
+            {% include "dashboard/footer.html" %}
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+(function () {
+    const filters = document.querySelectorAll(".ach-filter");
+    const cards = Array.from(document.querySelectorAll(".cert-card"));
+    if (!filters.length) return;
+
+    function apply(filter) {
+        cards.forEach((card) => {
+            const earned = card.dataset.earned === "1";
+            const category = card.dataset.category;
+            let show = true;
+            if (filter === "earned") show = earned;
+            else if (filter === "locked") show = !earned;
+            else if (filter === "all") show = true;
+            else show = (category === filter);
+            card.style.display = show ? "" : "none";
+        });
+    }
+
+    filters.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            filters.forEach((b) => b.classList.remove("is-active"));
+            btn.classList.add("is-active");
+            apply(btn.dataset.filter);
+        });
+    });
+})();
+</script>
+</body>
+</html>

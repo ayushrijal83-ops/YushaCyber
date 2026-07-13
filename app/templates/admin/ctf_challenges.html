@@ -1,0 +1,168 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'challenges' %}
+{% block title %}Challenges{% endblock %}
+{% block heading %}Challenges{% endblock %}
+{% block subheading %}Create, edit and publish CTF challenges.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+{% set active_count = challenges | selectattr('is_active') | list | length %}
+{% set total_hints = challenges | sum(attribute='hint_count') %}
+
+{# ---- Statistics ---- #}
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("flag", 18) }}</span>
+        <span class="adm-stat__value">{{ challenges|length }}</span>
+        <span class="adm-stat__label">Total Challenges</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("shield", 18) }}</span>
+        <span class="adm-stat__value">{{ active_count }}</span>
+        <span class="adm-stat__label">Active Challenges</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("layers", 18) }}</span>
+        <span class="adm-stat__value">{{ challenges | map(attribute='category') | unique | list | length }}</span>
+        <span class="adm-stat__label">Categories Used</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("help", 18) }}</span>
+        <span class="adm-stat__value">{{ total_hints }}</span>
+        <span class="adm-stat__label">Total Hints</span>
+    </article>
+</div>
+
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("flag", 16) }} All challenges</h2>
+        <div class="adm-card__tools">
+            <div class="adm-search">
+                <span class="adm-search__icon">{{ icon("search", 14) }}</span>
+                <input type="search" id="adm-search" class="adm-search__input"
+                       placeholder="Search by title, category or difficulty…"
+                       aria-label="Search challenges">
+            </div>
+            <a href="{{ url_for('admin.ctf_challenge_new') }}" class="btn btn--primary btn--sm">
+                + New Challenge
+            </a>
+        </div>
+    </header>
+
+    {% if not challenges %}
+    {# ---- Empty state ---- #}
+    <div class="adm-empty">
+        <div class="adm-empty__art">{{ icon("flag", 30) }}</div>
+        <h3 class="adm-empty__title">No challenges yet</h3>
+        <p class="adm-empty__text">Create your first challenge to get the CTF arena started.</p>
+        <a href="{{ url_for('admin.ctf_challenge_new') }}" class="btn btn--primary btn--sm">
+            + Create Challenge
+        </a>
+    </div>
+    {% else %}
+
+    {# ---- Data table ---- #}
+    <div class="adm-table" role="table">
+        <div class="adm-table__head" role="row">
+            <span>Challenge</span>
+            <span>Category</span>
+            <span>Difficulty</span>
+            <span class="adm-num">Points</span>
+            <span class="adm-num">XP</span>
+            <span class="adm-num">Hints</span>
+            <span>Status</span>
+            <span class="adm-right">Actions</span>
+        </div>
+
+        <div id="adm-rows">
+            {% for ch in challenges %}
+            <div class="adm-table__row" role="row"
+                 data-search="{{ (ch.title ~ ' ' ~ ch.category ~ ' ' ~ ch.difficulty ~ ' ' ~ ch.slug)|lower }}">
+                <span class="adm-cell adm-cell--main">
+                    <span class="adm-cell__title">{{ ch.title }}</span>
+                    <span class="adm-cell__meta">
+                        {{ ch.slug }}{% if ch.author %} · by {{ ch.author }}{% endif %}
+                    </span>
+                </span>
+
+                <span class="adm-cell" data-label="Category">
+                    <span class="adm-chip">{{ ch.category }}</span>
+                </span>
+
+                <span class="adm-cell" data-label="Difficulty">
+                    <span class="adm-diff adm-diff--{{ ch.difficulty|lower }}">{{ ch.difficulty }}</span>
+                </span>
+
+                <span class="adm-cell adm-num" data-label="Points">{{ ch.points }}</span>
+                <span class="adm-cell adm-num" data-label="XP">{{ ch.xp_reward }}</span>
+                <span class="adm-cell adm-num" data-label="Hints">{{ ch.hint_count }}</span>
+
+                <span class="adm-cell" data-label="Status">
+                    {% if ch.is_active %}
+                    <span class="adm-state adm-state--on">● Active</span>
+                    {% else %}
+                    <span class="adm-state adm-state--off">● Inactive</span>
+                    {% endif %}
+                </span>
+
+                <span class="adm-cell adm-cell--actions">
+                    <a href="{{ url_for('ctf.index') }}" class="adm-btn adm-btn--ghost"
+                       title="Preview in CTF arena">{{ icon("search", 14) }}<span>Preview</span></a>
+
+                    <a href="{{ url_for('admin.ctf_challenge_edit', challenge_id=ch.id) }}"
+                       class="adm-btn adm-btn--edit" title="Edit challenge">
+                       {{ icon("settings", 14) }}<span>Edit</span></a>
+
+                    <form method="POST"
+                          action="{{ url_for('admin.ctf_challenge_delete', challenge_id=ch.id) }}"
+                          data-confirm="Delete &quot;{{ ch.title }}&quot;? Its hints and solve records will be permanently removed.">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="adm-btn adm-btn--del" title="Delete challenge">
+                            {{ icon("flame", 14) }}<span>Delete</span>
+                        </button>
+                    </form>
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# ---- No search results ---- #}
+        <div class="adm-empty adm-empty--inline" id="adm-noresults" hidden>
+            <div class="adm-empty__art">{{ icon("search", 26) }}</div>
+            <h3 class="adm-empty__title">No matching challenges</h3>
+            <p class="adm-empty__text">Try a different search term.</p>
+        </div>
+    </div>
+
+    <footer class="adm-tablefoot">
+        <span id="adm-count">Showing {{ challenges|length }} of {{ challenges|length }}</span>
+    </footer>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const input = document.getElementById("adm-search");
+    const rows = Array.from(document.querySelectorAll("#adm-rows .adm-table__row"));
+    const noResults = document.getElementById("adm-noresults");
+    const count = document.getElementById("adm-count");
+    if (!input || !rows.length) return;
+
+    const total = rows.length;
+    input.addEventListener("input", () => {
+        const q = input.value.trim().toLowerCase();
+        let shown = 0;
+        rows.forEach((row) => {
+            const match = !q || row.dataset.search.includes(q);
+            row.style.display = match ? "" : "none";
+            if (match) shown++;
+        });
+        noResults.hidden = shown !== 0;
+        count.textContent = "Showing " + shown + " of " + total;
+    });
+})();
+</script>
+{% endblock %}

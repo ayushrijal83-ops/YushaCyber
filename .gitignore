@@ -1,0 +1,19 @@
+instance/
+.env
+__pycache__/
+# Environment & secrets
+.env
+
+# Local database
+instance/
+*.db
+*.db.backup
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Repair scripts / scratch
+fix_lab_columns.py
+check_*.py

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ resource.title }} — YushaCyber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/resources.css') }}">
+</head>
+<body class="dash-body">
+{% from "dashboard/_icons.html" import icon %}
+<div class="dash">
+    {% include "dashboard/sidebar.html" %}
+    <div class="dash__main">
+        {% include "dashboard/topbar.html" %}
+        <main class="dash__content">
+
+            <a href="{{ url_for('resources.category', category_slug=category.slug) }}" class="rm-back">
+                ← {{ category.name }}
+            </a>
+
+            <article class="rs-article">
+                <header class="rs-article__head">
+                    <div class="rs-article__meta">
+                        <span class="rs-diff rs-diff--{{ resource.difficulty|lower }}">{{ resource.difficulty }}</span>
+                        <span class="rs-chip">{{ category.name }}</span>
+                        {% if resource.read_minutes %}
+                        <span class="rs-time">⏱ {{ resource.read_minutes }} min read</span>
+                        {% endif %}
+                    </div>
+                    <h1 class="rs-article__title">{{ resource.title }}</h1>
+                    {% if resource.summary %}
+                    <p class="rs-article__summary">{{ resource.summary }}</p>
+                    {% endif %}
+                </header>
+
+                <div class="rs-article__body">
+                    {% if resource.content %}
+                        {% for para in resource.content.split('\n\n') %}
+                            {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="rs-muted">Content coming soon.</p>
+                    {% endif %}
+                </div>
+            </article>
+
+            {% if related %}
+            <section class="rs-related">
+                <h2 class="rs-h2">More in {{ category.name }}</h2>
+                <div class="rs-grid">
+                    {% for r in related %}{% include "resources/_card.html" %}{% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% include "dashboard/footer.html" %}
+        </main>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Labs — YushaCyber</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="dash-body">
+<div class="dash">
+    {% include "dashboard/sidebar.html" %}
+    <div class="dash__main">
+        {% include "dashboard/topbar.html" %}
+        <main class="dash__content">
+            <header class="ctf-head">
+                <h1 class="ctf-head__title">🧪 Cyber Labs</h1>
+                <p class="ctf-head__sub">Hands-on labs across {{ categories|length }} categories · {{ labs|length }} labs.</p>
+            </header>
+            {# Placeholder — full UI is a later ticket (YC-011.1 is backend only). #}
+            {% for cat in categories %}
+            <section class="ctf-category">
+                <h2 class="ctf-category__title">{{ cat.name }}</h2>
+                <ul>
+                    {% for lab in cat.labs %}
+                    {% if lab.is_active %}
+                    <li><a href="{{ url_for('labs.detail', slug=lab.slug) }}">{{ lab.title }}</a>
+                        — {{ lab.difficulty }} · {{ lab.estimated_minutes }}m · +{{ lab.xp_reward }} XP</li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endfor %}
+            {% include "dashboard/footer.html" %}
+        </main>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

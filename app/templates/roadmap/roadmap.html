@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roadmap — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='roadmap/css/roadmap.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {# Shared authenticated shell — same sidebar/topbar as the dashboard #}
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {# ---- Hero ---- #}
+            <section class="rm-hero" aria-labelledby="rm-title">
+                <p class="rm-hero__eyebrow">// choose your path</p>
+                <h1 class="rm-hero__title" id="rm-title">Cybersecurity Roadmap</h1>
+                <p class="rm-hero__subtitle">Master cybersecurity step by step with structured learning paths.</p>
+            </section>
+
+            {# ---- Roadmap categories (dynamic, from the service layer) ---- #}
+            {% from "dashboard/_icons.html" import icon %}
+            {% if categories %}
+            <div class="rm-categories">
+                {% for category in categories %}
+                <section class="rm-cat rm-cat--{{ category.color }}" aria-label="{{ category.title }} category">
+                    <header class="rm-cat__head">
+                        <div class="rm-cat__icon">{{ icon(category.icon, 24) }}</div>
+                        <div class="rm-cat__heading">
+                            <h2 class="rm-cat__title">{{ category.title }}</h2>
+                            <p class="rm-cat__desc">{{ category.description or "Structured learning path." }}</p>
+                        </div>
+                        <div class="rm-cat__stats">
+                            <span class="rm-cat__stat">{{ category.module_count }} module{{ "s" if category.module_count != 1 }}</span>
+                            <span class="rm-cat__stat">{{ category.lesson_count }} lesson{{ "s" if category.lesson_count != 1 }}</span>
+                            <span class="rm-cat__stat rm-cat__stat--xp">+{{ "{:,}".format(category.total_xp) }} XP</span>
+                        </div>
+                    </header>
+
+                    <div class="rm-cat__progress">
+                        <div class="rm-cat__progress-head">
+                            <span class="rm-cat__progress-label">Progress</span>
+                            <span class="rm-cat__progress-pct">{{ category.progress_percent }}%</span>
+                        </div>
+                        <div class="progress-bar progress-bar--banner">
+                            <div class="progress-bar__fill" style="width: {{ category.progress_percent }}%"></div>
+                        </div>
+                        {% set first_module = category.modules[0] if category.modules else None %}
+                        {% if first_module %}
+                        <a href="{{ url_for('roadmap.module_detail', module_slug=first_module.slug) }}"
+                           class="btn btn--primary btn--sm rm-cat__continue">Continue →</a>
+                        {% endif %}
+                    </div>
+
+                    <ul class="rm-modules rm-modules--stacked">
+                        {% for module in category.modules %}
+                        <li class="rm-module-block rm-module-block--{{ module.status }}">
+                            <div class="rm-module-block__head">
+                                <div class="rm-module__info">
+                                    <h3 class="rm-module__title">{{ module.title }}</h3>
+                                    <div class="rm-module__meta">
+                                        <span class="rm-module__tag">{{ module.difficulty|capitalize }}</span>
+                                        <span class="rm-module__tag">⏱ {{ module.estimated_hours }}h</span>
+                                        <span class="rm-module__tag rm-module__tag--xp">+{{ module.xp_reward }} XP</span>
+                                        <span class="rm-module__tag">{{ module.lesson_count }} lesson{{ "s" if module.lesson_count != 1 }}</span>
+                                        <span class="rm-module__tag">{{ module.progress_percent }}% done</span>
+                                    </div>
+                                </div>
+                                <div class="rm-module__action">
+                                    {% if module.status == "completed" %}
+                                    <span class="rm-module__badge rm-module__badge--done">✅ Completed</span>
+                                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--outline btn--sm">Review</a>
+                                    {% elif module.status == "available" %}
+                                    <span class="rm-module__badge rm-module__badge--open">🟢 Available</span>
+                                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--primary btn--sm">Start Learning</a>
+                                    {% else %}
+                                    <span class="rm-module__badge rm-module__badge--locked">🔒 Locked</span>
+                                    <a href="{{ url_for('roadmap.module_detail', module_slug=module.slug) }}" class="btn btn--outline btn--sm">View</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if module.lessons %}
+                            <ul class="rm-lesson-rows">
+                                {% for lesson in module.lessons %}
+                                <li class="rm-lesson-row {% if not lesson.is_preview %}rm-lesson-row--locked{% endif %}">
+                                    <span class="rm-lesson-row__title">{{ lesson.title }}</span>
+                                    <span class="rm-module__tag">{{ lesson.lesson_type|capitalize }}</span>
+                                    <span class="rm-module__tag">⏱ {{ lesson.estimated_minutes }} min</span>
+                                    <span class="rm-module__tag rm-module__tag--xp">+{{ lesson.xp_reward }} XP</span>
+                                    {% if lesson.is_preview %}
+                                    <span class="rm-lesson-row__badge rm-lesson-row__badge--preview">Preview</span>
+                                    {% endif %}
+                                    {% if lesson.completed %}
+                                    <span class="rm-lesson-row__badge rm-lesson-row__badge--done">✓ Completed</span>
+                                    {% endif %}
+                                    <a href="{{ url_for('roadmap.lesson_view', module_slug=lesson.module_slug, lesson_slug=lesson.slug) }}"
+                                       class="btn btn--outline btn--sm rm-lesson-row__btn">Start Lesson</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endfor %}
+            </div>
+            {% else %}
+            <section class="rm-empty" aria-label="No roadmap content">
+                <div class="rm-empty__icon">{{ icon("map", 26) }}</div>
+                <h2 class="rm-empty__title">No roadmap content available.</h2>
+            </section>
+            {% endif %}
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='roadmap/js/roadmap.js') }}"></script>
+</body>
+</html>

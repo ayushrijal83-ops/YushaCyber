@@ -1,0 +1,16 @@
+{# Shared resource card. Expects `r` (a card dict from _card()). #}
+<a href="{{ url_for('resources.resource', category_slug=r.category_slug, resource_slug=r.slug) }}"
+   class="rs-card">
+    <div class="rs-card__top">
+        <span class="rs-diff rs-diff--{{ r.difficulty|lower }}">{{ r.difficulty }}</span>
+        {% if r.featured %}<span class="rs-star" title="Featured">★</span>{% endif %}
+    </div>
+    <h3 class="rs-card__title">{{ r.title }}</h3>
+    <p class="rs-card__summary">{{ r.summary }}</p>
+    <div class="rs-card__foot">
+        <span class="rs-chip">{{ r.category_name }}</span>
+        {% if r.read_minutes %}
+        <span class="rs-time">⏱ {{ r.read_minutes }} min read</span>
+        {% endif %}
+    </div>
+</a>

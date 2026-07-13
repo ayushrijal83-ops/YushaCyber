@@ -1,0 +1,179 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'categories' %}
+{% block title %}Categories{% endblock %}
+{% block heading %}Categories{% endblock %}
+{% block subheading %}Group your challenges into categories.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+{% set active_cats = categories | selectattr('is_active') | list | length %}
+{% set total_ch = categories | sum(attribute='challenge_count') %}
+
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("layers", 18) }}</span>
+        <span class="adm-stat__value">{{ categories|length }}</span>
+        <span class="adm-stat__label">Total Categories</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("shield", 18) }}</span>
+        <span class="adm-stat__value">{{ active_cats }}</span>
+        <span class="adm-stat__label">Active Categories</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("flag", 18) }}</span>
+        <span class="adm-stat__value">{{ total_ch }}</span>
+        <span class="adm-stat__label">Challenges Assigned</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("lock", 18) }}</span>
+        <span class="adm-stat__value">{{ categories | rejectattr('challenge_count') | list | length }}</span>
+        <span class="adm-stat__label">Empty (Deletable)</span>
+    </article>
+</div>
+
+{# ---- Create ---- #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("zap", 16) }} Add category</h2>
+    </header>
+    <form method="POST" action="{{ url_for('admin.ctf_category_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="adm-grid">
+            <label class="adm-field">
+                <span class="adm-label">Name <em>*</em></span>
+                <input type="text" name="name" class="adm-input" required placeholder="Web Security">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Slug</span>
+                <input type="text" name="slug" class="adm-input" placeholder="auto from name">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Icon</span>
+                <input type="text" name="icon" class="adm-input" value="flag">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Order</span>
+                <input type="number" name="display_order" class="adm-input" value="0">
+            </label>
+            <label class="adm-field adm-field--wide">
+                <span class="adm-label">Description</span>
+                <input type="text" name="description" class="adm-input" placeholder="What this category covers">
+            </label>
+            <label class="adm-toggle">
+                <input type="checkbox" name="is_active" checked>
+                <span>Active</span>
+            </label>
+        </div>
+        <div class="adm-formfoot">
+            <button type="submit" class="btn btn--primary btn--sm">+ Create Category</button>
+        </div>
+    </form>
+</section>
+
+{# ---- List ---- #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("layers", 16) }} All categories</h2>
+        <div class="adm-card__tools">
+            <div class="adm-search">
+                <span class="adm-search__icon">{{ icon("search", 14) }}</span>
+                <input type="search" id="adm-search" class="adm-search__input"
+                       placeholder="Search categories…" aria-label="Search categories">
+            </div>
+        </div>
+    </header>
+
+    {% if not categories %}
+    <div class="adm-empty">
+        <div class="adm-empty__art">{{ icon("layers", 30) }}</div>
+        <h3 class="adm-empty__title">No categories yet</h3>
+        <p class="adm-empty__text">Add a category above to start organising challenges.</p>
+    </div>
+    {% else %}
+    <div class="adm-list" id="adm-rows">
+        {% for c in categories %}
+        <div class="adm-item" data-search="{{ (c.name ~ ' ' ~ c.slug)|lower }}">
+            <form method="POST" action="{{ url_for('admin.ctf_category_edit', category_id=c.id) }}"
+                  class="adm-item__form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="description" value="{{ c.description or '' }}">
+
+                <span class="adm-item__icon">{{ icon(c.icon or "flag", 16) }}</span>
+
+                <label class="adm-inline">
+                    <span class="adm-label">Name</span>
+                    <input type="text" name="name" value="{{ c.name }}" class="adm-input adm-input--sm" required>
+                </label>
+                <label class="adm-inline">
+                    <span class="adm-label">Slug</span>
+                    <input type="text" name="slug" value="{{ c.slug }}" class="adm-input adm-input--sm">
+                </label>
+                <label class="adm-inline adm-inline--xs">
+                    <span class="adm-label">Icon</span>
+                    <input type="text" name="icon" value="{{ c.icon }}" class="adm-input adm-input--xs">
+                </label>
+                <label class="adm-inline adm-inline--xs">
+                    <span class="adm-label">Order</span>
+                    <input type="number" name="display_order" value="{{ c.display_order }}" class="adm-input adm-input--xs">
+                </label>
+
+                <label class="adm-toggle adm-toggle--tight">
+                    <input type="checkbox" name="is_active" {% if c.is_active %}checked{% endif %}>
+                    <span>Active</span>
+                </label>
+
+                <span class="adm-chip adm-chip--count">
+                    {{ c.challenge_count }} challenge{{ '' if c.challenge_count == 1 else 's' }}
+                </span>
+
+                <button type="submit" class="adm-btn adm-btn--edit">{{ icon("shield", 14) }}<span>Save</span></button>
+            </form>
+
+            <form method="POST" action="{{ url_for('admin.ctf_category_delete', category_id=c.id) }}"
+                  class="adm-item__del"
+                  {% if not c.challenge_count %}
+                  data-confirm="Delete category &quot;{{ c.name }}&quot;? This cannot be undone."
+                  {% endif %}>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="adm-btn adm-btn--del"
+                        {% if c.challenge_count %}disabled title="Remove its challenges first"{% endif %}>
+                    {{ icon("flame", 14) }}<span>Delete</span>
+                </button>
+                {% if c.challenge_count %}
+                <span class="adm-protect">🔒 Protected</span>
+                {% endif %}
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="adm-empty adm-empty--inline" id="adm-noresults" hidden>
+        <div class="adm-empty__art">{{ icon("search", 26) }}</div>
+        <h3 class="adm-empty__title">No matching categories</h3>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const input = document.getElementById("adm-search");
+    const rows = Array.from(document.querySelectorAll("#adm-rows .adm-item"));
+    const noResults = document.getElementById("adm-noresults");
+    if (!input || !rows.length) return;
+    input.addEventListener("input", () => {
+        const q = input.value.trim().toLowerCase();
+        let shown = 0;
+        rows.forEach((row) => {
+            const match = !q || row.dataset.search.includes(q);
+            row.style.display = match ? "" : "none";
+            if (match) shown++;
+        });
+        noResults.hidden = shown !== 0;
+    });
+})();
+</script>
+{% endblock %}

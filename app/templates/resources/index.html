@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resources — YushaCyber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/resources.css') }}">
+</head>
+<body class="dash-body">
+{% from "dashboard/_icons.html" import icon %}
+<div class="dash">
+    {% include "dashboard/sidebar.html" %}
+    <div class="dash__main">
+        {% include "dashboard/topbar.html" %}
+        <main class="dash__content">
+
+            <header class="rs-head">
+                <h1 class="rs-head__title">📖 Cyber Resources</h1>
+                <p class="rs-head__sub">A categorised knowledge library — {{ total }} references across {{ categories|length }} topics.</p>
+
+                <form method="GET" action="{{ url_for('resources.index') }}" class="rs-search" role="search">
+                    {{ icon("search", 16) }}
+                    <input type="search" name="q" value="{{ query }}" class="rs-search__input"
+                           placeholder="Search resources by title, summary or category…"
+                           aria-label="Search resources">
+                    <button type="submit" class="btn btn--primary btn--sm">Search</button>
+                </form>
+            </header>
+
+            <div class="rs-layout">
+
+                {# ---- Category sidebar ---- #}
+                <aside class="rs-side" aria-label="Categories">
+                    <h2 class="rs-side__title">Categories</h2>
+                    <nav class="rs-cats">
+                        {% for c in categories %}
+                        <a href="{{ url_for('resources.category', category_slug=c.slug) }}" class="rs-cat">
+                            <span class="rs-cat__icon">{{ icon(c.icon or "book", 15) }}</span>
+                            <span class="rs-cat__name">{{ c.name }}</span>
+                            <span class="rs-cat__count">{{ c.count }}</span>
+                        </a>
+                        {% endfor %}
+                    </nav>
+                </aside>
+
+                <div class="rs-main">
+
+                    {% if has_query %}
+                    {# ---- Search results ---- #}
+                    <section>
+                        <h2 class="rs-h2">
+                            {{ results|length }} result{{ '' if results|length == 1 else 's' }} for “{{ query }}”
+                        </h2>
+                        {% if results %}
+                        <div class="rs-grid">
+                            {% for r in results %}{% include "resources/_card.html" %}{% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="rs-empty">
+                            <div class="rs-empty__art">{{ icon("search", 28) }}</div>
+                            <h3>No resources found</h3>
+                            <p>Try a different search term, or browse by category.</p>
+                            <a href="{{ url_for('resources.index') }}" class="btn btn--outline btn--sm">Clear search</a>
+                        </div>
+                        {% endif %}
+                    </section>
+
+                    {% else %}
+
+                    {# ---- Featured ---- #}
+                    {% if featured %}
+                    <section>
+                        <h2 class="rs-h2">⭐ Featured</h2>
+                        <div class="rs-grid">
+                            {% for r in featured %}{% include "resources/_card.html" %}{% endfor %}
+                        </div>
+                    </section>
+                    {% endif %}
+
+                    {# ---- Popular ---- #}
+                    {% if popular %}
+                    <section>
+                        <h2 class="rs-h2">🔥 Popular resources</h2>
+                        <div class="rs-grid">
+                            {% for r in popular %}{% include "resources/_card.html" %}{% endfor %}
+                        </div>
+                    </section>
+                    {% endif %}
+
+                    {% if not featured and not popular %}
+                    <div class="rs-empty">
+                        <div class="rs-empty__art">{{ icon("book", 28) }}</div>
+                        <h3>No resources yet</h3>
+                        <p>Run <code>flask seed-resources</code> to populate the library.</p>
+                    </div>
+                    {% endif %}
+
+                    {% endif %}
+                </div>
+            </div>
+
+            {% include "dashboard/footer.html" %}
+        </main>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

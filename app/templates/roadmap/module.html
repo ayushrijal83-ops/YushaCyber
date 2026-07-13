@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ module.title }} — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='roadmap/css/roadmap.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            <a href="{{ url_for('roadmap.index') }}" class="rm-back">← Back to roadmap</a>
+
+            {# ---- Module header ---- #}
+            <section class="rm-mod-hero" aria-labelledby="mod-title">
+                <div class="rm-mod-hero__top">
+                    <h1 class="rm-mod-hero__title" id="mod-title">{{ module.title }}</h1>
+                    {% if module.status == "completed" %}
+                    <span class="rm-module__badge rm-module__badge--done">✅ Completed</span>
+                    {% elif module.status == "available" %}
+                    <span class="rm-module__badge rm-module__badge--open">🟢 Available</span>
+                    {% else %}
+                    <span class="rm-module__badge rm-module__badge--locked">🔒 Locked</span>
+                    {% endif %}
+                </div>
+                {% if module.description %}
+                <p class="rm-mod-hero__desc">{{ module.description }}</p>
+                {% endif %}
+                <div class="rm-mod-hero__meta">
+                    <span class="rm-module__tag">{{ module.difficulty|capitalize }}</span>
+                    <span class="rm-module__tag">⏱ {{ module.estimated_hours }}h</span>
+                    <span class="rm-module__tag rm-module__tag--xp">+{{ module.xp_reward }} XP</span>
+                </div>
+                {% if module.has_quiz %}
+                <div class="rm-mod-hero__actions">
+                    <a href="{{ url_for('roadmap.quiz_view', module_slug=module.slug) }}"
+                       class="btn btn--primary btn--sm">Take Quiz →</a>
+                </div>
+                {% endif %}
+            </section>
+
+            {# ---- Lessons ---- #}
+            {% if lessons %}
+            <ul class="rm-lessons">
+                {% for lesson in lessons %}
+                <li class="rm-lesson {% if not lesson.is_preview %}rm-lesson--locked{% endif %}">
+                    <span class="rm-lesson__index">{{ "%02d"|format(loop.index) }}</span>
+                    <div class="rm-lesson__info">
+                        <h2 class="rm-lesson__title">{{ lesson.title }}</h2>
+                        <div class="rm-lesson__meta">
+                            <span class="rm-module__tag">{{ lesson.lesson_type|capitalize }}</span>
+                            <span class="rm-module__tag">⏱ {{ lesson.estimated_minutes }} min</span>
+                            <span class="rm-module__tag rm-module__tag--xp">+{{ lesson.xp_reward }} XP</span>
+                        </div>
+                    </div>
+                    <div class="rm-lesson__action">
+                        <span class="rm-lesson__status">{{ "Completed" if lesson.completed else "Not Started" }}</span>
+                        {% if lesson.is_preview %}
+                        <a href="{{ url_for('roadmap.lesson_view', module_slug=module.slug, lesson_slug=lesson.slug) }}" class="btn btn--primary btn--sm">Start Lesson</a>
+                        {% else %}
+                        <button class="btn btn--outline btn--sm" disabled>Locked</button>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <section class="rm-empty" aria-label="No lessons">
+                <div class="rm-empty__icon">{{ icon("layers", 26) }}</div>
+                <h2 class="rm-empty__title">No lessons available.</h2>
+            </section>
+            {% endif %}
+
+            <footer class="dash-footer">
+                <p>YushaCyber © 2026</p>
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

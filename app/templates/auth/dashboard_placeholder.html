@@ -1,0 +1,17 @@
+{% extends "auth/base.html" %}
+
+{% block title %}Dashboard — YushaCyber{% endblock %}
+{% block eyebrow %}// access granted{% endblock %}
+{% block heading %}Hello, <span class="accent">{{ user.username }}</span>{% endblock %}
+{% block subtitle %}
+<p class="auth-card__subtitle">This protected route is a placeholder — the full dashboard ships in a future task.</p>
+{% endblock %}
+
+{% block content %}
+<dl class="auth-profile">
+    <div><dt>Level</dt><dd>{{ user.level }}</dd></div>
+    <div><dt>XP</dt><dd>{{ user.xp }}</dd></div>
+    <div><dt>Streak</dt><dd>{{ user.streak }} days</dd></div>
+</dl>
+<a href="{{ url_for('auth.logout') }}" class="btn btn--outline auth-form__submit">Sign out</a>
+{% endblock %}

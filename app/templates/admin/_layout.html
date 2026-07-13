@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin{% endblock %} — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="dash-body">
+
+{% from "dashboard/_icons.html" import icon %}
+
+<div class="adm">
+    <main class="adm__content">
+
+        {# ============ Header ============ #}
+        <header class="adm-hero">
+            <div class="adm-hero__main">
+                <span class="adm-hero__badge">{{ icon("settings", 15) }} Admin</span>
+                <h1 class="adm-hero__title">{% block heading %}CTF Management{% endblock %}</h1>
+                <p class="adm-hero__sub">{% block subheading %}Create and manage categories, challenges and hints.{% endblock %}</p>
+            </div>
+            <div class="adm-hero__actions">
+                <a href="{{ url_for('ctf.index') }}" class="btn btn--outline btn--sm">
+                    {{ icon("flag", 14) }} View CTF
+                </a>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn--outline btn--sm">
+                    {{ icon("grid", 14) }} Dashboard
+                </a>
+            </div>
+        </header>
+
+        {# ============ Tabs ============ #}
+        <nav class="adm-tabs" aria-label="Admin sections">
+            <a href="{{ url_for('admin.ctf_overview') }}"
+               class="adm-tab{% if active == 'overview' %} is-active{% endif %}">
+                {{ icon("grid", 14) }} Overview
+            </a>
+            <a href="{{ url_for('admin.ctf_categories') }}"
+               class="adm-tab{% if active == 'categories' %} is-active{% endif %}">
+                {{ icon("layers", 14) }} Categories
+            </a>
+            <a href="{{ url_for('admin.ctf_challenges') }}"
+               class="adm-tab{% if active == 'challenges' %} is-active{% endif %}">
+                {{ icon("flag", 14) }} Challenges
+            </a>
+            <a href="{{ url_for('admin.ctf_hints') }}"
+               class="adm-tab{% if active == 'hints' %} is-active{% endif %}">
+                {{ icon("help", 14) }} Hints
+            </a>
+        </nav>
+
+        {# ============ Alerts ============ #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="adm-alerts" role="status">
+                {% for category, message in messages %}
+                <div class="adm-alert adm-alert--{{ 'success' if category == 'success' else 'error' }}">
+                    <span class="adm-alert__icon">{{ "✅" if category == 'success' else "⚠️" }}</span>
+                    <span class="adm-alert__text">{{ message }}</span>
+                    <button type="button" class="adm-alert__close" aria-label="Dismiss">×</button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+
+        <footer class="adm-foot">
+            <p>YushaCyber © 2026 · Admin Panel</p>
+        </footer>
+
+    </main>
+</div>
+
+{# ============ Delete confirmation modal (shared) ============ #}
+<div class="adm-modal" id="adm-modal" hidden>
+    <div class="adm-modal__backdrop" data-modal-cancel></div>
+    <div class="adm-modal__card" role="dialog" aria-modal="true" aria-labelledby="adm-modal-title">
+        <div class="adm-modal__icon">⚠️</div>
+        <h2 class="adm-modal__title" id="adm-modal-title">Confirm deletion</h2>
+        <p class="adm-modal__text" id="adm-modal-text">This action cannot be undone.</p>
+        <div class="adm-modal__actions">
+            <button type="button" class="btn btn--outline btn--sm" data-modal-cancel>Cancel</button>
+            <button type="button" class="btn btn--danger btn--sm" id="adm-modal-confirm">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    /* ---- Dismissible alerts ---- */
+    document.querySelectorAll(".adm-alert__close").forEach((btn) => {
+        btn.addEventListener("click", () => btn.closest(".adm-alert").remove());
+    });
+
+    /* ---- Delete confirmation modal ----
+       Any form with [data-confirm] is intercepted: the modal opens, and the
+       form only submits if the user confirms. Purely a UI layer — the POST,
+       its CSRF token and the server-side action are unchanged. */
+    const modal = document.getElementById("adm-modal");
+    const modalText = document.getElementById("adm-modal-text");
+    const confirmBtn = document.getElementById("adm-modal-confirm");
+    let pendingForm = null;
+
+    function closeModal() {
+        modal.hidden = true;
+        pendingForm = null;
+    }
+
+    document.querySelectorAll("form[data-confirm]").forEach((form) => {
+        form.addEventListener("submit", (e) => {
+            if (form.dataset.confirmed === "1") return;   // already confirmed
+            e.preventDefault();
+            pendingForm = form;
+            modalText.textContent = form.dataset.confirm;
+            modal.hidden = false;
+        });
+    });
+
+    confirmBtn.addEventListener("click", () => {
+        if (!pendingForm) return;
+        pendingForm.dataset.confirmed = "1";
+        pendingForm.submit();
+        closeModal();
+    });
+    document.querySelectorAll("[data-modal-cancel]").forEach((el) => {
+        el.addEventListener("click", closeModal);
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !modal.hidden) closeModal();
+    });
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

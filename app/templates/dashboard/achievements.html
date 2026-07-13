@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Achievements — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="dash-body">
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {% from "dashboard/_icons.html" import icon %}
+
+            {# ---- Header ---- #}
+            <header class="ach-head">
+                <h1 class="ach-head__title">🏆 Achievements</h1>
+                <div class="ach-head__stats">
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.total }}</span>
+                        <span class="ach-head__stat-label">Total</span>
+                    </div>
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.unlocked }}</span>
+                        <span class="ach-head__stat-label">Unlocked</span>
+                    </div>
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.locked }}</span>
+                        <span class="ach-head__stat-label">Locked</span>
+                    </div>
+                    <div class="ach-head__stat">
+                        <span class="ach-head__stat-value">{{ statistics.percentage }}%</span>
+                        <span class="ach-head__stat-label">Complete</span>
+                    </div>
+                </div>
+
+                {# ---- Progress bar ---- #}
+                <div class="progress-bar progress-bar--banner ach-head__bar">
+                    <div class="progress-bar__fill" style="width: {{ statistics.percentage }}%"></div>
+                </div>
+            </header>
+
+            {% if not has_any_unlocked and statistics.total == 0 %}
+            {# No achievements exist at all #}
+            <section class="ach-empty">
+                <div class="ach-empty__icon">{{ icon("award", 30) }}</div>
+                <h2 class="ach-empty__title">No achievements available yet.</h2>
+            </section>
+            {% else %}
+
+            {# ---- Filter tabs ---- #}
+            <div class="ach-filters" role="tablist" aria-label="Achievement filters">
+                <button class="ach-filter is-active" data-filter="all">All</button>
+                <button class="ach-filter" data-filter="unlocked">Unlocked</button>
+                <button class="ach-filter" data-filter="locked">Locked</button>
+                <button class="ach-filter" data-filter="lessons">Lessons</button>
+                <button class="ach-filter" data-filter="quizzes">Quiz</button>
+                <button class="ach-filter" data-filter="progression">Progression</button>
+            </div>
+
+            {# ---- Empty state (nothing unlocked yet) ---- #}
+            {% if not has_any_unlocked %}
+            <section class="ach-empty" id="ach-empty-unlocked">
+                <div class="ach-empty__icon">{{ icon("award", 30) }}</div>
+                <h2 class="ach-empty__title">No achievements unlocked yet.</h2>
+                <p class="ach-empty__text">Complete lessons and quizzes to start earning achievements.</p>
+                <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary">Go to Roadmap</a>
+            </section>
+            {% endif %}
+
+            {# ---- Achievement grid ---- #}
+            <section class="ach-grid" id="ach-grid" aria-label="Achievements">
+                {% for a in achievements %}
+                <article class="ach-card ach-card--{{ 'unlocked' if a.unlocked else 'locked' }}"
+                         data-unlocked="{{ '1' if a.unlocked else '0' }}"
+                         data-category="{{ a.category }}">
+                    <div class="ach-card__icon">{{ icon(a.icon, 22) }}</div>
+                    <div class="ach-card__body">
+                        <div class="ach-card__top">
+                            <h3 class="ach-card__title">{{ a.title }}</h3>
+                            {% if a.unlocked %}
+                            <span class="ach-card__status ach-card__status--unlocked">✅ Unlocked</span>
+                            {% else %}
+                            <span class="ach-card__status ach-card__status--locked">🔒 Locked</span>
+                            {% endif %}
+                        </div>
+                        <p class="ach-card__desc">{{ a.description }}</p>
+                        <div class="ach-card__meta">
+                            <span class="ach-card__badge">{{ a.category|capitalize }}</span>
+                            <span class="ach-card__xp">+{{ a.bonus_xp }} XP</span>
+                            {% if a.unlocked and a.unlocked_date %}
+                            <span class="ach-card__date">{{ a.unlocked_date }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+            </section>
+
+            {% endif %}
+
+            {% include "dashboard/footer.html" %}
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+(function () {
+    const filters = document.querySelectorAll(".ach-filter");
+    const cards = Array.from(document.querySelectorAll(".ach-card"));
+    if (!filters.length) return;
+
+    function apply(filter) {
+        cards.forEach((card) => {
+            const unlocked = card.dataset.unlocked === "1";
+            const category = card.dataset.category;
+            let show = true;
+            if (filter === "unlocked") show = unlocked;
+            else if (filter === "locked") show = !unlocked;
+            else if (filter === "all") show = true;
+            else show = (category === filter);
+            card.style.display = show ? "" : "none";
+        });
+    }
+
+    filters.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            filters.forEach((b) => b.classList.remove("is-active"));
+            btn.classList.add("is-active");
+            apply(btn.dataset.filter);
+        });
+    });
+})();
+</script>
+</body>
+</html>

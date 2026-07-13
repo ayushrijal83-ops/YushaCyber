@@ -1,0 +1,39 @@
+{# Global application footer (YC-011.C) — included by every page. #}
+<footer class="shell-foot">
+    <div class="shell-foot__inner">
+        <div class="shell-foot__brand">
+            <a href="{{ url_for('index') }}" class="shell-logo">
+                <span class="shell-logo__mark" aria-hidden="true">&gt;_</span>
+                <span class="shell-logo__text">Yusha<span class="accent">Cyber</span></span>
+            </a>
+            <p class="shell-foot__tag">Master cybersecurity through real practice.</p>
+        </div>
+
+        <nav class="shell-foot__col" aria-label="Platform">
+            <h4>Platform</h4>
+            <a href="{{ url_for('roadmap.index') }}">Roadmaps</a>
+            <a href="{{ url_for('labs.index') }}">Labs</a>
+            <a href="{{ url_for('ctf.index') }}">CTFs</a>
+            <a href="{{ url_for('dashboard.certificates') }}">Certificates</a>
+        </nav>
+
+        <nav class="shell-foot__col" aria-label="Company">
+            <h4>Company</h4>
+            <a href="{{ url_for('index') }}#features">About</a>
+            <a href="{{ url_for('index') }}#faq">Contact</a>
+            <a href="{{ url_for('index') }}#faq">Privacy</a>
+            <a href="{{ url_for('index') }}#faq">Terms</a>
+        </nav>
+
+        <nav class="shell-foot__col" aria-label="Social">
+            <h4>Social</h4>
+            <a href="https://github.com/ayushrijal83-ops" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://www.linkedin.com" target="_blank" rel="noopener">LinkedIn</a>
+        </nav>
+    </div>
+
+    <div class="shell-foot__bar">
+        <p>YushaCyber © 2026</p>
+        <p class="shell-foot__ver">v1.0.0</p>
+    </div>
+</footer>

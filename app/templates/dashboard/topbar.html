@@ -1,0 +1,204 @@
+{# ===========================================================================
+   Global application shell — navbar (YC-011.C)
+   Included by every authenticated page. Active state is derived from
+   request.path, so no backend context is required.
+   =========================================================================== #}
+{% from "dashboard/_icons.html" import icon %}
+
+{% set path = request.path %}
+{% set nav = [
+    ("Home",        url_for('index'),            "grid",  path == '/'),
+    ("Dashboard",   url_for('dashboard.index'),  "grid",  path.startswith('/dashboard/') and 'achievements' not in path and 'certificates' not in path),
+    ("Roadmaps",    url_for('roadmap.index'),    "map",   path.startswith('/roadmap')),
+    ("Labs",        url_for('labs.index'),       "cpu",   path.startswith('/labs')),
+    ("CTF",         url_for('ctf.index'),        "flag",  path.startswith('/ctf') and 'leaderboard' not in path),
+    ("Leaderboard", url_for('ctf.leaderboard'),  "award", 'leaderboard' in path)
+] %}
+
+<header class="shell-nav">
+    <div class="shell-nav__inner">
+
+        {# ---- Mobile hamburger ---- #}
+        <button class="shell-burger" id="shell-burger" aria-label="Open navigation"
+                aria-expanded="false" aria-controls="shell-mobile">
+            <span></span><span></span><span></span>
+        </button>
+
+        {# ---- Logo ---- #}
+        <a href="{{ url_for('index') }}" class="shell-logo" aria-label="YushaCyber home">
+            <span class="shell-logo__mark" aria-hidden="true">&gt;_</span>
+            <span class="shell-logo__text">Yusha<span class="accent">Cyber</span></span>
+        </a>
+
+        {# ---- Desktop nav ---- #}
+        <nav class="shell-links" aria-label="Primary">
+            {% for label, href, ico, is_active in nav %}
+            <a href="{{ href }}"
+               class="shell-link{% if is_active %} is-active{% endif %}"
+               {% if is_active %}aria-current="page"{% endif %}>
+                {{ icon(ico, 15) }}<span>{{ label }}</span>
+            </a>
+            {% endfor %}
+            <a href="{{ url_for('resources.index') }}"
+               class="shell-link{% if path.startswith('/resources') %} is-active{% endif %}"
+               {% if path.startswith('/resources') %}aria-current="page"{% endif %}>
+                {{ icon("book", 15) }}<span>Resources</span>
+            </a>
+        </nav>
+
+        {# ---- Right cluster ---- #}
+        <div class="shell-right">
+
+            {# Search (UI only — no backend) #}
+            <div class="shell-search" role="search">
+                {{ icon("search", 15) }}
+                <input type="search" class="shell-search__input"
+                       placeholder="Search lessons, labs, CTFs…"
+                       aria-label="Search" autocomplete="off">
+                <kbd class="shell-search__kbd">/</kbd>
+            </div>
+
+            {# Notifications (placeholder — no backend) #}
+            <div class="shell-drop">
+                <button class="shell-icon-btn" id="notif-toggle"
+                        aria-label="Notifications" aria-expanded="false"
+                        aria-controls="notif-menu" aria-haspopup="true">
+                    {{ icon("bell", 18) }}
+                    <span class="shell-dot" aria-hidden="true"></span>
+                </button>
+
+                <div class="shell-menu shell-menu--wide" id="notif-menu" hidden>
+                    <div class="shell-menu__head">
+                        <span>Notifications</span>
+                        <span class="shell-menu__tag">3 new</span>
+                    </div>
+                    <a href="{{ url_for('roadmap.index') }}" class="shell-note">
+                        <span class="shell-note__icon">📚</span>
+                        <span class="shell-note__body">
+                            <span class="shell-note__title">Your roadmap is waiting</span>
+                            <span class="shell-note__meta">Continue where you left off</span>
+                        </span>
+                    </a>
+                    <a href="{{ url_for('ctf.index') }}" class="shell-note">
+                        <span class="shell-note__icon">🏴</span>
+                        <span class="shell-note__body">
+                            <span class="shell-note__title">New CTF challenges available</span>
+                            <span class="shell-note__meta">Test your skills in the arena</span>
+                        </span>
+                    </a>
+                    <a href="{{ url_for('dashboard.achievements') }}" class="shell-note">
+                        <span class="shell-note__icon">🏆</span>
+                        <span class="shell-note__body">
+                            <span class="shell-note__title">Achievements to unlock</span>
+                            <span class="shell-note__meta">See what you can earn next</span>
+                        </span>
+                    </a>
+                    <div class="shell-menu__foot">Notification centre coming soon</div>
+                </div>
+            </div>
+
+            {# Profile dropdown #}
+            <div class="shell-drop">
+                <button class="shell-profile" id="profile-toggle" aria-expanded="false"
+                        aria-controls="profile-menu" aria-haspopup="true">
+                    <span class="shell-avatar" aria-hidden="true">{{ user.username[0]|upper }}</span>
+                    <span class="shell-profile__name">{{ user.username }}</span>
+                    {{ icon("chevron", 14) }}
+                </button>
+
+                <div class="shell-menu" id="profile-menu" hidden>
+                    <div class="shell-menu__head shell-menu__head--user">
+                        <span class="shell-avatar shell-avatar--lg" aria-hidden="true">{{ user.username[0]|upper }}</span>
+                        <span class="shell-menu__who">
+                            <strong>{{ user.username }}</strong>
+                            <small>{{ user.role|capitalize }} · Level {{ user.level }}</small>
+                        </span>
+                    </div>
+                    <a href="{{ url_for('dashboard.index') }}" class="shell-item">{{ icon("grid", 15) }} Dashboard</a>
+                    <span class="shell-item shell-item--soon">{{ icon("user", 15) }} Profile <em class="shell-soon">Soon</em></span>
+                    <a href="{{ url_for('dashboard.certificates') }}" class="shell-item">{{ icon("award", 15) }} Certificates</a>
+                    <a href="{{ url_for('dashboard.achievements') }}" class="shell-item">{{ icon("target", 15) }} Achievements</a>
+                    <span class="shell-item shell-item--soon">{{ icon("settings", 15) }} Settings <em class="shell-soon">Soon</em></span>
+                    <a href="{{ url_for('auth.logout') }}" class="shell-item shell-item--danger">{{ icon("logout", 15) }} Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ---- Breadcrumbs (derived from request.path — no backend) ---- #}
+    {% set crumbs = [] %}
+    {% if path.startswith('/roadmap') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Roadmaps", None)] %}
+    {% elif path.startswith('/labs') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Labs", None)] %}
+    {% elif 'leaderboard' in path %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("CTF", url_for('ctf.index')), ("Leaderboard", None)] %}
+    {% elif path.startswith('/ctf') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("CTF", None)] %}
+    {% elif 'achievements' in path %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Achievements", None)] %}
+    {% elif 'certificates' in path %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Certificates", None)] %}
+    {% elif path.startswith('/dashboard') %}
+        {% set crumbs = [("Dashboard", None)] %}
+    {% endif %}
+
+    {% if crumbs %}
+    <nav class="shell-crumbs" aria-label="Breadcrumb">
+        <ol>
+            {% for label, href in crumbs %}
+            <li>
+                {% if href %}
+                <a href="{{ href }}">{{ label }}</a>
+                <span class="shell-crumbs__sep" aria-hidden="true">›</span>
+                {% else %}
+                <span aria-current="page">{{ label }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+    </nav>
+    {% endif %}
+</header>
+
+{# ---- Mobile slide-out ---- #}
+<div class="shell-mobile" id="shell-mobile" hidden>
+    <div class="shell-mobile__panel">
+        <div class="shell-mobile__head">
+            <span class="shell-logo">
+                <span class="shell-logo__mark">&gt;_</span>
+                <span class="shell-logo__text">Yusha<span class="accent">Cyber</span></span>
+            </span>
+            <button class="shell-mobile__close" id="shell-close" aria-label="Close navigation">×</button>
+        </div>
+
+        <div class="shell-search shell-search--mobile" role="search">
+            {{ icon("search", 15) }}
+            <input type="search" class="shell-search__input"
+                   placeholder="Search lessons, labs, CTFs…" aria-label="Search">
+        </div>
+
+        <nav class="shell-mobile__nav" aria-label="Mobile">
+            {% for label, href, ico, is_active in nav %}
+            <a href="{{ href }}" class="shell-mobile__link{% if is_active %} is-active{% endif %}">
+                {{ icon(ico, 17) }}<span>{{ label }}</span>
+            </a>
+            {% endfor %}
+            <a href="{{ url_for('resources.index') }}"
+               class="shell-mobile__link{% if path.startswith('/resources') %} is-active{% endif %}">
+                {{ icon("book", 17) }}<span>Resources</span>
+            </a>
+            <hr class="shell-mobile__sep">
+            <a href="{{ url_for('dashboard.certificates') }}" class="shell-mobile__link">
+                {{ icon("award", 17) }}<span>Certificates</span>
+            </a>
+            <a href="{{ url_for('dashboard.achievements') }}" class="shell-mobile__link">
+                {{ icon("target", 17) }}<span>Achievements</span>
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="shell-mobile__link shell-mobile__link--danger">
+                {{ icon("logout", 17) }}<span>Logout</span>
+            </a>
+        </nav>
+    </div>
+    <div class="shell-mobile__backdrop" id="shell-backdrop"></div>
+</div>

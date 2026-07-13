@@ -1,0 +1,23 @@
+# Core framework
+flask>=3.0
+
+# ORM for the User model and future feature models (SQLite in development)
+flask-sqlalchemy>=3.1
+
+# Session management: login_user, logout_user, @login_required
+flask-login>=0.6
+
+# Form handling + validation + global CSRF protection
+flask-wtf>=1.2
+
+# Enables the Email() validator used in the WTForms email fields
+email-validator>=2.1
+
+# Loads SECRET_KEY and other config from .env (never hardcode secrets)
+python-dotenv>=1.0
+
+# Alembic-based schema migrations: flask db migrate / flask db upgrade
+flask-migrate>=4.0
+
+# Renders lesson markdown content in the lesson viewer
+markdown>=3.5

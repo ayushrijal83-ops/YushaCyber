@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Center — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/command.css') }}">
+</head>
+<body class="dash-body">
+
+{% from "dashboard/_icons.html" import icon %}
+
+<div class="dash">
+
+    {% include "dashboard/sidebar.html" %}
+
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content">
+
+            {# ---- Flash ---- #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="dash-flash" role="status">
+                        {% for category, message in messages %}
+                            <p class="dash-flash__item dash-flash__item--{{ category }}">{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {# ================= 1. Welcome hero ================= #}
+            <section class="cc-hero">
+                <div class="cc-hero__bg" aria-hidden="true">
+                    <span class="cc-hero__orb"></span>
+                    <span class="cc-hero__grid"></span>
+                </div>
+
+                <div class="cc-hero__inner">
+                    <div class="cc-hero__left">
+                        <span class="cc-hero__eyebrow">
+                            <span class="cc-dot"></span> Command Center
+                        </span>
+                        <h1 class="cc-hero__title">Welcome back, {{ user.username }}</h1>
+
+                        <div class="cc-hero__badges">
+                            <span class="cc-badge cc-badge--level">
+                                {{ icon("trending", 14) }} Level {{ xp_info.level }}
+                            </span>
+                            <span class="cc-badge">
+                                {{ icon("zap", 14) }} {{ user.xp }} XP
+                            </span>
+                            <span class="cc-badge">
+                                {{ icon("flame", 14) }} {{ user.streak }} day streak
+                            </span>
+                            <span class="cc-badge cc-badge--muted" title="Ranking is coming soon">
+                                {{ icon("award", 14) }} Rank — Coming Soon
+                            </span>
+                        </div>
+
+                        {# XP progress to next level (real data from xp_info) #}
+                        <div class="cc-xp">
+                            <div class="cc-xp__head">
+                                <span>Level {{ xp_info.level }}</span>
+                                <span class="cc-xp__nums">
+                                    {{ xp_info.xp_into_level }} / {{ xp_info.xp_span }} XP
+                                    to Level {{ xp_info.level + 1 }}
+                                </span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-bar__fill"
+                                     style="width: {{ xp_info.percent }}%"></div>
+                            </div>
+                            <span class="cc-xp__pct">{{ xp_info.percent }}%</span>
+                        </div>
+                    </div>
+
+                    <div class="cc-hero__right">
+                        <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary cc-hero__cta">
+                            ▶ Quick Continue
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            {# ================= 2. Learning modules ================= #}
+            <h2 class="cc-h2">{{ icon("grid", 16) }} Learning Modules</h2>
+            <div class="cc-modules">
+
+                <a href="{{ url_for('roadmap.index') }}" class="cc-mod">
+                    <span class="cc-mod__icon">📚</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Roadmaps</span>
+                        <span class="cc-mod__meta">Structured learning paths</span>
+                    </span>
+                    <span class="cc-mod__cta">Continue Learning →</span>
+                </a>
+
+                <a href="{{ url_for('labs.index') }}" class="cc-mod">
+                    <span class="cc-mod__icon">🧪</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Cyber Labs</span>
+                        <span class="cc-mod__meta">Hands-on practice</span>
+                    </span>
+                    <span class="cc-mod__cta">Resume Lab →</span>
+                </a>
+
+                <a href="{{ url_for('ctf.index') }}" class="cc-mod">
+                    <span class="cc-mod__icon">🏴</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">CTF Arena</span>
+                        <span class="cc-mod__meta">Capture the flag</span>
+                    </span>
+                    <span class="cc-mod__cta">Open Arena →</span>
+                </a>
+
+                <a href="{{ url_for('dashboard.achievements') }}" class="cc-mod">
+                    <span class="cc-mod__icon">🏆</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Achievements</span>
+                        <span class="cc-mod__meta">Track your milestones</span>
+                    </span>
+                    <span class="cc-mod__cta">View All →</span>
+                </a>
+
+                <a href="{{ url_for('dashboard.certificates') }}" class="cc-mod">
+                    <span class="cc-mod__icon">📜</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Certificates</span>
+                        <span class="cc-mod__meta">Prove your skills</span>
+                    </span>
+                    <span class="cc-mod__cta">View Certificates →</span>
+                </a>
+
+                <a href="{{ url_for('ctf.leaderboard') }}" class="cc-mod">
+                    <span class="cc-mod__icon">🥇</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Leaderboard</span>
+                        <span class="cc-mod__meta">See where you stand</span>
+                    </span>
+                    <span class="cc-mod__cta">Open Leaderboard →</span>
+                </a>
+            </div>
+
+            {# ================= 4. Quick stats ================= #}
+            {% set qa = quiz_analytics %}
+            <h2 class="cc-h2">{{ icon("zap", 16) }} Quick Stats</h2>
+            <div class="cc-stats">
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon("zap", 16) }}</span>
+                    <span class="cc-stat__value">{{ user.xp }}</span>
+                    <span class="cc-stat__label">XP Earned</span>
+                </div>
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon("trending", 16) }}</span>
+                    <span class="cc-stat__value">{{ user.level }}</span>
+                    <span class="cc-stat__label">Current Level</span>
+                </div>
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon("help", 16) }}</span>
+                    <span class="cc-stat__value">{{ qa.statistics.quizzes_passed }}</span>
+                    <span class="cc-stat__label">Quizzes Passed</span>
+                </div>
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon("target", 16) }}</span>
+                    <span class="cc-stat__value">{{ qa.statistics.best_score }}%</span>
+                    <span class="cc-stat__label">Best Quiz Score</span>
+                </div>
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon("flame", 16) }}</span>
+                    <span class="cc-stat__value">{{ user.streak }}</span>
+                    <span class="cc-stat__label">Day Streak</span>
+                </div>
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon("award", 16) }}</span>
+                    <span class="cc-stat__value">{{ qa.statistics.total_xp_from_quizzes }}</span>
+                    <span class="cc-stat__label">XP From Quizzes</span>
+                </div>
+            </div>
+
+            {# ---- Quiz analytics (existing, real data) ---- #}
+            {% include "dashboard/quiz_analytics.html" %}
+
+            <div class="cc-cols">
+
+                {# ================= 3. Recent activity ================= #}
+                <section class="cc-panel">
+                    <h2 class="cc-panel__title">{{ icon("bell", 16) }} Recent Activity</h2>
+
+                    {% if qa.recent_attempts %}
+                    <ol class="cc-timeline">
+                        {% for a in qa.recent_attempts %}
+                        <li class="cc-tl">
+                            <span class="cc-tl__dot cc-tl__dot--{{ 'pass' if a.passed else 'fail' }}"></span>
+                            <div class="cc-tl__body">
+                                <span class="cc-tl__title">
+                                    {{ "Passed" if a.passed else "Attempted" }} quiz — {{ a.quiz_title }}
+                                </span>
+                                <span class="cc-tl__meta">
+                                    {{ a.module_title }} · {{ a.percentage }}% · {{ a.completed_at }}
+                                </span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <ol class="cc-timeline">
+                        {% for act in recent_activity %}
+                        <li class="cc-tl">
+                            <span class="cc-tl__dot"></span>
+                            <div class="cc-tl__body">
+                                <span class="cc-tl__title">{{ act.title }}</span>
+                                <span class="cc-tl__meta">{{ act.meta if act.meta is defined else "Get started to build your history" }}</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% endif %}
+                </section>
+
+                <div class="cc-side">
+
+                    {# ================= 5. Continue learning ================= #}
+                    <section class="cc-panel cc-panel--accent">
+                        <h2 class="cc-panel__title">{{ icon("play", 16) }} Continue Learning</h2>
+                        {% if xp_info.level > 1 or user.xp > 0 %}
+                        <p class="cc-continue__text">
+                            You're {{ xp_info.xp_span - xp_info.xp_into_level }} XP from
+                            Level {{ xp_info.level + 1 }}. Keep the momentum going.
+                        </p>
+                        <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary btn--sm">
+                            Continue Roadmap →
+                        </a>
+                        {% else %}
+                        <p class="cc-continue__text">
+                            You haven't started yet. Pick your first module and earn your first XP.
+                        </p>
+                        <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary btn--sm">
+                            Start Next Module →
+                        </a>
+                        {% endif %}
+                    </section>
+
+                    {# ================= 6. Daily motivation ================= #}
+                    {% set quotes = [
+                        ("The quieter you become, the more you are able to hear.", "Kali Linux"),
+                        ("Security is a process, not a product.", "Bruce Schneier"),
+                        ("Amateurs hack systems, professionals hack people.", "Bruce Schneier"),
+                        ("There is no patch for human stupidity.", "Kevin Mitnick"),
+                        ("The best defence is a good understanding of the offence.", "Unknown"),
+                        ("Hack the planet — but only the ones you own.", "YushaCyber"),
+                        ("Every expert was once a beginner who refused to quit.", "Unknown"),
+                        ("Complexity is the worst enemy of security.", "Bruce Schneier"),
+                        ("If you think technology can solve your security problems, you don't understand the problems.", "Bruce Schneier"),
+                        ("Practice is the difference between knowing and doing.", "YushaCyber")
+                    ] %}
+                    {% set q = quotes | random %}
+                    <section class="cc-panel cc-quote">
+                        <h2 class="cc-panel__title">{{ icon("terminal", 16) }} Daily Motivation</h2>
+                        <blockquote class="cc-quote__text">“{{ q[0] }}”</blockquote>
+                        <cite class="cc-quote__by">— {{ q[1] }}</cite>
+                    </section>
+
+                </div>
+            </div>
+
+            {% include "dashboard/footer.html" %}
+
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

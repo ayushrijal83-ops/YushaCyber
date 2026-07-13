@@ -1,0 +1,75 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'overview' %}
+{% block title %}CTF Admin{% endblock %}
+{% block heading %}CTF Management{% endblock %}
+{% block subheading %}An overview of your CTF content.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+{# ---- Statistics ---- #}
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("flag", 18) }}</span>
+        <span class="adm-stat__value">{{ overview.challenges }}</span>
+        <span class="adm-stat__label">Total Challenges</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("layers", 18) }}</span>
+        <span class="adm-stat__value">{{ overview.categories }}</span>
+        <span class="adm-stat__label">Categories</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("help", 18) }}</span>
+        <span class="adm-stat__value">{{ overview.hints }}</span>
+        <span class="adm-stat__label">Total Hints</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("award", 18) }}</span>
+        <span class="adm-stat__value">{{ overview.solves }}</span>
+        <span class="adm-stat__label">Total Solves</span>
+    </article>
+</div>
+
+{# ---- Quick actions ---- #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("zap", 16) }} Quick actions</h2>
+    </header>
+    <div class="adm-quick">
+        <a href="{{ url_for('admin.ctf_challenge_new') }}" class="adm-quick__item">
+            <span class="adm-quick__icon">{{ icon("flag", 18) }}</span>
+            <span class="adm-quick__body">
+                <span class="adm-quick__title">New Challenge</span>
+                <span class="adm-quick__desc">Add a challenge with a flag and hints.</span>
+            </span>
+        </a>
+        <a href="{{ url_for('admin.ctf_categories') }}" class="adm-quick__item">
+            <span class="adm-quick__icon">{{ icon("layers", 18) }}</span>
+            <span class="adm-quick__body">
+                <span class="adm-quick__title">Manage Categories</span>
+                <span class="adm-quick__desc">Create, rename and order categories.</span>
+            </span>
+        </a>
+        <a href="{{ url_for('admin.ctf_hints') }}" class="adm-quick__item">
+            <span class="adm-quick__icon">{{ icon("help", 18) }}</span>
+            <span class="adm-quick__body">
+                <span class="adm-quick__title">Manage Hints</span>
+                <span class="adm-quick__desc">Add, edit and reorder challenge hints.</span>
+            </span>
+        </a>
+    </div>
+</section>
+
+{# ---- Difficulty legend ---- #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("target", 16) }} Difficulty levels</h2>
+    </header>
+    <div class="adm-legend">
+        {% for d in overview.difficulties %}
+        <span class="adm-diff adm-diff--{{ d|lower }}">{{ d }}</span>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ category.name }} — Resources — YushaCyber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/resources.css') }}">
+</head>
+<body class="dash-body">
+{% from "dashboard/_icons.html" import icon %}
+<div class="dash">
+    {% include "dashboard/sidebar.html" %}
+    <div class="dash__main">
+        {% include "dashboard/topbar.html" %}
+        <main class="dash__content">
+
+            <a href="{{ url_for('resources.index') }}" class="rm-back">← All Resources</a>
+
+            <header class="rs-head">
+                <h1 class="rs-head__title">
+                    <span class="rs-head__icon">{{ icon(category.icon or "book", 22) }}</span>
+                    {{ category.name }}
+                </h1>
+                {% if category.description %}
+                <p class="rs-head__sub">{{ category.description }}</p>
+                {% endif %}
+                <p class="rs-head__count">{{ resources|length }} resource{{ '' if resources|length == 1 else 's' }}</p>
+            </header>
+
+            {% if resources %}
+            <div class="rs-grid">
+                {% for r in resources %}{% include "resources/_card.html" %}{% endfor %}
+            </div>
+            {% else %}
+            <div class="rs-empty">
+                <div class="rs-empty__art">{{ icon("book", 28) }}</div>
+                <h3>No resources in this category yet</h3>
+                <a href="{{ url_for('resources.index') }}" class="btn btn--outline btn--sm">Browse all</a>
+            </div>
+            {% endif %}
+
+            {% include "dashboard/footer.html" %}
+        </main>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
