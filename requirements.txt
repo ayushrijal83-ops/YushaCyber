@@ -1,7 +1,12 @@
+# ==========================================================================
+# YushaCyber — Python dependencies
+#   pip install -r requirements.txt
+# ==========================================================================
+
 # Core framework
 flask>=3.0
 
-# ORM for the User model and future feature models (SQLite in development)
+# ORM for all models (SQLite in development)
 flask-sqlalchemy>=3.1
 
 # Session management: login_user, logout_user, @login_required
@@ -19,5 +24,10 @@ python-dotenv>=1.0
 # Alembic-based schema migrations: flask db migrate / flask db upgrade
 flask-migrate>=4.0
 
-# Renders lesson markdown content in the lesson viewer
+# Renders lesson + resource markdown content
 markdown>=3.5
+
+# Sanitises rendered markdown (XSS protection in the lesson viewer and
+# CTF challenge descriptions). REQUIRED — was previously missing from this
+# file even though the code imports it.
+bleach>=6.1
