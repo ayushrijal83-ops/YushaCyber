@@ -161,19 +161,19 @@ SIMULATOR_ENGINES = [
 # (path, node_type, content)
 LINUX_BASICS_FS = [
     ("/home", "dir", None),
-    ("/home/user", "dir", None),
-    ("/home/user/Documents", "dir", None),
-    ("/home/user/Downloads", "dir", None),
-    ("/home/user/readme.txt", "file",
+    ("/home/student", "dir", None),
+    ("/home/student/Documents", "dir", None),
+    ("/home/student/Downloads", "dir", None),
+    ("/home/student/readme.txt", "file",
      "Welcome to the YushaCyber Linux lab.\n"
      "Everything here is simulated — nothing runs on a real machine.\n"
      "Use 'help' to list the commands you can try."),
-    ("/home/user/Documents/note.txt", "file",
+    ("/home/student/Documents/note.txt", "file",
      "Well done — you found the note!\n\n"
      "The Linux filesystem is a tree starting at /.\n"
      "Your home directory is /home/user (shortcut: ~).\n\n"
      "Next: create a directory called 'projects' with mkdir."),
-    ("/home/user/Documents/todo.md", "file",
+    ("/home/student/Documents/todo.md", "file",
      "- learn pwd\n- learn ls\n- learn cd\n- learn cat\n- learn mkdir"),
     ("/etc", "dir", None),
     ("/etc/hostname", "file", "yushacyber-lab"),
@@ -197,7 +197,7 @@ LINUX_BASICS_OBJECTIVES = [
 
     ("Change into the Documents directory",
      "Move into the Documents folder. Run: cd Documents",
-     "state_flag", {"path": "cwd", "equals": "/home/user/Documents"},
+     "state_flag", {"path": "cwd", "equals": "/home/student/Documents"},
      ("Use 'cd' — change directory.",
       "Pass the folder name as an argument.",
       "Type: cd Documents"), 15),

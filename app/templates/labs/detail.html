@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ lab.title }} — YushaCyber</title>
+    <script>(function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+      document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -13,100 +15,156 @@
 <body class="dash-body">
 {% from "dashboard/_icons.html" import icon %}
 <div class="dash">
-    {% include "dashboard/sidebar.html" %}
     <div class="dash__main">
         {% include "dashboard/topbar.html" %}
         <main class="dash__content">
 
             <a href="{{ url_for('labs.index') }}" class="rm-back">← All Labs</a>
 
-            <header class="lab-head">
-                <div class="lab-head__meta">
-                    <span class="ctf-diff ctf-diff--{{ lab.difficulty|lower }}">{{ lab.difficulty }}</span>
-                    {% if lab.estimated_minutes %}<span class="lab-chip">⏱ {{ lab.estimated_minutes }} min</span>{% endif %}
-                    <span class="lab-chip lab-chip--xp">+{{ lab.xp_reward }} XP</span>
-                    {% if lab.is_interactive %}<span class="lab-chip lab-chip--live">● Interactive</span>{% endif %}
-                </div>
-                <h1 class="lab-head__title">{{ lab.title }}</h1>
-                {% if lab.description %}<p class="lab-head__desc">{{ lab.description }}</p>{% endif %}
-            </header>
-
             {% if lab.is_interactive %}
-            {# ---------- Interactive workspace (capability-driven) ---------- #}
-            <div class="lab-work">
+            {# ================= INTERACTIVE WORKSPACE ================= #}
+            {% set total = objectives|length %}
+            {% set done = objectives|selectattr('completed')|list|length %}
+            {% set pct = ((done / total * 100)|round|int) if total else 0 %}
 
-                {# Objectives panel — same for EVERY simulator type #}
-                <aside class="lab-obj" id="lab-objectives">
-                    <h2 class="lab-obj__title">{{ icon("target", 15) }} Objectives</h2>
-                    <ol class="lab-obj__list">
-                        {% for o in objectives %}
-                        <li class="lab-obj__item{% if o.completed %} is-done{% endif %}"
-                            data-objective="{{ o.id }}">
-                            <span class="lab-obj__check">{{ "✓" if o.completed else "○" }}</span>
-                            <div class="lab-obj__body">
-                                <span class="lab-obj__name">{{ o.title }}</span>
-                                <span class="lab-obj__inst">{{ o.instruction }}</span>
-                                <span class="lab-obj__xp">+{{ o.xp_reward }} XP</span>
-                                {% if o.hints %}
-                                <details class="lab-hint">
-                                    <summary>Need a hint?</summary>
-                                    <ol class="lab-hint__list">
-                                        {% for h in o.hints %}<li>{{ h }}</li>{% endfor %}
-                                    </ol>
-                                </details>
-                                {% endif %}
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ol>
-                    <button type="button" class="btn btn--outline btn--sm" id="lab-reset">Reset Lab</button>
+            <div class="lw" id="lab-workspace">
+
+                {# ---------- LEFT 35%: lab info + objectives ---------- #}
+                <aside class="lw-panel">
+
+                    <header class="lw-info">
+                        <div class="lw-info__meta">
+                            <span class="ctf-diff ctf-diff--{{ lab.difficulty|lower }}">{{ lab.difficulty }}</span>
+                            <span class="lw-chip lw-chip--xp">+{{ lab.xp_reward }} XP</span>
+                            {% if lab.estimated_minutes %}
+                            <span class="lw-chip">⏱ {{ lab.estimated_minutes }} min</span>
+                            {% endif %}
+                        </div>
+                        <h1 class="lw-info__title">{{ lab.title }}</h1>
+                        {% if lab.description %}
+                        <p class="lw-info__desc">{{ lab.description }}</p>
+                        {% endif %}
+                    </header>
+
+                    {# ---- Progress ---- #}
+                    <section class="lw-progress">
+                        <div class="lw-progress__head">
+                            <span>Progress</span>
+                            <span class="lw-progress__pct" id="lw-pct">{{ pct }}%</span>
+                        </div>
+                        <div class="lw-progress__bar">
+                            <div class="lw-progress__fill" id="lw-fill" style="width: {{ pct }}%"></div>
+                        </div>
+                        <span class="lw-progress__count">
+                            <span id="lw-done">{{ done }}</span> of {{ total }} objectives complete
+                        </span>
+                    </section>
+
+                    {# ---- Current objective ---- #}
+                    <section class="lw-current" id="lw-current"
+                             {% if done == total %}hidden{% endif %}>
+                        <span class="lw-current__label">{{ icon("target", 13) }} Current objective</span>
+                        <span class="lw-current__text" id="lw-current-text">
+                            {% for o in objectives if not o.completed %}{% if loop.first %}{{ o.instruction }}{% endif %}{% endfor %}
+                        </span>
+                        <button type="button" class="lw-hintbtn" id="lw-hint">
+                            💡 Show hint <span class="lw-hintbtn__n" id="lw-hint-n"></span>
+                        </button>
+                        <div class="lw-hints" id="lw-hints"></div>
+                    </section>
+
+                    {# ---- Objectives checklist ---- #}
+                    <section class="lw-objs">
+                        <h2 class="lw-objs__title">Objectives</h2>
+                        <ol class="lw-objs__list" id="lw-objs">
+                            {% for o in objectives %}
+                            <li class="lw-obj{% if o.completed %} is-done{% endif %}"
+                                data-objective="{{ o.id }}"
+                                data-hints='{{ o.hints|tojson }}'>
+                                <span class="lw-obj__box">{{ "✔" if o.completed else "☐" }}</span>
+                                <span class="lw-obj__body">
+                                    <span class="lw-obj__name">{{ o.title }}</span>
+                                    <span class="lw-obj__xp">+{{ o.xp_reward }} XP</span>
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ol>
+                    </section>
+
+                    <button type="button" class="btn btn--outline btn--sm lw-reset" id="lw-reset">
+                        ↻ Reset Lab
+                    </button>
                 </aside>
 
-                {# Terminal capability #}
-                {% if "terminal" in capabilities %}
-                <section class="lab-term" aria-label="Simulated terminal">
-                    <div class="lab-term__bar">
-                        <span class="lab-term__dots"><i></i><i></i><i></i></span>
-                        <span class="lab-term__label">simulated terminal — nothing runs on a real system</span>
+                {# ---------- RIGHT 65%: terminal ---------- #}
+                <section class="lw-term" aria-label="Simulated terminal">
+                    <div class="lw-term__bar">
+                        <span class="lw-term__dots"><i></i><i></i><i></i></span>
+                        <span class="lw-term__title">student@linux-lab — simulated shell</span>
+                        <span class="lw-term__safe">🔒 simulated · nothing runs on a real system</span>
                     </div>
-                    <div class="lab-term__screen" id="term-screen" role="log" aria-live="polite">
-                        <pre class="lab-term__line lab-term__welcome">{{ welcome }}</pre>
+
+                    <div class="lw-term__screen" id="lw-screen" role="log" aria-live="polite">
+                        <pre class="lw-line lw-line--sys">{{ welcome }}</pre>
                     </div>
-                    <form class="lab-term__input" id="term-form" autocomplete="off">
-                        <span class="lab-term__prompt" id="term-prompt">{{ prompt }}</span>
-                        <input type="text" id="term-input" class="lab-term__field"
-                               aria-label="Command input" autocomplete="off" spellcheck="false" autofocus>
-                    </form>
+
+                    <div class="lw-term__inputrow" id="lw-inputrow">
+                        <span class="lw-term__prompt" id="lw-prompt">{{ prompt }}</span>
+                        <input type="text" id="lw-input" class="lw-term__input"
+                               autocomplete="off" spellcheck="false" autocapitalize="off"
+                               aria-label="Terminal command input">
+                        <span class="lw-cursor" aria-hidden="true"></span>
+                    </div>
                 </section>
-                {% else %}
-                <section class="lab-term">
-                    <p class="lab-muted">This lab's interface is coming soon.</p>
-                </section>
-                {% endif %}
+            </div>
+
+            {# ---------- Completion modal ---------- #}
+            <div class="lw-modal" id="lw-modal" hidden>
+                <div class="lw-modal__backdrop" data-modal-close></div>
+                <div class="lw-modal__card" role="dialog" aria-modal="true" aria-labelledby="lw-modal-title">
+                    <div class="lw-modal__burst">🎉</div>
+                    <h2 class="lw-modal__title" id="lw-modal-title">Lab Complete!</h2>
+                    <p class="lw-modal__sub">You finished <strong>{{ lab.title }}</strong>.</p>
+
+                    <div class="lw-modal__stats">
+                        <div class="lw-modal__stat">
+                            <span class="lw-modal__value" id="lw-modal-xp">+0</span>
+                            <span class="lw-modal__label">XP Earned</span>
+                        </div>
+                        <div class="lw-modal__stat">
+                            <span class="lw-modal__value">{{ total }}</span>
+                            <span class="lw-modal__label">Objectives</span>
+                        </div>
+                    </div>
+
+                    <div class="lw-modal__actions">
+                        <a href="{{ url_for('labs.index') }}" class="btn btn--outline">Back to Labs</a>
+                        <a href="{{ url_for('labs.index') }}" class="btn btn--primary">Next Lab →</a>
+                    </div>
+                </div>
             </div>
 
             <script>
               window.LAB_CONFIG = {
                   actionUrl: "{{ url_for('labs.action', slug=lab.slug) }}",
                   resetUrl:  "{{ url_for('labs.reset',  slug=lab.slug) }}",
-                  csrf:      "{{ csrf_token() }}"
+                  csrf:      "{{ csrf_token() }}",
+                  total:     {{ total }},
+                  labXp:     {{ lab.xp_reward }},
+                  objectives: {{ objectives|tojson }}
               };
             </script>
             <script src="{{ url_for('static', filename='js/lab_terminal.js') }}"></script>
 
             {% else %}
-            {# ---------- Non-interactive lab (read-only) ---------- #}
+            {# ---------- Non-interactive lab ---------- #}
+            <header class="lw-info lw-info--static">
+                <h1 class="lw-info__title">{{ lab.title }}</h1>
+                <p class="lw-info__desc">{{ lab.description }}</p>
+            </header>
             <section class="lab-static">
                 <h2>Objectives</h2>
-                <ol>
-                    {% for o in lab.objectives %}
-                    <li><strong>{{ o.title }}</strong> — {{ o.description }}</li>
-                    {% endfor %}
-                </ol>
-                {% if lab.files %}
-                <h2>Files</h2>
-                <ul>{% for f in lab.files %}<li>{{ f.filename }}</li>{% endfor %}</ul>
-                {% endif %}
+                <ol>{% for o in lab.objectives %}<li><strong>{{ o.title }}</strong> — {{ o.description }}</li>{% endfor %}</ol>
             </section>
             {% endif %}
 

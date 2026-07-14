@@ -29,7 +29,7 @@ from app.labs.simulator_base import (
 )
 
 _ROOT = "/"
-_HOME = "/home/user"
+_HOME = "/home/student"
 
 
 # ---------------------------------------------------------------------------
@@ -131,10 +131,10 @@ class LinuxSimulator(Simulator):
         return self.new_state_envelope(
             cwd=_HOME if _HOME in fs else _ROOT,
             fs=fs,
-            env={"USER": "user", "HOME": _HOME, "SHELL": "/bin/bash"},
+            env={"USER": "student", "HOME": _HOME, "SHELL": "/bin/bash"},
             history=[],
             flags={},
-            prompt="user@yushacyber:~$ ",
+            prompt="student@linux-lab:~$ ",
         )
 
     def prompt(self, state: dict[str, Any]) -> str:
@@ -142,7 +142,7 @@ class LinuxSimulator(Simulator):
         shown = "~" if cwd == _HOME else (
             "~" + cwd[len(_HOME):] if cwd.startswith(_HOME + "/") else cwd
         )
-        return f"user@yushacyber:{shown}$ "
+        return f"student@linux-lab:{shown}$ "
 
     def welcome(self, state: dict[str, Any]) -> str:
         return (
