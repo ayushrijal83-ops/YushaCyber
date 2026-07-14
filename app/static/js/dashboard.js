@@ -245,3 +245,29 @@
         if (input) { e.preventDefault(); input.focus(); }
     });
 })();
+
+/* ==========================================================================
+   Theme switcher (app-wide) — Dark / Light / Cyber. Mirrors theme.js so the
+   dashboard and every in-app page can switch themes without loading a second
+   script. Applies the saved theme on load and persists changes.
+   ========================================================================== */
+(function () {
+    "use strict";
+    var THEMES = ["dark", "light", "cyber"];
+    function current() {
+        try { return localStorage.getItem("yc-theme") || "dark"; } catch (e) { return "dark"; }
+    }
+    function apply(theme) {
+        if (THEMES.indexOf(theme) === -1) theme = "dark";
+        document.documentElement.setAttribute("data-theme", theme);
+        try { localStorage.setItem("yc-theme", theme); } catch (e) {}
+        document.querySelectorAll(".shell-theme__btn, .lp-theme__btn").forEach(function (b) {
+            b.classList.toggle("is-active", b.getAttribute("data-theme") === theme);
+        });
+    }
+    apply(current());
+    document.addEventListener("click", function (e) {
+        var btn = e.target.closest(".shell-theme__btn, .lp-theme__btn");
+        if (btn && btn.getAttribute("data-theme")) apply(btn.getAttribute("data-theme"));
+    });
+})();

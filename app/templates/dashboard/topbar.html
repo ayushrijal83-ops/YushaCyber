@@ -58,6 +58,13 @@
                 <kbd class="shell-search__kbd">/</kbd>
             </div>
 
+            {# Theme switcher — Dark / Light / Cyber (persists app-wide) #}
+            <div class="shell-theme" role="group" aria-label="Theme">
+                <button type="button" class="shell-theme__btn" data-theme="dark"  title="Dark"  aria-label="Dark mode">🌙</button>
+                <button type="button" class="shell-theme__btn" data-theme="light" title="Light" aria-label="Light mode">☀️</button>
+                <button type="button" class="shell-theme__btn" data-theme="cyber" title="Cyber" aria-label="Cyber mode">⚡</button>
+            </div>
+
             {# Notifications (placeholder — no backend) #}
             <div class="shell-drop">
                 <button class="shell-icon-btn" id="notif-toggle"

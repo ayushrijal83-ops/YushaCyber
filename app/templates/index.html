@@ -12,6 +12,11 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <script>
+      /* Apply saved theme before paint to avoid a flash */
+      (function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+        document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+    </script>
 </head>
 <body class="lp-body">
 
@@ -29,8 +34,23 @@
             <a href="#faq">FAQ</a>
         </nav>
         <div class="lp-nav__cta">
+            {# Theme switcher: Dark / Light / Cyber #}
+            <div class="lp-theme" role="group" aria-label="Theme">
+                <button type="button" class="lp-theme__btn" data-theme="dark"  title="Dark mode"  aria-label="Dark mode">🌙</button>
+                <button type="button" class="lp-theme__btn" data-theme="light" title="Light mode" aria-label="Light mode">☀️</button>
+                <button type="button" class="lp-theme__btn" data-theme="cyber" title="Cyber mode" aria-label="Cyber mode">⚡</button>
+            </div>
+
+            {% if current_user.is_authenticated %}
+            {# Logged in: never strand the user on the landing page. #}
+            <a href="{{ url_for('roadmap.index') }}" class="btn btn--outline btn--sm">Roadmaps</a>
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn--primary btn--sm">
+                Go to Dashboard →
+            </a>
+            {% else %}
             <a href="{{ url_for('auth.login') }}" class="btn btn--outline btn--sm">Sign in</a>
             <a href="{{ url_for('auth.register') }}" class="btn btn--primary btn--sm">Get Started</a>
+            {% endif %}
         </div>
     </div>
 </header>
@@ -47,9 +67,16 @@
     </div>
 
     <div class="lp-hero__inner">
+        {% if current_user.is_authenticated %}
+        <span class="lp-pill lp-pill--user">
+            <span class="lp-pill__dot"></span>
+            Welcome back, {{ current_user.username }} — Level {{ current_user.level }}
+        </span>
+        {% else %}
         <span class="lp-pill">
             <span class="lp-pill__dot"></span> Learn by doing — not by watching
         </span>
+        {% endif %}
         <h1 class="lp-hero__title">
             Master Cybersecurity Through <span class="lp-glow">Real Practice</span>
         </h1>
@@ -59,7 +86,11 @@
             real-world challenges.
         </p>
         <div class="lp-hero__actions">
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn--primary lp-btn">🚀 Go to Dashboard</a>
+            {% else %}
             <a href="{{ url_for('auth.register') }}" class="btn btn--primary lp-btn">🚀 Get Started</a>
+            {% endif %}
             <a href="{{ url_for('roadmap.index') }}" class="btn btn--outline lp-btn">📚 Explore Roadmaps</a>
             <a href="{{ url_for('ctf.index') }}" class="btn btn--outline lp-btn">🏴 Enter CTF Arena</a>
             <a href="{{ url_for('labs.index') }}" class="btn btn--outline lp-btn">🧪 Explore Labs</a>
@@ -221,9 +252,15 @@
 <!-- ============ CTA ============ -->
 <section class="lp-cta">
     <div class="lp-cta__inner">
+        {% if current_user.is_authenticated %}
+        <h2 class="lp-cta__title">Pick up where you left off</h2>
+        <p class="lp-cta__sub">Your dashboard is waiting.</p>
+        <a href="{{ url_for('dashboard.index') }}" class="btn btn--primary lp-btn">🚀 Go to Dashboard</a>
+        {% else %}
         <h2 class="lp-cta__title">Ready to start hacking — the right way?</h2>
         <p class="lp-cta__sub">Create a free account and begin your first roadmap today.</p>
         <a href="{{ url_for('auth.register') }}" class="btn btn--primary lp-btn">🚀 Get Started Free</a>
+        {% endif %}
     </div>
 </section>
 
@@ -265,6 +302,7 @@
     </div>
 </footer>
 
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
 </body>
 </html>

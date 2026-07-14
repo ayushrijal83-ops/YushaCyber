@@ -1163,3 +1163,38 @@ ol {
         align-self: stretch;
     }
 }
+
+/* ==========================================================================
+   Theme overrides — Dark (default :root) / Light / Cyber.
+   In style.css so EVERY page re-skins, not just the landing page.
+   ========================================================================== */
+html[data-theme="light"] {
+    --color-bg: #F4F6FA;
+    --color-surface: #FFFFFF;
+    --color-surface-2: #EEF1F6;
+    --color-border: #DDE3EC;
+    --color-border-strong: #C4CCD8;
+    --color-primary: #00A862;
+    --color-primary-dim: rgba(0, 168, 98, 0.10);
+    --color-primary-glow: rgba(0, 168, 98, 0.22);
+    --color-text: #0F1722;
+    --color-text-muted: #5A6675;
+}
+html[data-theme="light"] body { background-color: var(--color-bg); color: var(--color-text); }
+
+html[data-theme="cyber"] {
+    --color-bg: #05010D;
+    --color-surface: #0E0721;
+    --color-surface-2: #160C33;
+    --color-border: #2A1A54;
+    --color-border-strong: #40277F;
+    --color-primary: #B14BFF;
+    --color-primary-dim: rgba(177, 75, 255, 0.14);
+    --color-primary-glow: rgba(177, 75, 255, 0.4);
+    --color-text: #F3ECFF;
+    --color-text-muted: #A78BC7;
+}
+html[data-theme="cyber"] body { background-color: var(--color-bg); color: var(--color-text); }
+
+/* Keep the simulated terminal readable regardless of theme. */
+html[data-theme="light"] .lab-term { background: #0D1117; }
