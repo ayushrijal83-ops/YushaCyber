@@ -7,7 +7,7 @@ point of the engine. Adding Nmap/Wireshark/Burp requires ZERO route changes.
 
 from __future__ import annotations
 
-from flask import abort, jsonify, render_template, request
+from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.labs import labs_bp, lab_services
@@ -16,12 +16,13 @@ from app.labs import labs_bp, lab_services
 @labs_bp.route("/")
 @login_required
 def index():
-    """Labs catalogue."""
+    """Labs catalogue with Linux track progression."""
     return render_template(
         "labs/index.html",
         user=current_user,
         categories=lab_services.get_categories(),
         labs=lab_services.get_labs(),
+        track=lab_services.get_track_context(current_user, "linux"),
     )
 
 
@@ -32,6 +33,11 @@ def detail(slug: str):
     lab = lab_services.get_lab(slug)
     if lab is None:
         abort(404)
+
+    # Sequential progression: a locked lab redirects back to the catalogue.
+    if lab.is_interactive and not lab_services.is_lab_unlocked(current_user, lab):
+        flash("Complete the previous lab to unlock this one.", "error")
+        return redirect(url_for("labs.index"))
 
     context = {}
     if lab.is_interactive:

@@ -4,33 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cyber Labs — YushaCyber</title>
+    <script>(function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+      document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/labs.css') }}">
 </head>
 <body class="dash-body">
+{% from "dashboard/_icons.html" import icon %}
 <div class="dash">
-    {% include "dashboard/sidebar.html" %}
     <div class="dash__main">
         {% include "dashboard/topbar.html" %}
         <main class="dash__content">
-            <header class="ctf-head">
-                <h1 class="ctf-head__title">🧪 Cyber Labs</h1>
-                <p class="ctf-head__sub">Hands-on labs across {{ categories|length }} categories · {{ labs|length }} labs.</p>
+
+            <header class="lt-head">
+                <h1 class="lt-head__title">🧪 Cyber Labs</h1>
+                <p class="lt-head__sub">Learn by doing in a fully simulated terminal — nothing runs on a real system.</p>
             </header>
-            {# Placeholder — full UI is a later ticket (YC-011.1 is backend only). #}
-            {% for cat in categories %}
-            <section class="ctf-category">
-                <h2 class="ctf-category__title">{{ cat.name }}</h2>
-                <ul>
-                    {% for lab in cat.labs %}
-                    {% if lab.is_active %}
-                    <li><a href="{{ url_for('labs.detail', slug=lab.slug) }}">{{ lab.title }}</a>
-                        — {{ lab.difficulty }} · {{ lab.estimated_minutes }}m · +{{ lab.xp_reward }} XP</li>
-                    {% endif %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="dash-flash" role="status">
+                    {% for category, message in messages %}
+                    <p class="dash-flash__item dash-flash__item--{{ category }}">{{ message }}</p>
                     {% endfor %}
-                </ul>
+                </div>
+                {% endif %}
+            {% endwith %}
+
+            {% if track and track.total %}
+            {# ---------- Linux track ---------- #}
+            <section class="lt-track">
+                <div class="lt-track__head">
+                    <div>
+                        <h2 class="lt-track__title">{{ icon("terminal", 17) }} Linux Learning Track</h2>
+                        <p class="lt-track__desc">Beginner to intermediate · unlock labs by completing the previous one.</p>
+                    </div>
+                    <div class="lt-track__stats">
+                        <div class="lt-stat"><span class="lt-stat__v">{{ track.completed }}/{{ track.total }}</span><span class="lt-stat__l">Labs</span></div>
+                        <div class="lt-stat"><span class="lt-stat__v">{{ track.earned_xp }}</span><span class="lt-stat__l">XP earned</span></div>
+                        <div class="lt-stat"><span class="lt-stat__v">{{ track.total_xp }}</span><span class="lt-stat__l">XP total</span></div>
+                    </div>
+                </div>
+
+                <div class="lt-track__bar">
+                    <div class="lt-track__fill" style="width: {{ track.percent }}%"></div>
+                </div>
+                <span class="lt-track__pct">{{ track.percent }}% complete · {{ track.remaining }} remaining</span>
+
+                <ol class="lt-roadmap">
+                    {% for lab in track.labs %}
+                    <li class="lt-node{% if lab.completed %} is-done{% elif not lab.unlocked %} is-locked{% else %} is-open{% endif %}{% if lab.is_challenge %} is-challenge{% endif %}">
+                        <span class="lt-node__marker">
+                            {% if lab.completed %}✓{% elif not lab.unlocked %}🔒{% elif lab.is_challenge %}🏁{% else %}{{ lab.order }}{% endif %}
+                        </span>
+                        <div class="lt-node__card">
+                            <div class="lt-node__top">
+                                <span class="lt-node__name">{{ lab.title }}</span>
+                                <span class="ctf-diff ctf-diff--{{ lab.difficulty|lower }}">{{ lab.difficulty }}</span>
+                            </div>
+                            <div class="lt-node__meta">
+                                <span class="lt-chip lt-chip--xp">+{{ lab.xp_reward }} XP</span>
+                                {% if lab.estimated_minutes %}<span class="lt-chip">⏱ {{ lab.estimated_minutes }}m</span>{% endif %}
+                                {% if lab.is_challenge %}<span class="lt-chip lt-chip--boss">Final Challenge</span>{% endif %}
+                            </div>
+                            <div class="lt-node__action">
+                                {% if lab.completed %}
+                                <a href="{{ url_for('labs.detail', slug=lab.slug) }}" class="btn btn--outline btn--sm">Replay</a>
+                                {% elif lab.unlocked %}
+                                <a href="{{ url_for('labs.detail', slug=lab.slug) }}" class="btn btn--primary btn--sm">
+                                    {{ "Start Challenge →" if lab.is_challenge else "Start Lab →" }}
+                                </a>
+                                {% else %}
+                                <span class="lt-locked-note">🔒 Complete the previous lab to unlock</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ol>
             </section>
+            {% endif %}
+
+            {# ---------- Other (non-track) categories ---------- #}
+            {% set shown = track.category.slug if track and track.category else 'linux' %}
+            {% for cat in categories if cat.slug != shown %}
+            {% set catlabs = cat.labs | selectattr('is_active') | list %}
+            {% if catlabs %}
+            <section class="lt-other">
+                <h2 class="lt-other__title">{{ cat.name }}</h2>
+                <div class="lt-other__grid">
+                    {% for lab in catlabs %}
+                    <a href="{{ url_for('labs.detail', slug=lab.slug) }}" class="lt-other__card">
+                        <span class="lt-other__name">{{ lab.title }}</span>
+                        <span class="lt-other__meta">{{ lab.difficulty }} · +{{ lab.xp_reward }} XP</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
             {% endfor %}
+
             {% include "dashboard/footer.html" %}
         </main>
     </div>

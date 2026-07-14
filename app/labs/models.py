@@ -72,8 +72,18 @@ class Lab(BaseModel):
     )
     # Interactive labs get a session + workspace; others stay read-only.
     is_interactive = db.Column(db.Boolean, nullable=False, default=False)
+    # Sequential progression (YC-012.3): this lab unlocks once the
+    # prerequisite lab is completed. NULL = always unlocked (track entry
+    # point). Data-driven, so any future track (Nmap, Wireshark…) gets
+    # progression for free — the engine itself is unchanged.
+    prerequisite_lab_id = db.Column(
+        db.Integer, db.ForeignKey("labs.id"), nullable=True, index=True
+    )
 
     category = db.relationship("LabCategory", back_populates="labs")
+    prerequisite = db.relationship(
+        "Lab", remote_side="Lab.id", backref="unlocks", uselist=False
+    )
     objectives = db.relationship(
         "LabObjective",
         back_populates="lab",

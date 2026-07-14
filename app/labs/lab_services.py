@@ -392,3 +392,76 @@ def reset_lab_session(user, lab) -> dict[str, Any]:
     session_manager.reset_session(user, lab)
     current_app.logger.info("Lab session reset: user=%s lab=%s", user.id, lab.slug)
     return {"ok": True, "objectives": get_objective_views(user, lab)}
+
+
+# ===========================================================================
+# Sequential progression + track view (YC-012.3)
+# ===========================================================================
+def is_lab_completed(user, lab) -> bool:
+    """Whether the user has completed a lab (lab-level roll-up)."""
+    if user is None or lab is None:
+        return False
+    from app.labs.models import UserLabProgress
+    row = UserLabProgress.query.filter_by(
+        user_id=user.id, lab_id=lab.id, completed=True
+    ).first()
+    return row is not None
+
+
+def is_lab_unlocked(user, lab) -> bool:
+    """A lab is unlocked when it has no prerequisite, or the prerequisite is
+    completed by this user. Data-driven — works for any future track."""
+    if lab is None:
+        return False
+    if not lab.prerequisite_lab_id:
+        return True
+    from app.labs.models import Lab
+    prereq = Lab.query.filter_by(id=lab.prerequisite_lab_id).first()
+    return is_lab_completed(user, prereq) if prereq else True
+
+
+def get_track_context(user, category_slug: str = "linux") -> dict[str, Any]:
+    """Progress across a whole track: labs with lock/complete state + totals."""
+    from app.labs.models import Lab, LabCategory
+
+    category = LabCategory.query.filter_by(slug=category_slug).first()
+    if category is None:
+        return {"labs": [], "completed": 0, "total": 0,
+                "percent": 0, "total_xp": 0, "earned_xp": 0}
+
+    labs = (
+        Lab.query
+        .filter_by(category_id=category.id, is_active=True, is_interactive=True)
+        .order_by(Lab.display_order)
+        .all()
+    )
+
+    rows = []
+    completed = earned_xp = total_xp = 0
+    for lab in labs:
+        done = is_lab_completed(user, lab)
+        unlocked = is_lab_unlocked(user, lab)
+        total_xp += lab.xp_reward or 0
+        if done:
+            completed += 1
+            earned_xp += lab.xp_reward or 0
+        rows.append({
+            "title": lab.title, "slug": lab.slug,
+            "difficulty": lab.difficulty, "xp_reward": lab.xp_reward,
+            "estimated_minutes": lab.estimated_minutes,
+            "order": lab.display_order,
+            "completed": done, "unlocked": unlocked,
+            "is_challenge": lab.slug.endswith("-challenge"),
+        })
+
+    total = len(labs)
+    return {
+        "category": {"name": category.name, "slug": category.slug},
+        "labs": rows,
+        "completed": completed,
+        "remaining": total - completed,
+        "total": total,
+        "percent": int(completed / total * 100) if total else 0,
+        "total_xp": total_xp,
+        "earned_xp": earned_xp,
+    }

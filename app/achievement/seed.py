@@ -32,6 +32,12 @@ ACHIEVEMENTS: list[tuple] = [
      "quizzes", "perfect_quiz", 1, 50),
     ("Roadmap Explorer", "Complete your first module.", "map",
      "progression", "modules_completed", 1, 75),
+    ("Linux Beginner", "Complete your first Linux lab.", "terminal",
+     "labs", "labs_completed", 1, 50),
+    ("Linux Explorer", "Complete 4 Linux labs.", "terminal",
+     "labs", "labs_completed", 4, 150),
+    ("Linux Professional", "Complete 9 Linux labs.", "award",
+     "labs", "labs_completed", 9, 400),
 ]
 
 

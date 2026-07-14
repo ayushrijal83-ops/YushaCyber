@@ -165,8 +165,22 @@ def _user_progress_metrics(user: User) -> dict[str, int]:
     # Did any attempt score 100%? (best_score is the max percentage.)
     perfect = 1 if quiz_stats.get("best_score", 0) >= 100 else 0
 
+    # Completed interactive labs (YC-012.3) — additive metric, no behaviour
+    # change to existing achievements.
+    from app.labs.models import Lab, UserLabProgress
+    labs_completed = (
+        UserLabProgress.query
+        .join(Lab, Lab.id == UserLabProgress.lab_id)
+        .filter(
+            UserLabProgress.user_id == user.id,
+            UserLabProgress.completed.is_(True),
+        )
+        .count()
+    )
+
     return {
         "lessons_completed": lessons_completed,
+        "labs_completed": labs_completed,
         "quizzes_passed": quiz_stats.get("quizzes_passed", 0),
         "level_reached": user.level or 1,
         "xp_earned": user.xp or 0,
@@ -190,6 +204,8 @@ _CONDITION_METRIC = {
     "perfect_score": "perfect_quiz",
     "modules_completed": "modules_completed",
     "module_completed": "modules_completed",
+    "labs_completed": "labs_completed",
+    "lab_completed": "labs_completed",
 }
 
 

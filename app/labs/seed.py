@@ -68,14 +68,14 @@ def seed_labs() -> dict[str, int]:
     """
     if LabCategory.query.first() is not None:
         # Catalogue exists; still ensure engine content is present (idempotent).
-        engine = seed_lab_engine()
+        from app.labs.linux_track_seed import seed_linux_track
+        engine = seed_linux_track()
         return {
             "created": 0,
             "categories": LabCategory.query.count(),
             "labs": Lab.query.count(),
             "objectives": LabObjective.query.count(),
             "files": LabFile.query.count(),
-            "engines": engine["engines"],
             "fs_nodes": engine["fs_nodes"],
         }
 
@@ -133,8 +133,9 @@ def seed_labs() -> dict[str, int]:
 
     db.session.commit()
 
-    # Seed the interactive Lab Engine content too (idempotent on its own).
-    engine = seed_lab_engine()
+    # Seed the full interactive Linux track (idempotent).
+    from app.labs.linux_track_seed import seed_linux_track
+    engine = seed_linux_track()
 
     return {
         "created": 1,
@@ -142,7 +143,6 @@ def seed_labs() -> dict[str, int]:
         "labs": labs + engine["labs"],
         "objectives": objectives + engine["objectives"],
         "files": files,
-        "engines": engine["engines"],
         "fs_nodes": engine["fs_nodes"],
     }
 
