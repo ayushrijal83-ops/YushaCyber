@@ -14,6 +14,7 @@
     var screen   = document.getElementById("lw-screen");
     var input    = document.getElementById("lw-input");
     var promptEl = document.getElementById("lw-prompt");
+    var statusEl = document.getElementById("lw-status");
     var inputRow = document.getElementById("lw-inputrow");
     var resetBtn = document.getElementById("lw-reset");
     var hintBtn  = document.getElementById("lw-hint");
@@ -131,13 +132,37 @@
         });
     }
 
+    /* ---------- simulator status panel (generic key/value items) ---------- */
+    function renderStatus(items) {
+        if (!statusEl || !items || !items.length) return;
+        statusEl.innerHTML = "";
+        items.forEach(function (item) {
+            var row = document.createElement("div");
+            row.className = "lw-status__item";
+            var label = document.createElement("span");
+            label.className = "lw-status__label";
+            label.textContent = item.label || "";
+            var value = document.createElement("span");
+            value.className = "lw-status__value" +
+                (item.state ? " lw-status__value--" + item.state : "");
+            value.textContent = item.value || "";
+            row.appendChild(label);
+            row.appendChild(value);
+            statusEl.appendChild(row);
+        });
+    }
+
     /* ---------- server round-trip ---------- */
     function send(command) {
+        return sendAction({ type: "command", payload: { command: command } });
+    }
+
+    function sendAction(action) {
         busy = true;
         return fetch(cfg.actionUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", "X-CSRFToken": cfg.csrf },
-            body: JSON.stringify({ type: "command", payload: { command: command } })
+            body: JSON.stringify(action)
         })
             .then(function (r) { return r.json(); })
             .finally(function () { busy = false; });
@@ -156,6 +181,7 @@
                 line(res.output);
             }
             if (res.prompt && promptEl) promptEl.textContent = res.prompt;
+            renderStatus(res.status);
 
             refresh(res.objectives);
 
@@ -164,7 +190,7 @@
             });
 
             if (res.lab_completed) {
-                showComplete(res.objectives);
+                showComplete(res.objectives, res);
             }
             autoscroll();
         }).catch(function () {
@@ -173,12 +199,38 @@
     }
 
     /* ---------- completion modal ---------- */
-    function showComplete(objectives) {
+    function showComplete(objectives, res) {
         if (!modal) return;
         var xp = 0;
         (objectives || []).forEach(function (o) { if (o.completed) xp += (o.xp_reward || 0); });
-        xp += (cfg.labXp || 0);                       /* + lab completion bonus */
+        xp += (cfg.labXp || 0);
         if (modalXp) modalXp.textContent = "+" + xp;
+
+        /* Commands used (YC-026.5) */
+        var cmdsEl = document.getElementById("lw-modal-cmds");
+        if (cmdsEl && res && res.commands_used) {
+            cmdsEl.textContent = res.commands_used;
+        }
+
+        /* Next Lab link (YC-026.5) */
+        var nextBtn = document.getElementById("lw-modal-next");
+        if (nextBtn && res && res.next_lab_url) {
+            nextBtn.href = res.next_lab_url;
+        }
+
+        /* Achievements (YC-026.5) */
+        var achBox = document.getElementById("lw-modal-achievements");
+        var achList = document.getElementById("lw-modal-ach-list");
+        if (achBox && achList && res && res.achievements_earned && res.achievements_earned.length) {
+            achBox.hidden = false;
+            achList.innerHTML = "";
+            res.achievements_earned.forEach(function (a) {
+                var li = document.createElement("li");
+                li.textContent = a.title + " (+" + a.xp + " XP)";
+                achList.appendChild(li);
+            });
+        }
+
         setTimeout(function () { modal.hidden = false; }, 800);
     }
     document.querySelectorAll("[data-modal-close]").forEach(function (el) {
@@ -251,6 +303,39 @@
     }
     input.addEventListener("input", syncCursor);
 
+    /* ---------- copy output (YC-026.2) ---------- */
+    var copyBtn = document.getElementById("lw-copy");
+    if (copyBtn) {
+        copyBtn.addEventListener("click", function () {
+            var text = screen.innerText || screen.textContent || "";
+            var done = function () {
+                var lbl = copyBtn.querySelector(".lw-term__copy-label");
+                var original = lbl ? lbl.textContent : "";
+                if (lbl) { lbl.textContent = "Copied"; }
+                copyBtn.classList.add("is-copied");
+                window.setTimeout(function () {
+                    if (lbl) { lbl.textContent = original || "Copy"; }
+                    copyBtn.classList.remove("is-copied");
+                }, 1400);
+            };
+            var fallback = function () {
+                var ta = document.createElement("textarea");
+                ta.value = text;
+                ta.setAttribute("readonly", "");
+                ta.style.position = "fixed"; ta.style.top = "-1000px";
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand("copy"); done(); }
+                finally { document.body.removeChild(ta); }
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(fallback);
+            } else {
+                fallback();
+            }
+        });
+    }
+
     /* ---------- reset ---------- */
     if (resetBtn) {
         resetBtn.addEventListener("click", function () {
@@ -263,11 +348,131 @@
                 .then(function (res) {
                     screen.innerHTML = "";
                     line("Session reset. Type 'help' to see the available commands.", "lw-line--sys");
-                    if (promptEl) promptEl.textContent = "student@linux-lab:~$ ";
+                    if (promptEl) promptEl.textContent =
+                        res.prompt || cfg.bootPrompt || "student@linux-lab:~$ ";
+                    renderStatus(res.status);
                     refresh(res.objectives);
                     input.focus();
                 });
         });
+    }
+
+    /* ---------- interactive topology (YC-026.0) ---------- */
+    var topoBox = document.getElementById("lw-topo");
+    if (topoBox && cfg.topology && cfg.topology.nodes && cfg.topology.nodes.length) {
+        var svg = topoBox.querySelector("svg");
+        var linksG = svg.querySelector("#lw-topo-links");
+        var nodesG = svg.querySelector("#lw-topo-nodes");
+        var selectedHost = null;   /* current highlight; the server owns real state */
+
+        var W = 720, H = 340;
+        var deviceIcon = {
+            router: "\uD83D\uDCE1", switch: "\u26A1", pc: "\uD83D\uDCBB",
+            server: "\uD83D\uDDA5", firewall: "\uD83D\uDD25"
+        };
+
+        /* Place nodes with a simple hub-and-spoke: router at top-left, switch
+           centred, everything else spread around the switch. This works for the
+           YC-026.0 topology; more complex ones can override in future labs. */
+        function layout(nodes) {
+            var pos = {};
+            var switchNode = nodes.filter(function (n) { return n.device_type === "switch"; })[0];
+            var router = nodes.filter(function (n) { return n.device_type === "router"; })[0];
+            var others = nodes.filter(function (n) {
+                return n.device_type !== "switch" && n.device_type !== "router";
+            });
+            if (router) pos[router.hostname] = { x: 120, y: 70 };
+            if (switchNode) pos[switchNode.hostname] = { x: 360, y: 170 };
+            var n = others.length || 1;
+            others.forEach(function (node, i) {
+                var span = 520;
+                var x = 100 + (i * span / Math.max(n - 1, 1));
+                pos[node.hostname] = { x: x, y: 285 };
+            });
+            return pos;
+        }
+
+        var pos = layout(cfg.topology.nodes);
+
+        function draw() {
+            linksG.innerHTML = "";
+            nodesG.innerHTML = "";
+            cfg.topology.links.forEach(function (l) {
+                var a = pos[l.a], b = pos[l.b];
+                if (!a || !b) return;
+                var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", a.x); line.setAttribute("y1", a.y);
+                line.setAttribute("x2", b.x); line.setAttribute("y2", b.y);
+                if (selectedHost && (l.a === selectedHost || l.b === selectedHost)) {
+                    line.setAttribute("stroke", "var(--color-primary)");
+                    line.setAttribute("stroke-width", "3");
+                    line.setAttribute("filter", "url(#lw-glow)");
+                }
+                linksG.appendChild(line);
+            });
+            cfg.topology.nodes.forEach(function (node) {
+                var p = pos[node.hostname]; if (!p) return;
+                var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("transform", "translate(" + p.x + "," + p.y + ")");
+                g.setAttribute("class", "lw-topo__node"
+                    + (selectedHost === node.hostname ? " is-selected" : ""));
+                g.setAttribute("data-host", node.hostname);
+                g.setAttribute("tabindex", "0");
+                g.setAttribute("role", "button");
+                g.setAttribute("aria-label", node.label + " (" + node.device_type + ")");
+                var circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("r", "26");
+                g.appendChild(circle);
+                var glyph = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                glyph.setAttribute("text-anchor", "middle");
+                glyph.setAttribute("dominant-baseline", "central");
+                glyph.setAttribute("font-size", "22");
+                glyph.textContent = deviceIcon[node.device_type] || "\u2022";
+                g.appendChild(glyph);
+                var label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                label.setAttribute("y", "48"); label.setAttribute("text-anchor", "middle");
+                label.setAttribute("class", "lw-topo__label");
+                label.textContent = node.label;
+                g.appendChild(label);
+                if (node.ip) {
+                    var ip = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    ip.setAttribute("y", "64"); ip.setAttribute("text-anchor", "middle");
+                    ip.setAttribute("class", "lw-topo__ip");
+                    ip.textContent = node.ip;
+                    g.appendChild(ip);
+                }
+                g.addEventListener("click", function () { selectHost(node.hostname); });
+                g.addEventListener("keydown", function (e) {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault(); selectHost(node.hostname);
+                    }
+                });
+                nodesG.appendChild(g);
+            });
+        }
+
+        function selectHost(hostname) {
+            if (busy) return;
+            selectedHost = hostname;
+            draw();
+            sendAction({ type: "select", payload: { host: hostname } }).then(function (res) {
+                if (!res || !res.ok) return;
+                if (res.clear) { screen.innerHTML = ""; }
+                if (res.output) { line(res.output, "lw-line--sys"); }
+                if (res.prompt && promptEl) { promptEl.textContent = res.prompt; }
+                renderStatus(res.status);
+                refresh(res.objectives);
+                (res.newly_completed || []).forEach(function (o) {
+                    line("\u2714 Objective complete \u2014 " + o.title
+                        + "   (+" + o.xp + " XP)", "lw-line--win");
+                });
+                if (res.lab_completed) { showComplete(res.objectives, res); }
+                autoscroll();
+                input.focus();
+            });
+        }
+
+        draw();
     }
 
     /* ---------- boot ---------- */

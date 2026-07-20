@@ -1,0 +1,78 @@
+{
+  "title": "Small Office Network",
+  "description": "Internet → Edge Router → Core Switch fanning out to PCs and the two servers. Two PCs, one Linux web server, one Windows database server.",
+  "devices": [
+    {
+      "hostname": "internet",
+      "label": "Internet",
+      "device_type": "internet",
+      "os": "the-outside",
+      "ip": "203.0.113.1"
+    },
+    {
+      "hostname": "edge-router",
+      "label": "Edge Router",
+      "device_type": "router",
+      "os": "RouterOS 7",
+      "ip": "192.168.1.1",
+      "mac": "02:42:c0:a8:01:01",
+      "open_ports": [22, 80],
+      "services": {"22": "ssh", "80": "http-admin"}
+    },
+    {
+      "hostname": "core-switch",
+      "label": "Core Switch",
+      "device_type": "switch",
+      "os": "SwitchOS 3",
+      "mac": "02:42:c0:a8:01:02"
+    },
+    {
+      "hostname": "pc-1",
+      "label": "PC-1",
+      "device_type": "pc",
+      "os": "Ubuntu 22.04 LTS",
+      "ip": "192.168.1.10",
+      "mac": "02:42:c0:a8:01:0a",
+      "gateway": "192.168.1.1"
+    },
+    {
+      "hostname": "pc-2",
+      "label": "PC-2",
+      "device_type": "pc",
+      "os": "Windows 11",
+      "ip": "192.168.1.11",
+      "mac": "02:42:c0:a8:01:0b",
+      "gateway": "192.168.1.1"
+    },
+    {
+      "hostname": "web-server",
+      "label": "Web Server",
+      "device_type": "linux-server",
+      "os": "Debian 12",
+      "ip": "192.168.1.20",
+      "mac": "02:42:c0:a8:01:14",
+      "gateway": "192.168.1.1",
+      "open_ports": [22, 80, 443],
+      "services": {"22": "ssh", "80": "http", "443": "https"}
+    },
+    {
+      "hostname": "db-server",
+      "label": "DB Server",
+      "device_type": "windows-server",
+      "os": "Windows Server 2022",
+      "ip": "192.168.1.30",
+      "mac": "02:42:c0:a8:01:1e",
+      "gateway": "192.168.1.1",
+      "open_ports": [3389, 3306],
+      "services": {"3389": "rdp", "3306": "mysql"}
+    }
+  ],
+  "links": [
+    {"a": "internet",    "b": "edge-router", "kind": "wan"},
+    {"a": "edge-router", "b": "core-switch"},
+    {"a": "core-switch", "b": "pc-1"},
+    {"a": "core-switch", "b": "web-server"},
+    {"a": "core-switch", "b": "db-server"},
+    {"a": "pc-1",        "b": "pc-2"}
+  ]
+}

@@ -1,0 +1,157 @@
+/* ===========================================================================
+   Public User Profiles (YC-023.0)
+   Page-specific layout only — cards, badges, buttons and progress bars all
+   come from the shared ui.css / command.css / neo.css layers.
+   =========================================================================== */
+
+/* ---- Anonymous visitor header ---- */
+.pf-publicnav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+.pf-publicnav > div { display: flex; gap: 10px; }
+
+/* ---- Header card ---- */
+.pf-head { margin-bottom: var(--space-5); }
+.pf-head__id {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-5);
+    margin-bottom: var(--space-5);
+}
+.pf-avatar {
+    width: 96px; height: 96px;
+    flex: 0 0 96px;
+    border-radius: 26px;
+    object-fit: cover;
+    display: grid;
+    place-items: center;
+    background: var(--color-primary-dim);
+    color: var(--color-primary);
+    font-family: var(--font-display);
+    font-size: 2.3rem;
+    font-weight: 700;
+    box-shadow: var(--neo-raise, var(--shadow-card));
+}
+.pf-avatar--fallback { border: 1px solid var(--color-primary-glow); }
+
+.pf-head__who { flex: 1; min-width: 0; }
+.pf-name {
+    margin: 0 0 var(--space-2);
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    overflow-wrap: anywhere;
+}
+.pf-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-3);
+}
+.pf-bio {
+    margin: 0 0 var(--space-3);
+    max-width: 68ch;
+    color: var(--color-text);
+    line-height: 1.65;
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+}
+.pf-bio--empty { color: var(--color-text-muted); font-style: italic; }
+.pf-links { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0; }
+.pf-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+.pf-link:hover { text-decoration: underline; }
+.pf-editbtn { flex-shrink: 0; }
+
+/* ---- Recent badges strip ---- */
+.pf-badgestrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+}
+.pf-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px 7px 9px;
+    border-radius: 999px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--neo-raise-sm, none);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+.pf-badge__icon {
+    display: grid;
+    place-items: center;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--color-primary-dim);
+    color: var(--color-primary);
+}
+
+/* ---- Columns ---- */
+.pf-cols {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: var(--space-5);
+    align-items: start;
+    margin-top: var(--space-5);
+}
+.pf-main { display: flex; flex-direction: column; gap: var(--space-5); }
+.pf-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+}
+
+/* ---- Certificates list ---- */
+.pf-certs { list-style: none; margin: 0; padding: 0; }
+.pf-cert {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+.pf-cert:last-child { border-bottom: 0; }
+.pf-cert__icon { font-size: 1.4rem; }
+.pf-cert__body { display: flex; flex-direction: column; min-width: 0; }
+.pf-cert__title { font-weight: 600; font-size: 0.92rem; }
+.pf-cert__meta {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+}
+
+/* ---- Edit page ---- */
+.pf-editcard { max-width: 640px; margin: 0 auto; }
+.pf-edithint { color: var(--color-text-muted); font-size: 0.88rem; margin: -6px 0 var(--space-5); }
+.pf-edithint a { color: var(--color-primary); }
+.pf-editactions { display: flex; gap: var(--space-3); margin-top: var(--space-5); }
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+    .pf-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+    .pf-head__id { flex-direction: column; align-items: center; text-align: center; }
+    .pf-meta, .pf-links { justify-content: center; }
+    .pf-editbtn { width: 100%; justify-content: center; }
+}

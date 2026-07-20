@@ -11,14 +11,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
     <script>
       /* Apply saved theme before paint to avoid a flash */
       (function(){try{var t=localStorage.getItem("yc-theme")||"dark";
         document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
     </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
 </head>
 <body class="lp-body">
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
 
 <!-- ============ Nav ============ -->
 <header class="lp-nav">
@@ -31,6 +35,7 @@
             <a href="#features">Features</a>
             <a href="#journey">Journey</a>
             <a href="#why">Why us</a>
+            <a href="#testimonials">Stories</a>
             <a href="#faq">FAQ</a>
         </nav>
         <div class="lp-nav__cta">
@@ -55,7 +60,18 @@
     </div>
 </header>
 
-<main>
+<main id="main-content">
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="lp-flash" role="status" aria-live="polite">
+        {% for category, message in messages %}
+        <p class="ui-flash ui-flash--{{ category }}">{{ message }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+{% endwith %}
+
 
 <!-- ============ 1. Hero ============ -->
 <section class="lp-hero">
@@ -176,23 +192,23 @@
     </ol>
 </section>
 
-<!-- ============ 4. Statistics ============ -->
-<section class="lp-section" id="stats">
+<!-- ============ 4. Statistics (real platform data) ============ -->
+<section class="lp-section" id="stats" aria-label="Platform statistics">
     <div class="lp-stats">
-        <div class="lp-stat" data-count="32">
-            <span class="lp-stat__value" data-target="32">0</span>
+        <div class="lp-stat">
+            <span class="lp-stat__value" data-target="{{ platform_stats.lessons }}">0</span>
             <span class="lp-stat__label">Lessons</span>
         </div>
-        <div class="lp-stat" data-count="15">
-            <span class="lp-stat__value" data-target="15">0</span>
+        <div class="lp-stat">
+            <span class="lp-stat__value" data-target="{{ platform_stats.labs }}">0</span>
             <span class="lp-stat__label">Interactive Labs</span>
         </div>
-        <div class="lp-stat" data-count="50">
-            <span class="lp-stat__value" data-target="50" data-suffix="+">0</span>
+        <div class="lp-stat">
+            <span class="lp-stat__value" data-target="{{ platform_stats.challenges }}">0</span>
             <span class="lp-stat__label">CTF Challenges</span>
         </div>
-        <div class="lp-stat" data-count="5000">
-            <span class="lp-stat__value" data-target="5000">0</span>
+        <div class="lp-stat">
+            <span class="lp-stat__value" data-target="{{ platform_stats.xp }}" data-suffix="+">0</span>
             <span class="lp-stat__label">XP Available</span>
         </div>
     </div>
@@ -250,6 +266,40 @@
 </section>
 
 <!-- ============ CTA ============ -->
+<!-- ============ 7. Testimonials (placeholder content) ============ -->
+<section class="lp-section" id="testimonials">
+    <div class="lp-section__head">
+        <span class="lp-kicker">Learner Stories</span>
+        <h2 class="lp-h2">What early learners are saying</h2>
+    </div>
+    <div class="lp-quotes">
+        <figure class="lp-quote ui-reveal">
+            <blockquote>“The simulated terminal made Linux finally click for me. I stopped
+            copying commands and started understanding them.”</blockquote>
+            <figcaption>
+                <span class="lp-quote__avatar" aria-hidden="true">S</span>
+                <span><strong>Sudip R.</strong><small>Self-taught learner · Nepal</small></span>
+            </figcaption>
+        </figure>
+        <figure class="lp-quote ui-reveal">
+            <blockquote>“Roadmap → lab → quiz → CTF is exactly the loop I needed. The XP
+            system kept me showing up every day.”</blockquote>
+            <figcaption>
+                <span class="lp-quote__avatar" aria-hidden="true">A</span>
+                <span><strong>Anisha K.</strong><small>SOC analyst in training</small></span>
+            </figcaption>
+        </figure>
+        <figure class="lp-quote ui-reveal">
+            <blockquote>“Capturing my first flag here felt better than any tutorial
+            certificate. Everything is hands-on.”</blockquote>
+            <figcaption>
+                <span class="lp-quote__avatar" aria-hidden="true">R</span>
+                <span><strong>Rohan T.</strong><small>CTF beginner</small></span>
+            </figcaption>
+        </figure>
+    </div>
+</section>
+
 <section class="lp-cta">
     <div class="lp-cta__inner">
         {% if current_user.is_authenticated %}
@@ -304,5 +354,6 @@
 
 <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
 </body>
 </html>

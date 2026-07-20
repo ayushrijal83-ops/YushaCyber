@@ -10,22 +10,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/command.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
 </head>
 <body class="dash-body">
 
 {% from "dashboard/_icons.html" import icon %}
 
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
 <div class="dash">
 
-    {% include "dashboard/sidebar.html" %}
 
     <div class="dash__main">
 
         {% include "dashboard/topbar.html" %}
 
-        <main class="dash__content">
+        <main class="dash__content" id="main-content">
 
             {# ---- Flash ---- #}
             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -76,9 +79,10 @@
                                     to Level {{ xp_info.level + 1 }}
                                 </span>
                             </div>
-                            <div class="progress-bar">
-                                <div class="progress-bar__fill"
-                                     style="width: {{ xp_info.percent }}%"></div>
+                            <div class="ui-progress" role="progressbar" aria-valuenow="{{ xp_info.percent }}"
+                                 aria-valuemin="0" aria-valuemax="100"
+                                 aria-label="XP progress to next level">
+                                <span class="ui-progress__fill" style="width: {{ xp_info.percent }}%"></span>
                             </div>
                             <span class="cc-xp__pct">{{ xp_info.percent }}%</span>
                         </div>
@@ -93,7 +97,7 @@
             </section>
 
             {# ================= 2. Learning modules ================= #}
-            <h2 class="cc-h2">{{ icon("grid", 16) }} Learning Modules</h2>
+            <h2 class="cc-h2">{{ icon("grid", 16) }} Quick Access</h2>
             <div class="cc-modules">
 
                 <a href="{{ url_for('roadmap.index') }}" class="cc-mod">
@@ -196,57 +200,102 @@
                 <section class="cc-panel">
                     <h2 class="cc-panel__title">{{ icon("bell", 16) }} Recent Activity</h2>
 
-                    {% if qa.recent_attempts %}
-                    <ol class="cc-timeline">
-                        {% for a in qa.recent_attempts %}
-                        <li class="cc-tl">
-                            <span class="cc-tl__dot cc-tl__dot--{{ 'pass' if a.passed else 'fail' }}"></span>
-                            <div class="cc-tl__body">
-                                <span class="cc-tl__title">
-                                    {{ "Passed" if a.passed else "Attempted" }} quiz — {{ a.quiz_title }}
-                                </span>
-                                <span class="cc-tl__meta">
-                                    {{ a.module_title }} · {{ a.percentage }}% · {{ a.completed_at }}
-                                </span>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ol>
-                    {% else %}
                     <ol class="cc-timeline">
                         {% for act in recent_activity %}
                         <li class="cc-tl">
                             <span class="cc-tl__dot"></span>
                             <div class="cc-tl__body">
                                 <span class="cc-tl__title">{{ act.title }}</span>
-                                <span class="cc-tl__meta">{{ act.meta if act.meta is defined else "Get started to build your history" }}</span>
+                                <span class="cc-tl__meta">{{ act.detail }}{% if act.time %} · {{ act.time }}{% endif %}</span>
                             </div>
                         </li>
                         {% endfor %}
                     </ol>
-                    {% endif %}
                 </section>
 
                 <div class="cc-side">
 
-                    {# ================= 5. Continue learning ================= #}
+                    {# ================= 5. Continue learning (real next step) ================= #}
                     <section class="cc-panel cc-panel--accent">
                         <h2 class="cc-panel__title">{{ icon("play", 16) }} Continue Learning</h2>
-                        {% if xp_info.level > 1 or user.xp > 0 %}
+                        {% if continue_learning %}
                         <p class="cc-continue__text">
-                            You're {{ xp_info.xp_span - xp_info.xp_into_level }} XP from
-                            Level {{ xp_info.level + 1 }}. Keep the momentum going.
+                            <strong>{{ continue_learning.module_title }}</strong>
+                            <span class="cc-continue__cat">· {{ continue_learning.category }}</span><br>
+                            {% if continue_learning.lesson_title %}
+                            Next up: {{ continue_learning.lesson_title }}
+                            {% else %}
+                            All lessons done — finish the module quiz!
+                            {% endif %}
                         </p>
-                        <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary btn--sm">
-                            Continue Roadmap →
-                        </a>
+                        <div class="ui-progress" role="progressbar" aria-valuenow="{{ continue_learning.percent }}"
+                             aria-valuemin="0" aria-valuemax="100" aria-label="Module progress">
+                            <span class="ui-progress__fill" style="width: {{ continue_learning.percent }}%"></span>
+                        </div>
+                        <p class="cc-continue__meta">{{ continue_learning.done }} / {{ continue_learning.total }} lessons · {{ continue_learning.percent }}%</p>
+                        <a href="{{ url_for('roadmap.module_detail', module_slug=continue_learning.module_slug) }}"
+                           class="btn btn--primary btn--sm">Resume Module →</a>
                         {% else %}
                         <p class="cc-continue__text">
-                            You haven't started yet. Pick your first module and earn your first XP.
+                            You've completed everything that's unlocked. Explore labs and CTFs
+                            while the next modules open up.
                         </p>
-                        <a href="{{ url_for('roadmap.index') }}" class="btn btn--primary btn--sm">
-                            Start Next Module →
-                        </a>
+                        <a href="{{ url_for('labs.index') }}" class="btn btn--primary btn--sm">Open Labs →</a>
+                        {% endif %}
+                    </section>
+
+                    {# ================= 5b. Active roadmap ================= #}
+                    {% if active_roadmap %}
+                    <section class="cc-panel">
+                        <h2 class="cc-panel__title">{{ icon("map", 16) }} Active Roadmap</h2>
+                        <p class="cc-continue__text"><strong>{{ active_roadmap.title }}</strong></p>
+                        <div class="ui-progress" role="progressbar" aria-valuenow="{{ active_roadmap.percent }}"
+                             aria-valuemin="0" aria-valuemax="100" aria-label="Roadmap progress">
+                            <span class="ui-progress__fill" style="width: {{ active_roadmap.percent }}%"></span>
+                        </div>
+                        <p class="cc-continue__meta">{{ active_roadmap.percent }}% complete</p>
+                        {% for track in learning_progress[:4] %}
+                        <div class="cc-track">
+                            <span class="cc-track__label">{{ track.label }}</span>
+                            <div class="ui-progress ui-progress--thin" role="progressbar"
+                                 aria-valuenow="{{ track.percent }}" aria-valuemin="0" aria-valuemax="100"
+                                 aria-label="{{ track.label }} progress">
+                                <span class="ui-progress__fill" style="width: {{ track.percent }}%"></span>
+                            </div>
+                            <span class="cc-track__pct">{{ track.percent }}%</span>
+                        </div>
+                        {% endfor %}
+                        <a href="{{ url_for('roadmap.index') }}" class="btn btn--outline btn--sm">View Roadmaps →</a>
+                    </section>
+                    {% endif %}
+
+                    {# ================= 5c. Recent achievements ================= #}
+                    <section class="cc-panel">
+                        <h2 class="cc-panel__title">{{ icon("target", 16) }} Recent Achievements</h2>
+                        {% if achievements %}
+                        <ul class="cc-ach">
+                            {% for a in achievements[:4] %}
+                            <li class="cc-ach__item {{ 'is-unlocked' if a.unlocked else 'is-locked' }}">
+                                <span class="cc-ach__icon" aria-hidden="true">{{ icon(a.icon, 16) }}</span>
+                                <span class="cc-ach__body">
+                                    <span class="cc-ach__title">{{ a.title }}</span>
+                                    <span class="cc-ach__meta">{{ a.detail }}</span>
+                                </span>
+                                {% if a.unlocked %}
+                                <span class="ui-badge ui-badge--primary">{{ a.when or "Unlocked" }}</span>
+                                {% else %}
+                                <span class="ui-badge">Locked</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <a href="{{ url_for('dashboard.achievements') }}" class="btn btn--outline btn--sm">All Achievements →</a>
+                        {% else %}
+                        <div class="ui-empty">
+                            <span class="ui-empty__icon" aria-hidden="true">🏆</span>
+                            <p class="ui-empty__title">No achievements yet</p>
+                            <p class="ui-empty__text">Complete lessons, labs and quizzes to start unlocking badges.</p>
+                        </div>
                         {% endif %}
                     </section>
 
@@ -280,5 +329,6 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
 </body>
 </html>

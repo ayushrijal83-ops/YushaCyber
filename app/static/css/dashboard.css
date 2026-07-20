@@ -32,97 +32,8 @@
 }
 
 /* ---------- Sidebar ---------- */
-.sidebar {
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background-color: rgba(22, 27, 34, 0.75);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-right: 1px solid var(--color-border);
-    padding: 20px 14px;
-    z-index: 60;
-}
-
-.sidebar__logo {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 1.15rem;
-    padding: 6px 10px 18px;
-}
-
-.sidebar__logo-mark {
-    font-family: var(--font-mono);
-    color: var(--color-primary);
-    background-color: var(--color-primary-dim);
-    border: 1px solid var(--color-primary);
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-size: 0.85rem;
-}
-
-.sidebar__nav {
-    flex: 1;
-    overflow-y: auto;
-    padding-block: 6px;
-}
-
-.sidebar__nav ul {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.sidebar__link {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: var(--radius);
-    color: var(--color-text-muted);
-    font-size: 0.93rem;
-    border: 1px solid transparent;
-    transition: color var(--transition), background-color var(--transition),
-                border-color var(--transition), transform var(--transition);
-}
-
-.sidebar__link .icon {
-    flex-shrink: 0;
-    opacity: 0.85;
-}
-
-.sidebar__link:hover {
-    color: var(--color-text);
-    background-color: rgba(240, 246, 252, 0.04);
-    transform: translateX(3px);
-}
-
-.sidebar__link--active {
-    color: var(--color-primary);
-    background-color: var(--color-primary-dim);
-    border-color: rgba(0, 255, 136, 0.35);
-}
-
-.sidebar__link--logout {
-    margin-top: 10px;
-    border-top: 1px solid var(--color-border);
-    border-radius: 0;
-    padding-top: 16px;
-}
-
-.sidebar__link--logout:hover {
-    color: var(--color-danger);
-    background: none;
-}
 
 /* Mobile overlay behind the off-canvas sidebar */
-.sidebar-overlay {
-    display: none;
-}
 
 /* ---------- Topbar ---------- */
 .topbar {
@@ -1428,7 +1339,6 @@
     .chal-hint__toggle { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
 
-
 /* ==========================================================================
    Admin panel (YC-010.7 UI polish) — dark theme, existing design tokens
    ========================================================================== */
@@ -2240,3 +2150,63 @@
 @media (prefers-reduced-motion: reduce) {
     .shell-menu, .shell-mobile__panel, .shell-mobile__backdrop { animation: none; }
 }
+
+/* ===========================================================================
+   Profile page (YC-022.0)
+   =========================================================================== */
+.profile-hero { margin-bottom: var(--space-6); }
+.profile-hero__id {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+.profile-hero__name {
+    margin: 0 0 var(--space-2);
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+}
+.profile-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: 0;
+}
+.shell-avatar--xl {
+    width: 72px; height: 72px;
+    font-size: 1.7rem;
+    border-radius: 20px;
+}
+.profile-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-4);
+    margin: 0 0 var(--space-5);
+    padding: var(--space-4);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+.profile-facts dt {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+}
+.profile-facts dd { margin: 0; font-size: 0.92rem; color: var(--color-text); overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+    .profile-hero__id { flex-direction: column; align-items: flex-start; }
+}
+
+/* YC-022.0 — denser primary nav (7–8 items) + admin accent */
+@media (min-width: 1024px) and (max-width: 1320px) {
+    .shell-links { gap: 2px; }
+    .shell-link { padding: 8px 9px; font-size: 0.8rem; }
+    .shell-link svg { display: none; }
+    .shell-search { max-width: 170px; }
+}
+.shell-link--admin { color: var(--color-warning); }
+.shell-link--admin:hover,
+.shell-link--admin.is-active { color: var(--color-warning); background: rgba(255, 201, 77, 0.09); }

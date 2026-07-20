@@ -17,12 +17,22 @@ from app.labs import labs_bp, lab_services
 @login_required
 def index():
     """Labs catalogue with Linux track progression."""
+    # Every category that has interactive labs renders as a learning track.
+    # Data-driven: seeding a new track (Networking today, Nmap tomorrow)
+    # requires no route change beyond this generic loop.
+    tracks = []
+    for category in lab_services.get_categories():
+        ctx = lab_services.get_track_context(current_user, category.slug)
+        if ctx.get("total"):
+            ctx["icon"] = category.icon
+            tracks.append(ctx)
     return render_template(
         "labs/index.html",
         user=current_user,
         categories=lab_services.get_categories(),
         labs=lab_services.get_labs(),
-        track=lab_services.get_track_context(current_user, "linux"),
+        tracks=tracks,
+        track_slugs=[t["category"]["slug"] for t in tracks],
     )
 
 
@@ -80,3 +90,154 @@ def reset(slug: str):
         abort(404)
     result = lab_services.reset_lab_session(current_user, lab)
     return jsonify(result), (200 if result.get("ok") else 400)
+
+
+# ---------------------------------------------------------------------------
+# Topology engine HTTP surface (YC-026.1)
+# ---------------------------------------------------------------------------
+# One catalogue endpoint + one payload endpoint per topology + one
+# per-device detail endpoint. All read-only, all login-required so we
+# don't hand random network diagrams to anonymous crawlers, all
+# capability-agnostic (any future frontend consumes the same JSON).
+
+
+@labs_bp.route("/topology/")
+@login_required
+def topology_index():
+    """List every available topology."""
+    from app.labs.topology import engine as topology_engine
+    return jsonify({
+        "topologies": topology_engine.list_topologies(),
+        "device_types": topology_engine.DEVICE_TYPES,
+    })
+
+
+@labs_bp.route("/topology/<name>")
+@login_required
+def topology_show(name: str):
+    """Full renderer payload for one topology."""
+    from app.labs.topology import engine as topology_engine
+    try:
+        engine = topology_engine.load_topology(name)
+    except topology_engine.TopologyNotFound:
+        abort(404)
+    except topology_engine.TopologySchemaError as exc:
+        return jsonify({"error": "schema", "detail": str(exc)}), 500
+    return jsonify(engine.render_payload())
+
+
+@labs_bp.route("/topology/<name>/device/<hostname>")
+@login_required
+def topology_device(name: str, hostname: str):
+    """Detail panel payload for a clicked device."""
+    from app.labs.topology import engine as topology_engine
+    try:
+        engine = topology_engine.load_topology(name)
+    except topology_engine.TopologyNotFound:
+        abort(404)
+    payload = engine.describe_device(hostname)
+    if payload is None:
+        abort(404)
+    return jsonify(payload)
+
+
+@labs_bp.route("/topology/<name>/view")
+@login_required
+def topology_view(name: str):
+    """Interactive HTML view of a topology (visual sanity + demo).
+
+    Used by lab authors while shaping a JSON; also the default renderer
+    template that future simulators embed via ``{% include %}``.
+    """
+    from app.labs.topology import engine as topology_engine
+    try:
+        topology_engine.load_topology(name)  # validate before rendering
+    except topology_engine.TopologyNotFound:
+        abort(404)
+    except topology_engine.TopologySchemaError as exc:
+        return (f"Topology schema error: {exc}", 500)
+    return render_template("labs/topology_view.html", topology_name=name)
+
+
+# ---------------------------------------------------------------------------
+# Connectivity engine HTTP surface (YC-026.3)
+# ---------------------------------------------------------------------------
+# A read-only probe endpoint so any future frontend (a live network-map
+# with green/red status dots, an Nmap console, a Wireshark feed) can ask
+# the shared engine "what happens if X talks to Y?" without re-deriving
+# reachability client-side. Everything routes through the ONE engine —
+# no duplicated networking logic.
+
+@labs_bp.route("/topology/<name>/status")
+@login_required
+def topology_status(name: str):
+    """Per-host online/offline + service snapshot for the network map.
+
+    Accepts an optional ?offline=host1,host2 query so a caller can preview
+    connectivity with certain hosts downed without persisting anything.
+    """
+    from app.labs import net_engine
+    from app.labs.topology import engine as topology_engine
+    try:
+        engine_topo = topology_engine.load_topology(name)
+    except topology_engine.TopologyNotFound:
+        abort(404)
+    offline = tuple(
+        h for h in request.args.get("offline", "").split(",") if h
+    )
+    engine = net_engine.make_engine(engine_topo, offline=offline)
+    return jsonify(engine.status_snapshot())
+
+
+@labs_bp.route("/topology/<name>/probe")
+@login_required
+def topology_probe(name: str):
+    """Simulated connectivity probe between two devices.
+
+    Query params: ?src=<host>&dst=<host>[&proto=icmp|tcp|udp][&port=N]
+                  [&offline=hostA,hostB]
+    Returns ping replies (icmp) or a single packet result (tcp/udp),
+    plus traceroute hops. Pure simulation — no real network access.
+    """
+    from app.labs import net_engine
+    from app.labs.topology import engine as topology_engine
+    try:
+        engine_topo = topology_engine.load_topology(name)
+    except topology_engine.TopologyNotFound:
+        abort(404)
+
+    src = request.args.get("src", "")
+    dst = request.args.get("dst", "")
+    proto = request.args.get("proto", "icmp").lower()
+    port = request.args.get("port", type=int)
+    offline = tuple(h for h in request.args.get("offline", "").split(",") if h)
+
+    engine = net_engine.make_engine(engine_topo, offline=offline)
+    if engine.host(src) is None or engine.host(dst) is None:
+        return jsonify({"error": "unknown-host",
+                        "detail": "src and dst must be known devices"}), 400
+
+    result = {
+        "src": src, "dst": dst, "protocol": proto,
+        "reachable": engine.reachable(src, dst),
+    }
+    if proto == "icmp":
+        replies = engine.ping(src, dst, count=4)
+        result["ping"] = [
+            {"seq": r.sequence, "status": r.status.value,
+             "ttl": r.ttl, "latency_ms": r.latency_ms}
+            for r in replies
+        ]
+        trace = engine.traceroute(src, dst)
+        result["traceroute"] = [
+            {"hop": h.hop, "hostname": h.hostname, "ip": h.ip,
+             "latency_ms": h.latency_ms}
+            for h in trace.hops
+        ]
+    else:
+        pkt = engine.send_packet(src, dst, protocol=proto, port=port)
+        result["packet"] = pkt.to_dict()
+        if port is not None:
+            result["port_state"] = engine.scan_port(src, dst, port,
+                                                     protocol=proto).value
+    return jsonify(result)

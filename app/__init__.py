@@ -21,10 +21,37 @@ def create_app() -> Flask:
     _init_extensions(app)
     _register_blueprints(app)
     _register_routes(app)
+    _register_error_handlers(app)
     _register_models()
     _register_cli(app)
 
+    # YC-025.0 — production hardening (headers, logging, rate limits,
+    # health endpoints). All additive; safe in dev and prod.
+    from app import production
+    production.init_app(app)
+
     return app
+
+
+def _register_error_handlers(app: Flask) -> None:
+    """Friendly, branded error pages (YC-022.0).
+
+    500 also rolls back the session so a failed transaction can never
+    poison subsequent requests served by the same worker.
+    """
+
+    @app.errorhandler(403)
+    def forbidden(_error):
+        return render_template("errors/403.html"), 403
+
+    @app.errorhandler(404)
+    def not_found(_error):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(500)
+    def server_error(_error):
+        db.session.rollback()
+        return render_template("errors/500.html"), 500
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +93,8 @@ def _register_blueprints(app: Flask) -> None:
     from app.admin import admin_bp
     from app.labs import labs_bp
     from app.resources import resources_bp
+    from app.leaderboard import leaderboard_bp
+    from app.profiles import profiles_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
@@ -74,6 +103,8 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(labs_bp, url_prefix="/labs")
     app.register_blueprint(resources_bp, url_prefix="/resources")
+    app.register_blueprint(profiles_bp)  # routes: /profile, /users/<username>
+    app.register_blueprint(leaderboard_bp)  # route: /leaderboard
 
 
 def _register_routes(app: Flask) -> None:
@@ -81,8 +112,32 @@ def _register_routes(app: Flask) -> None:
 
     @app.route("/")
     def index():
-        """Render the landing page."""
-        return render_template("index.html")
+        """Render the landing page with real platform statistics.
+
+        Counts are cheap indexed COUNT(*) queries; any failure (fresh
+        install, missing tables) falls back to zeros so the public page
+        can never 500 because of the database.
+        """
+        stats = {"lessons": 0, "labs": 0, "challenges": 0, "xp": 0}
+        try:
+            from sqlalchemy import func
+
+            from app.ctf.models import Challenge
+            from app.labs.models import Lab
+            from app.roadmap.models import Lesson, RoadmapModule
+
+            stats["lessons"] = Lesson.query.count()
+            stats["labs"] = Lab.query.filter_by(is_interactive=True).count()
+            stats["challenges"] = Challenge.query.count()
+            stats["xp"] = int(
+                (db.session.query(func.sum(Lesson.xp_reward)).scalar() or 0)
+                + (db.session.query(func.sum(RoadmapModule.xp_reward)).scalar() or 0)
+                + (db.session.query(func.sum(Lab.xp_reward)).scalar() or 0)
+                + (db.session.query(func.sum(Challenge.points)).scalar() or 0)
+            )
+        except Exception:  # pragma: no cover — defensive: landing never breaks
+            app.logger.exception("Landing statistics unavailable; using zeros")
+        return render_template("index.html", platform_stats=stats)
 
 
 def _register_models() -> None:
@@ -99,6 +154,7 @@ def _register_models() -> None:
     from app.ctf import models as ctf_models  # noqa: F401
     from app.labs import models as labs_models  # noqa: F401
     from app.resources import models as resources_models  # noqa: F401
+    from app.profiles import models as profiles_models  # noqa: F401
 
 
 def _register_cli(app: Flask) -> None:

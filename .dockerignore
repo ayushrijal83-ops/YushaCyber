@@ -1,0 +1,23 @@
+# Local artefacts that don't belong in the image.
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.env.local
+instance/*.db
+instance/*.db-*
+node_modules/
+.git/
+.github/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+coverage.xml
+*.log
+Dockerfile
+docker-compose.yml
+README.md
+tests/

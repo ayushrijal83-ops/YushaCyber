@@ -178,9 +178,27 @@ def _user_progress_metrics(user: User) -> dict[str, int]:
         .count()
     )
 
+    # Completed labs within one category (YC-013.0) — additive metric so
+    # per-track achievements (Networking today, Nmap/Wireshark tomorrow)
+    # need only a new mapping line, never engine changes.
+    def _labs_completed_in_category(category_slug: str) -> int:
+        from app.labs.models import LabCategory
+        return (
+            UserLabProgress.query
+            .join(Lab, Lab.id == UserLabProgress.lab_id)
+            .join(LabCategory, LabCategory.id == Lab.category_id)
+            .filter(
+                UserLabProgress.user_id == user.id,
+                UserLabProgress.completed.is_(True),
+                LabCategory.slug == category_slug,
+            )
+            .count()
+        )
+
     return {
         "lessons_completed": lessons_completed,
         "labs_completed": labs_completed,
+        "networking_labs_completed": _labs_completed_in_category("networking"),
         "quizzes_passed": quiz_stats.get("quizzes_passed", 0),
         "level_reached": user.level or 1,
         "xp_earned": user.xp or 0,
@@ -206,6 +224,8 @@ _CONDITION_METRIC = {
     "module_completed": "modules_completed",
     "labs_completed": "labs_completed",
     "lab_completed": "labs_completed",
+    "networking_labs_completed": "networking_labs_completed",
+    "networking_lab_completed": "networking_labs_completed",
 }
 
 

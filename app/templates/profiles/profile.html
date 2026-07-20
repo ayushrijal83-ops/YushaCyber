@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ profile_user.username }} — Profile — YushaCyber</title>
+    <meta name="description" content="{{ profile_user.username }}'s cybersecurity learning profile on YushaCyber.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/command.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profiles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+    <script>
+      (function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+        document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+    </script>
+</head>
+<body class="dash-body">
+
+{% from "dashboard/_icons.html" import icon %}
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="dash">
+    <div class="dash__main">
+
+        {% if current_user.is_authenticated %}
+            {% set user = current_user %}
+            {% include "dashboard/topbar.html" %}
+        {% else %}
+        <header class="pf-publicnav">
+            <a href="{{ url_for('index') }}" class="shell-logo" aria-label="YushaCyber home">
+                <span class="shell-logo__mark" aria-hidden="true">&gt;_</span>
+                <span class="shell-logo__text">Yusha<span class="accent">Cyber</span></span>
+            </a>
+            <div>
+                <a href="{{ url_for('auth.login') }}" class="btn btn--outline btn--sm">Sign in</a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn--primary btn--sm">Get Started</a>
+            </div>
+        </header>
+        {% endif %}
+
+        <main class="dash__content" id="main-content">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="dash-flash" role="status">
+                    {% for category, message in messages %}
+                    <p class="ui-flash ui-flash--{{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endwith %}
+
+            {# ================= Header ================= #}
+            <section class="ui-card ui-card--accent pf-head">
+                <div class="pf-head__id">
+                    {% if profile and profile.avatar_url %}
+                    <img class="pf-avatar" src="{{ profile.avatar_url }}"
+                         alt="{{ profile_user.username }}'s profile picture"
+                         onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'pf-avatar pf-avatar--fallback',textContent:'{{ profile_user.username[0]|upper }}'}))">
+                    {% else %}
+                    <span class="pf-avatar pf-avatar--fallback" aria-hidden="true">{{ profile_user.username[0]|upper }}</span>
+                    {% endif %}
+
+                    <div class="pf-head__who">
+                        <h1 class="pf-name">{{ profile_user.username }}</h1>
+                        <p class="pf-meta">
+                            <span class="ui-badge ui-badge--primary">{{ icon("trending", 13) }} Level {{ xp_info.level }}</span>
+                            <span class="ui-badge">{{ icon("zap", 13) }} {{ xp_info.xp }} XP</span>
+                            {% if profile and profile.country %}
+                            <span class="ui-badge">{{ icon("map", 13) }} {{ profile.country }}</span>
+                            {% endif %}
+                            <span class="ui-badge">{{ icon("user", 13) }} Joined {{ joined }}</span>
+                        </p>
+
+                        {% if profile and profile.bio %}
+                        <p class="pf-bio">{{ profile.bio }}</p>
+                        {% elif is_owner %}
+                        <p class="pf-bio pf-bio--empty">No bio yet — tell the world what you're hacking on.</p>
+                        {% endif %}
+
+                        <p class="pf-links">
+                            {% if profile and profile.github_url %}
+                            <a class="pf-link" href="{{ profile.github_url }}" target="_blank"
+                               rel="noopener nofollow">{{ icon("terminal", 14) }} GitHub</a>
+                            {% endif %}
+                            {% if profile and profile.linkedin_url %}
+                            <a class="pf-link" href="{{ profile.linkedin_url }}" target="_blank"
+                               rel="noopener nofollow">{{ icon("user", 14) }} LinkedIn</a>
+                            {% endif %}
+                            {% if profile and profile.website_url %}
+                            <a class="pf-link" href="{{ profile.website_url }}" target="_blank"
+                               rel="noopener nofollow">{{ icon("grid", 14) }} Website</a>
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    {% if is_owner %}
+                    <a href="{{ url_for('profiles.edit_profile') }}" class="btn btn--outline pf-editbtn">
+                        {{ icon("settings", 15) }} Edit Profile
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="cc-xp" aria-label="XP progress">
+                    <div class="cc-xp__head">
+                        <span>Level {{ xp_info.level }}</span>
+                        <span class="cc-xp__nums">{{ xp_info.xp_into_level }} / {{ xp_info.xp_span }} XP
+                            to Level {{ xp_info.level + 1 }}</span>
+                    </div>
+                    <div class="ui-progress" role="progressbar" aria-valuenow="{{ xp_info.percent }}"
+                         aria-valuemin="0" aria-valuemax="100" aria-label="Progress to next level">
+                        <span class="ui-progress__fill" style="width: {{ xp_info.percent }}%"></span>
+                    </div>
+                </div>
+            </section>
+
+            {# ================= Recent badges strip ================= #}
+            {% if showcase.recent_badges %}
+            <div class="pf-badgestrip" aria-label="Recent badges">
+                {% for b in showcase.recent_badges %}
+                <span class="pf-badge" title="{{ b.title }}">
+                    <span class="pf-badge__icon">{{ icon(b.icon, 16) }}</span>
+                    <span class="pf-badge__label">{{ b.title }}</span>
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {# ================= Statistics ================= #}
+            <h2 class="cc-h2">{{ icon("zap", 16) }} Statistics</h2>
+            <div class="cc-stats pf-stats">
+                {% for s in statistics %}
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon(s.icon, 16) }}</span>
+                    <span class="cc-stat__value">{{ s.value }}</span>
+                    <span class="cc-stat__label">{{ s.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="pf-cols">
+                <div class="pf-main">
+
+                    {# ================= Achievements showcase ================= #}
+                    <section class="cc-panel">
+                        <h2 class="cc-panel__title">{{ icon("target", 16) }} Achievements
+                            <span class="pf-count">{{ showcase.achievements|length }}</span></h2>
+                        {% if showcase.achievements %}
+                        <ul class="cc-ach">
+                            {% for a in showcase.achievements %}
+                            <li class="cc-ach__item is-unlocked">
+                                <span class="cc-ach__icon" aria-hidden="true">{{ icon(a.icon, 16) }}</span>
+                                <span class="cc-ach__body">
+                                    <span class="cc-ach__title">{{ a.title }}</span>
+                                    <span class="cc-ach__meta">{{ a.description }}</span>
+                                </span>
+                                {% if a.when %}<span class="ui-badge ui-badge--primary">{{ a.when }}</span>{% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="ui-empty">
+                            <span class="ui-empty__icon" aria-hidden="true">🏆</span>
+                            <p class="ui-empty__title">No achievements yet</p>
+                            <p class="ui-empty__text">{{ "Complete lessons, labs and quizzes to earn your first badge." if is_owner else "This hacker's trophy shelf is still warming up." }}</p>
+                        </div>
+                        {% endif %}
+                    </section>
+
+                    {# ================= Certificates showcase ================= #}
+                    <section class="cc-panel">
+                        <h2 class="cc-panel__title">{{ icon("award", 16) }} Certificates
+                            <span class="pf-count">{{ showcase.certificates|length }}</span></h2>
+                        {% if showcase.certificates %}
+                        <ul class="pf-certs">
+                            {% for cert in showcase.certificates %}
+                            <li class="pf-cert">
+                                <span class="pf-cert__icon" aria-hidden="true">📜</span>
+                                <span class="pf-cert__body">
+                                    <span class="pf-cert__title">{{ cert.title }}</span>
+                                    <span class="pf-cert__meta">
+                                        <code>{{ cert.code }}</code>{% if cert.when %} · {{ cert.when }}{% endif %}
+                                    </span>
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="ui-empty">
+                            <span class="ui-empty__icon" aria-hidden="true">📜</span>
+                            <p class="ui-empty__title">No certificates yet</p>
+                            <p class="ui-empty__text">{{ "Finish a full track to earn a certificate." if is_owner else "No certificates earned yet." }}</p>
+                        </div>
+                        {% endif %}
+                    </section>
+                </div>
+
+                {# ================= Recent activity ================= #}
+                <section class="cc-panel pf-side">
+                    <h2 class="cc-panel__title">{{ icon("bell", 16) }} Recent Activity</h2>
+                    {% if timeline %}
+                    <ol class="cc-timeline">
+                        {% for e in timeline %}
+                        <li class="cc-tl">
+                            <span class="cc-tl__dot"></span>
+                            <div class="cc-tl__body">
+                                <span class="cc-tl__title">{{ e.action }} — {{ e.title }}</span>
+                                <span class="cc-tl__meta">{{ e.when }}</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <div class="ui-empty">
+                        <span class="ui-empty__icon" aria-hidden="true">🕐</span>
+                        <p class="ui-empty__title">No activity yet</p>
+                        <p class="ui-empty__text">Completed lessons, labs, quizzes, CTF solves and unlocks will appear here.</p>
+                    </div>
+                    {% endif %}
+                </section>
+            </div>
+
+            {% if current_user.is_authenticated %}
+            {% include "dashboard/footer.html" %}
+            {% endif %}
+        </main>
+    </div>
+</div>
+
+{% if current_user.is_authenticated %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+{% endif %}
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+</body>
+</html>

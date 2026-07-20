@@ -1,0 +1,118 @@
+{# =============================================================================
+   Reusable topology view (YC-026.1)
+
+   Two modes:
+     1. Full page — routed at /labs/topology/<name>/view (dev demo, admin).
+     2. Embedded — a lab template can drop this in with
+          {% include "labs/topology_view.html" with context %}
+        as long as `topology_name` is set.
+
+   The renderer JS is self-contained (topology_engine.js). It fetches the
+   payload from /labs/topology/<name> and the device details from
+   /labs/topology/<name>/device/<hostname> — so every simulator gets the
+   same map for free.
+   ============================================================================= #}
+{% set _standalone = _standalone if _standalone is defined else True %}
+{% if _standalone %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Map — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/labs.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/topology.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+    <script>
+      (function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+        document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+    </script>
+</head>
+<body class="dash-body">
+
+{% from "dashboard/_icons.html" import icon %}
+{% set user = current_user %}
+<a class="skip-link" href="#topo-root">Skip to network map</a>
+
+<div class="dash">
+    <div class="dash__main">
+        {% include "dashboard/topbar.html" %}
+        <main class="dash__content" id="topo-root">
+{% endif %}
+
+<section class="topo" data-topology-name="{{ topology_name }}"
+         data-topology-url="{{ url_for('labs.topology_show', name=topology_name) }}"
+         data-topology-device-url="{{ url_for('labs.topology_device', name=topology_name, hostname='__hostname__') }}"
+         data-topology-status-url="{{ url_for('labs.topology_status', name=topology_name) }}">
+
+    <header class="topo__head">
+        <div>
+            <h1 class="topo__title" id="topo-title">{{ icon("share-2", 22) if False else "" }}Network Map</h1>
+            <p class="topo__desc" id="topo-desc">Loading topology…</p>
+        </div>
+        <div class="topo__toolbar" role="toolbar" aria-label="Topology controls">
+            <button type="button" class="topo__zoom" data-zoom="out" aria-label="Zoom out">−</button>
+            <span class="topo__zoomval" id="topo-zoom" aria-live="polite">100%</span>
+            <button type="button" class="topo__zoom" data-zoom="in" aria-label="Zoom in">+</button>
+            <button type="button" class="topo__zoom" data-zoom="reset" aria-label="Reset view">⤾</button>
+        </div>
+    </header>
+
+    <div class="topo__stage" id="topo-stage" aria-live="polite">
+        <svg id="topo-svg" viewBox="0 0 900 460" role="img" aria-label="Interactive network topology">
+            <defs>
+                <filter id="topo-glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="5" result="b"/>
+                    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <linearGradient id="topo-link-anim" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0"   stop-color="var(--color-primary)" stop-opacity="0.05"/>
+                    <stop offset="0.5" stop-color="var(--color-primary)" stop-opacity="1"/>
+                    <stop offset="1"   stop-color="var(--color-primary)" stop-opacity="0.05"/>
+                </linearGradient>
+            </defs>
+            <g id="topo-viewport">
+                <g id="topo-links"></g>
+                <g id="topo-nodes"></g>
+            </g>
+        </svg>
+
+        <aside class="topo__panel" id="topo-panel" aria-live="polite">
+            <div class="topo__panel-empty" id="topo-panel-empty">
+                Click any device to see its details.
+            </div>
+            <div class="topo__panel-body" id="topo-panel-body" hidden>
+                <h2 class="topo__panel-title" id="topo-panel-label"></h2>
+                <span class="ui-badge ui-badge--primary" id="topo-panel-status">Online</span>
+                <dl class="topo__facts" id="topo-panel-facts"></dl>
+
+                <h3 class="topo__panel-sub">Open ports (simulated)</h3>
+                <ul class="topo__ports" id="topo-panel-ports"></ul>
+
+                <h3 class="topo__panel-sub">Connected devices</h3>
+                <ul class="topo__conns" id="topo-panel-conns"></ul>
+            </div>
+        </aside>
+    </div>
+</section>
+
+{% if _standalone %}
+        </main>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+{% endif %}
+<script src="{{ url_for('static', filename='js/topology_engine.js') }}" defer></script>
+{% if _standalone %}
+</body>
+</html>
+{% endif %}

@@ -1,0 +1,430 @@
+/* ===========================================================================
+   YushaCyber — shared UI layer (YC-022.0 Product Polish)
+
+   Loaded on EVERY page AFTER style.css. One source of truth for the pieces
+   every feature re-implemented slightly differently: buttons in loading
+   state, badges, tables, form fields, progress bars, empty states,
+   skeleton loaders, spinners and accessibility primitives.
+
+   Everything derives from the design tokens in style.css (:root), so all
+   three themes (dark / light / cyber) restyle this file automatically.
+   =========================================================================== */
+
+:root {
+    /* Spacing scale — use these instead of ad-hoc pixel values. */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+
+    /* Radius aliases (style.css already defines --radius / --radius-lg). */
+    --radius-sm: 7px;
+    --radius-pill: 999px;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 28px rgba(0, 0, 0, 0.18);
+    --focus-ring: 0 0 0 3px var(--color-primary-glow);
+}
+
+/* ---------------------------------------------------------------------------
+   Accessibility primitives
+--------------------------------------------------------------------------- */
+.sr-only {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.skip-link {
+    position: absolute;
+    top: -48px; left: var(--space-4);
+    z-index: 2000;
+    padding: 10px 16px;
+    background: var(--color-primary);
+    color: #06110B;
+    font-weight: 700;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    text-decoration: none;
+    transition: top 0.2s ease;
+}
+.skip-link:focus { top: 0; }
+
+/* Consistent, high-visibility keyboard focus everywhere. */
+:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    box-shadow: var(--focus-ring);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+/* Respect users who disable animation. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Cards — one radius, one border, one padding rhythm.
+--------------------------------------------------------------------------- */
+.ui-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    box-shadow: var(--shadow-card);
+}
+.ui-card--flat { box-shadow: none; }
+.ui-card--accent { border-color: var(--color-primary-glow); }
+.ui-card__title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-4);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+.ui-card__title svg { color: var(--color-primary); }
+
+/* ---------------------------------------------------------------------------
+   Badges — status chips used across labs / quizzes / CTF / achievements.
+--------------------------------------------------------------------------- */
+.ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.ui-badge--primary {
+    color: var(--color-primary);
+    border-color: var(--color-primary-glow);
+    background: var(--color-primary-dim);
+}
+.ui-badge--warning { color: var(--color-warning); border-color: rgba(255, 201, 77, 0.35); background: rgba(255, 201, 77, 0.08); }
+.ui-badge--danger  { color: var(--color-danger);  border-color: rgba(255, 92, 92, 0.35);  background: rgba(255, 92, 92, 0.08); }
+
+/* ---------------------------------------------------------------------------
+   Buttons — loading state (paired with ui.js form handling).
+--------------------------------------------------------------------------- */
+.btn { position: relative; }
+.btn[disabled],
+.btn.is-loading {
+    opacity: 0.65;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.btn.is-loading {
+    color: transparent !important;
+}
+.btn.is-loading::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 16px; height: 16px;
+    border: 2px solid var(--color-primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: ui-spin 0.7s linear infinite;
+}
+.btn--primary.is-loading::after { border-color: #06110B; border-top-color: transparent; }
+
+/* ---------------------------------------------------------------------------
+   Spinners & skeleton loaders
+--------------------------------------------------------------------------- */
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+.ui-spinner {
+    display: inline-block;
+    width: 22px; height: 22px;
+    border: 2.5px solid var(--color-border-strong);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: ui-spin 0.7s linear infinite;
+    vertical-align: middle;
+}
+.ui-spinner--lg { width: 34px; height: 34px; border-width: 3px; }
+
+@keyframes ui-shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+}
+.skeleton {
+    position: relative;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-2);
+    background-image: linear-gradient(
+        90deg,
+        var(--color-surface-2) 0px,
+        var(--color-border) 60px,
+        var(--color-surface-2) 120px
+    );
+    background-size: 400px 100%;
+    animation: ui-shimmer 1.3s ease-in-out infinite;
+    color: transparent !important;
+    user-select: none;
+    min-height: 0.9em;
+}
+.skeleton--text  { height: 0.85em; width: 100%; margin: 0.25em 0; }
+.skeleton--title { height: 1.3em; width: 55%; }
+.skeleton--card  { height: 120px; border-radius: var(--radius-lg); }
+.skeleton--circle { border-radius: 50%; }
+
+/* ---------------------------------------------------------------------------
+   Empty states — one consistent, friendly component everywhere.
+--------------------------------------------------------------------------- */
+.ui-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    text-align: center;
+    padding: var(--space-7) var(--space-5);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background:
+        radial-gradient(420px 140px at 50% 0%, var(--color-primary-dim), transparent 70%),
+        var(--color-surface);
+}
+.ui-empty__icon {
+    display: grid;
+    place-items: center;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--color-primary-dim);
+    border: 1px solid var(--color-primary-glow);
+    color: var(--color-primary);
+    font-size: 1.5rem;
+}
+.ui-empty__icon svg { width: 28px; height: 28px; }
+.ui-empty__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+.ui-empty__text {
+    margin: 0;
+    max-width: 46ch;
+    color: var(--color-text-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+.ui-empty .btn { margin-top: var(--space-2); }
+
+/* ---------------------------------------------------------------------------
+   Tables — leaderboards, admin lists, analytics.
+--------------------------------------------------------------------------- */
+.ui-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    -webkit-overflow-scrolling: touch;
+}
+.ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.ui-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border-strong);
+    background: var(--color-surface-2);
+    white-space: nowrap;
+}
+.ui-table td {
+    padding: 12px 16px;
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+}
+.ui-table tbody tr:last-child td { border-bottom: 0; }
+.ui-table tbody tr:hover td { background: var(--color-surface-2); }
+
+/* ---------------------------------------------------------------------------
+   Forms — a single field recipe (auth.css keeps page-specific layout).
+--------------------------------------------------------------------------- */
+.ui-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-4); }
+.ui-field label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+.ui-field input,
+.ui-field select,
+.ui-field textarea,
+.ui-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius);
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 0.92rem;
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+.ui-field input:focus,
+.ui-field select:focus,
+.ui-field textarea:focus,
+.ui-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: var(--focus-ring);
+    outline: none;
+}
+.ui-field__error { color: var(--color-danger); font-size: 0.78rem; }
+.ui-field__hint  { color: var(--color-text-muted); font-size: 0.78rem; }
+
+/* ---------------------------------------------------------------------------
+   Progress bars — same bar everywhere (XP, modules, labs, quizzes).
+--------------------------------------------------------------------------- */
+.ui-progress {
+    width: 100%;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+}
+.ui-progress__fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-glow));
+    transition: width 0.5s ease;
+    min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Error pages (403 / 404 / 500)
+--------------------------------------------------------------------------- */
+.err-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: var(--space-6) var(--space-4);
+    background:
+        radial-gradient(700px 340px at 50% -10%, var(--color-primary-dim), transparent 70%),
+        var(--color-bg);
+}
+.err-card {
+    max-width: 560px;
+    width: 100%;
+    text-align: center;
+    padding: var(--space-7) var(--space-6);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+.err-card__code {
+    font-family: var(--font-mono);
+    font-size: clamp(3.2rem, 10vw, 5rem);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-primary);
+    text-shadow: 0 0 34px var(--color-primary-glow);
+    margin: 0 0 var(--space-3);
+}
+.err-card__title {
+    margin: 0 0 var(--space-3);
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    color: var(--color-text);
+}
+.err-card__text {
+    margin: 0 0 var(--space-5);
+    color: var(--color-text-muted);
+    line-height: 1.65;
+}
+.err-card__actions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.err-card__terminal {
+    margin: 0 auto var(--space-5);
+    max-width: 380px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+}
+.err-card__terminal .ok  { color: var(--color-primary); }
+.err-card__terminal .bad { color: var(--color-danger); }
+
+/* ---------------------------------------------------------------------------
+   Flash messages — consistent, dismissible, announced to screen readers.
+--------------------------------------------------------------------------- */
+.ui-flash {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: 12px 16px;
+    margin-bottom: var(--space-3);
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    font-size: 0.9rem;
+    animation: ui-flash-in 0.3s ease;
+}
+@keyframes ui-flash-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: none; }
+}
+.ui-flash--success { border-color: var(--color-primary-glow); background: var(--color-primary-dim); }
+.ui-flash--error   { border-color: rgba(255, 92, 92, 0.4); background: rgba(255, 92, 92, 0.08); }
+
+/* ---------------------------------------------------------------------------
+   Scroll-reveal (paired with ui.js — no-ops under reduced motion)
+--------------------------------------------------------------------------- */
+.ui-reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.ui-reveal.is-visible { opacity: 1; transform: none; }

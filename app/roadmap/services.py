@@ -188,15 +188,22 @@ def get_module_progress(user: User, module: RoadmapModule) -> dict[str, int]:
 
 def get_category_progress(user: User) -> dict[int, int]:
     """Percent complete per category id for this user (real counts)."""
-    progress: dict[int, int] = {}
+    # YC-022.0 perf: ONE batched completion lookup across every category
+    # instead of one query per category.
+    per_category: dict[int, list[int]] = {}
+    all_ids: list[int] = []
     for category in get_all_categories():
-        # Gather every lesson id under this category's active modules.
-        lesson_ids: list[int] = []
+        ids: list[int] = []
         for module in get_modules(category.id):
-            lesson_ids.extend(l.id for l in module.lessons)
-        done = len(_completed_lesson_ids(user, lesson_ids))
-        progress[category.id] = _percent(done, len(lesson_ids))
-    return progress
+            ids.extend(l.id for l in module.lessons)
+        per_category[category.id] = ids
+        all_ids.extend(ids)
+
+    done_all = _completed_lesson_ids(user, all_ids)
+    return {
+        cat_id: _percent(sum(1 for i in ids if i in done_all), len(ids))
+        for cat_id, ids in per_category.items()
+    }
 
 
 def get_lesson_view_context(
@@ -375,13 +382,28 @@ def initialize_user_progression(user) -> None:
     this is safe to call on registration and safe to re-run. Commits once.
     """
     try:
+        # YC-022.0 perf fast path: if the user already has a progress row for
+        # every active module, there is nothing to create — two COUNT queries
+        # instead of one SELECT per module on every roadmap page load.
+        total_modules = (
+            RoadmapModule.query.filter_by(is_active=True).count()
+        )
+        existing_rows = UserModuleProgress.query.filter_by(
+            user_id=user.id
+        ).count()
+        if existing_rows >= total_modules:
+            return
+
+        # One batched fetch of the rows that DO exist (instead of per-module).
+        existing_ids = {
+            mid for (mid,) in db.session.query(
+                UserModuleProgress.module_id
+            ).filter_by(user_id=user.id).all()
+        }
         for category in get_all_categories():
             modules = get_modules(category.id)
             for index, module in enumerate(modules):
-                existing = UserModuleProgress.query.filter_by(
-                    user_id=user.id, module_id=module.id
-                ).first()
-                if existing is not None:
+                if module.id in existing_ids:
                     continue
                 db.session.add(UserModuleProgress(
                     user_id=user.id, module_id=module.id,
@@ -607,6 +629,9 @@ def get_module_detail_context(user: User, module_slug: str) -> Optional[dict[str
         return None
 
     lessons = get_lessons(module.id)
+    # YC-022.0 perf: one batched completion lookup for the whole module
+    # instead of one query per lesson.
+    done_ids = _completed_lesson_ids(user, [l.id for l in lessons])
     lesson_views = [
         {
             "title": lesson.title,
@@ -615,8 +640,7 @@ def get_module_detail_context(user: User, module_slug: str) -> Optional[dict[str
             "estimated_minutes": lesson.estimated_minutes,
             "xp_reward": lesson.xp_reward,
             "is_preview": lesson.is_preview,
-            # Progress system not implemented — placeholder status.
-            "completed": lesson_completed(user, lesson),
+            "completed": lesson.id in done_ids,
         }
         for lesson in lessons
     ]
@@ -656,15 +680,43 @@ def get_roadmap_context(user: User) -> dict[str, Any]:
 
     categories: list[dict[str, Any]] = []
 
+    # ---- YC-022.0 perf: batch everything user-specific up front ----------
+    # One query: every module-progress row for this user, keyed by module.
+    progress_rows = {
+        row.module_id: row
+        for row in UserModuleProgress.query.filter_by(user_id=user.id).all()
+    }
+    # One computation (itself single-query now): per-category percent.
+    category_progress = get_category_progress(user)
+    # One query: every completed lesson id across the whole roadmap.
+    all_lesson_ids: list[int] = []
+    tree: list[tuple[Any, list[Any]]] = []
     for category in get_all_categories():
         modules = get_modules(category.id)
+        tree.append((category, modules))
+        for module in modules:
+            # module.lessons is selectin-loaded and display_order-sorted.
+            all_lesson_ids.extend(l.id for l in module.lessons)
+    done_ids = _completed_lesson_ids(user, all_lesson_ids)
+
+    def _status(module, index: int) -> str:
+        """module_status(), but from the prefetched rows (same semantics)."""
+        row = progress_rows.get(module.id)
+        if row is not None:
+            if row.completed:
+                return "completed"
+            return "available" if row.unlocked else "locked"
+        return "available" if index == 0 else "locked"
+    # ----------------------------------------------------------------------
+
+    for category, modules in tree:
         category_lessons = 0
         module_views: list[dict[str, Any]] = []
 
-        for module in modules:
-            lessons = get_lessons(module.id)
+        for index, module in enumerate(modules):
+            lessons = list(module.lessons)
             category_lessons += len(lessons)
-            mod_progress = get_module_progress(user, module)
+            done = sum(1 for l in lessons if l.id in done_ids)
 
             module_views.append({
                 "title": module.title,
@@ -674,9 +726,9 @@ def get_roadmap_context(user: User) -> dict[str, Any]:
                 "xp_reward": module.xp_reward,
                 # Per-user unlock/completion status (YC-007.0):
                 # "available" | "locked" | "completed".
-                "status": module_status(user, module),
+                "status": _status(module, index),
                 "lesson_count": len(lessons),
-                "progress_percent": mod_progress["percent"],
+                "progress_percent": _percent(done, len(lessons)),
                 "lessons": [
                     {
                         "title": lesson.title,
@@ -686,13 +738,13 @@ def get_roadmap_context(user: User) -> dict[str, Any]:
                         "xp_reward": lesson.xp_reward,
                         "estimated_minutes": lesson.estimated_minutes,
                         "is_preview": lesson.is_preview,
-                        "completed": lesson_completed(user, lesson),
+                        "completed": lesson.id in done_ids,
                     }
                     for lesson in lessons
                 ],
             })
 
-        cat_progress = get_category_progress(user).get(category.id, 0)
+        cat_progress = category_progress.get(category.id, 0)
         categories.append({
             "id": category.id,
             "title": category.title,

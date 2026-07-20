@@ -14,5 +14,9 @@ from app.labs import routes  # noqa: E402,F401  (attach routes to the blueprint)
 # EXTENSION POINT: import each simulator module once so its @register_simulator
 # decorator runs. Adding a lab type = add one import line here + its plugin file.
 from app.labs import linux_simulator  # noqa: E402,F401
+from app.labs import network_simulator  # noqa: E402,F401  (YC-013.0)
+from app.labs import interactive_network_simulator  # noqa: E402,F401  (YC-026.0)
+from app.labs import web_security_simulator  # noqa: E402,F401  (YC-029.0)
+from app.labs import soc_simulator  # noqa: E402,F401  (YC-030.0)
 # from app.labs import nmap_simulator     # future
 # from app.labs import wireshark_simulator  # future

@@ -1,0 +1,39 @@
+{# ===========================================================================
+   Error page shell (YC-022.0). Standalone — must render with NO user, NO
+   database and NO request context beyond the bare minimum, because it is
+   shown precisely when something else has failed.
+   =========================================================================== #}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Error{% endblock %} — YushaCyber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
+    <script>
+      (function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+        document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+</head>
+<body>
+<main class="err-page">
+    <div class="err-card" role="alert">
+        <p class="err-card__code" aria-hidden="true">{% block code %}{% endblock %}</p>
+        <h1 class="err-card__title">{% block heading %}{% endblock %}</h1>
+        <div class="err-card__terminal" aria-hidden="true">
+            {% block terminal %}{% endblock %}
+        </div>
+        <p class="err-card__text">{% block message %}{% endblock %}</p>
+        <div class="err-card__actions">
+            <a href="{{ url_for('index') }}" class="btn btn--outline">← Back to Home</a>
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn--primary">Go to Dashboard</a>
+        </div>
+    </div>
+</main>
+</body>
+</html>

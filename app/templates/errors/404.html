@@ -1,0 +1,13 @@
+{% extends "errors/_error_base.html" %}
+{% block title %}Page Not Found{% endblock %}
+{% block code %}404{% endblock %}
+{% block heading %}This page doesn't exist{% endblock %}
+{% block terminal %}
+<div>student@yushacyber:~$ locate {{ request.path }}</div>
+<div class="bad">locate: no match found</div>
+<div>student@yushacyber:~$ cd ~<span class="ok"> # let's get you home</span></div>
+{% endblock %}
+{% block message %}
+The page you're looking for was moved, renamed, or never existed.
+Check the address for typos — or head back to familiar territory.
+{% endblock %}

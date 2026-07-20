@@ -39,36 +39,13 @@
     }
 
     /* ----------------------------------------------------------------------
-       Profile dropdown: toggle, outside click, Escape
+       Profile dropdown: handled by the global shell IIFE below (single
+       source of truth). YC-025.0 root-cause fix: this function used to
+       attach a second click handler to the same #profile-toggle element,
+       and the pair cancelled each other on every click — clicking looked
+       like a no-op because the menu opened and closed in the same event
+       turn. Removed.
        ---------------------------------------------------------------------- */
-    function initProfileDropdown() {
-        const button = document.getElementById("profile-toggle");
-        const menu = document.getElementById("profile-menu");
-        if (!button || !menu) return;
-
-        function setOpen(open) {
-            menu.hidden = !open;
-            button.setAttribute("aria-expanded", String(open));
-        }
-
-        button.addEventListener("click", (event) => {
-            event.stopPropagation();
-            setOpen(menu.hidden);
-        });
-
-        document.addEventListener("click", (event) => {
-            if (!menu.hidden && !menu.contains(event.target)) {
-                setOpen(false);
-            }
-        });
-
-        document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape" && !menu.hidden) {
-                setOpen(false);
-                button.focus();
-            }
-        });
-    }
 
     /* ----------------------------------------------------------------------
        Stat counters: count up when scrolled into view
@@ -169,7 +146,6 @@
        ---------------------------------------------------------------------- */
     document.addEventListener("DOMContentLoaded", () => {
         initSidebar();
-        initProfileDropdown();
         initCounters();
         initProgressBars();
     });

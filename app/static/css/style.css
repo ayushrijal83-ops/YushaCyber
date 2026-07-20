@@ -398,13 +398,6 @@ ol {
 }
 
 /* ---------- Card grids ---------- */
-.card-grid {
-    display: grid;
-    gap: 24px;
-}
-
-.card-grid--4 { grid-template-columns: repeat(4, 1fr); }
-.card-grid--3 { grid-template-columns: repeat(3, 1fr); }
 
 /* ---------- Shared meta chips ---------- */
 .meta-row {
@@ -941,13 +934,6 @@ ol {
     padding-top: 64px;
 }
 
-.footer__grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 40px;
-    padding-bottom: 48px;
-}
-
 .footer__tagline {
     color: var(--color-text-muted);
     margin-top: 16px;
@@ -1040,12 +1026,6 @@ ol {
         gap: 44px;
     }
 
-    .card-grid--4 { grid-template-columns: repeat(2, 1fr); }
-    .card-grid--3 { grid-template-columns: repeat(2, 1fr); }
-
-    .footer__grid {
-        grid-template-columns: 1fr 1fr;
-    }
 }
 
 @media (max-width: 768px) {
@@ -1135,19 +1115,10 @@ ol {
 }
 
 @media (max-width: 560px) {
-    .card-grid--4,
-    .card-grid--3 {
-        grid-template-columns: 1fr;
-    }
 
     .stats__grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 32px 16px;
-    }
-
-    .footer__grid {
-        grid-template-columns: 1fr;
-        gap: 32px;
     }
 
     .hero {

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "YushaCyber Virtual Network Topology (YC-026.1)",
+  "description": "One virtual network. Simulator-agnostic — any future lab (Nmap, Wireshark, firewall, AD, IDS, SIEM) can consume the same file.",
+  "type": "object",
+  "required": ["devices", "links"],
+  "properties": {
+    "title":       {"type": "string", "description": "Human display name."},
+    "description": {"type": "string"},
+    "devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hostname", "device_type"],
+        "properties": {
+          "hostname":    {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"},
+          "label":       {"type": "string"},
+          "device_type": {"enum": ["router", "switch", "pc", "linux-server",
+                                    "windows-server", "firewall", "ids",
+                                    "siem", "internet"]},
+          "os":          {"type": "string"},
+          "ip":          {"type": "string", "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}$"},
+          "mac":         {"type": "string"},
+          "gateway":     {"type": "string"},
+          "open_ports":  {"type": "array", "items": {"type": "integer",
+                                                      "minimum": 1, "maximum": 65535}},
+          "services":    {"type": "object"},
+          "x":           {"type": "number"},
+          "y":           {"type": "number"},
+          "tags":        {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["a", "b"],
+        "properties": {
+          "a":              {"type": "string"},
+          "b":              {"type": "string"},
+          "kind":           {"enum": ["ethernet", "wifi", "wan"]},
+          "bandwidth_mbps": {"type": "integer", "minimum": 1},
+          "latency_ms":     {"type": "number", "minimum": 0}
+        }
+      }
+    }
+  }
+}

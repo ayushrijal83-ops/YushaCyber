@@ -412,3 +412,62 @@ html[data-theme="cyber"] .lp-stat__value { text-shadow: 0 0 26px var(--color-pri
 }
 .shell-theme__btn:hover { opacity: 1; }
 .shell-theme__btn.is-active { opacity: 1; border-color: var(--color-primary); }
+
+/* ===========================================================================
+   YC-022.0 — testimonials
+   =========================================================================== */
+.lp-quotes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    max-width: var(--container);
+    margin: 0 auto;
+    padding: 0 20px;
+}
+.lp-quote {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 26px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: transform var(--transition), border-color var(--transition);
+}
+.lp-quote:hover { transform: translateY(-4px); border-color: var(--color-primary-glow); }
+.lp-quote blockquote {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 0.95rem;
+    line-height: 1.65;
+}
+.lp-quote figcaption {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.lp-quote__avatar {
+    display: grid;
+    place-items: center;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--color-primary-dim);
+    border: 1px solid var(--color-primary-glow);
+    color: var(--color-primary);
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+.lp-quote figcaption span:last-child { display: flex; flex-direction: column; }
+.lp-quote figcaption strong { font-size: 0.88rem; color: var(--color-text); }
+.lp-quote figcaption small { font-size: 0.75rem; color: var(--color-text-muted); }
+
+/* YC-023 — flash messages on the landing page (e.g. after logout) */
+.lp-flash {
+    max-width: var(--container);
+    margin: 84px auto -60px;
+    padding: 0 20px;
+    position: relative;
+    z-index: 5;
+}

@@ -119,6 +119,17 @@ class Simulator(ABC):
         """Optional banner shown when a session starts."""
         return ""
 
+    def status_panel(self, state: dict[str, Any]) -> list[dict[str, Any]]:
+        """Optional key/value status items the workspace sidebar renders.
+
+        Simulator-agnostic: each item is {"label": str, "value": str} plus an
+        optional "state" ("ok"/"warn"/"err") for colouring. Default is no
+        panel, so existing simulators are unaffected. A networking simulator
+        may show host/IP/gateway; a future SOC simulator could show
+        alert-queue depth — the engine never interprets the contents.
+        """
+        return []
+
     # ------------------------------------------------------------------
     # State envelope helpers — the ONLY parts of state the engine reads.
     # ------------------------------------------------------------------

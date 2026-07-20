@@ -45,6 +45,14 @@ def certificates():
     )
 
 
+@dashboard_bp.route("/profile")
+@login_required
+def profile():
+    """Legacy path (YC-022.0) — kept as a permanent redirect to the new
+    profiles blueprint route so any bookmarked link keeps working."""
+    return redirect(url_for("profiles.my_profile"), code=301)
+
+
 # ===========================================================================
 # REMOVE BEFORE PRODUCTION — development-only XP testing route.
 #

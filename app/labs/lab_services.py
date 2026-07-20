@@ -315,15 +315,43 @@ def execute_action(user, lab, action_type: str,
             user.id, lab.slug, [o["id"] for o in newly_completed], xp_awarded,
         )
 
+    # YC-026.5: resolve next lab + session stats for the results screen.
+    next_lab_url = None
+    commands_used = 0
+    achievements_earned = []
+    if lab_completed:
+        next_lab = Lab.query.filter_by(
+            prerequisite_lab_id=lab.id, is_active=True
+        ).first()
+        if next_lab:
+            from flask import url_for
+            next_lab_url = url_for("labs.detail", slug=next_lab.slug)
+        # Session stats
+        commands_used = result.new_state.get("flags", {}).get("commands_used", 0)
+        # Achievements that were unlocked by the XP/milestone from this lab
+        from app.achievement.models import UserAchievement
+        recent = (UserAchievement.query.filter_by(user_id=user.id)
+                  .order_by(UserAchievement.unlocked_at.desc()).limit(5).all())
+        for ua in recent:
+            achievements_earned.append({
+                "title": ua.achievement.title,
+                "icon": ua.achievement.icon,
+                "xp": ua.achievement.bonus_xp,
+            })
+
     return {
         "ok": True,
         "output": result.output,
         "clear": result.clear,
         "prompt": simulator.prompt(result.new_state),
+        "status": simulator.status_panel(result.new_state),
         "objectives": get_objective_views(user, lab),
         "newly_completed": newly_completed,
         "xp_awarded": xp_awarded,
         "lab_completed": lab_completed,
+        "next_lab_url": next_lab_url,
+        "commands_used": commands_used,
+        "achievements_earned": achievements_earned,
     }
 
 
@@ -379,6 +407,8 @@ def get_workspace_context(user, lab) -> dict[str, Any]:
         "capabilities": sorted(simulator.capabilities()),
         "prompt": simulator.prompt(state),
         "welcome": simulator.welcome(state),
+        "status": simulator.status_panel(state),
+        "ui": simulator.describe_ui(),
         "objectives": get_objective_views(user, lab),
     }
 
@@ -389,9 +419,17 @@ def reset_lab_session(user, lab) -> dict[str, Any]:
 
     if user is None or lab is None or not lab.is_interactive:
         return {"ok": False, "error": "invalid"}
-    session_manager.reset_session(user, lab)
+    session = session_manager.reset_session(user, lab)
+    simulator = session_manager.get_simulator(lab)
+    state = session.get_state()
     current_app.logger.info("Lab session reset: user=%s lab=%s", user.id, lab.slug)
-    return {"ok": True, "objectives": get_objective_views(user, lab)}
+    return {
+        "ok": True,
+        "objectives": get_objective_views(user, lab),
+        "prompt": simulator.prompt(state),
+        "welcome": simulator.welcome(state),
+        "status": simulator.status_panel(state),
+    }
 
 
 # ===========================================================================

@@ -10,14 +10,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
 </head>
 <body class="dash-body">
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
 
 {% from "dashboard/_icons.html" import icon %}
 
 <div class="adm">
-    <main class="adm__content">
+    <main id="main-content" class="adm__content">
 
         {# ============ Header ============ #}
         <header class="adm-hero">
@@ -140,5 +144,6 @@
 })();
 </script>
 {% block scripts %}{% endblock %}
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
 </body>
 </html>

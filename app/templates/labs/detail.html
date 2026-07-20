@@ -9,15 +9,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/labs.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
 </head>
 <body class="dash-body">
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
 {% from "dashboard/_icons.html" import icon %}
 <div class="dash">
     <div class="dash__main">
         {% include "dashboard/topbar.html" %}
-        <main class="dash__content">
+        <main id="main-content" class="dash__content">
 
             <a href="{{ url_for('labs.index') }}" class="rm-back">← All Labs</a>
 
@@ -60,6 +64,18 @@
                         </span>
                     </section>
 
+                    {# ---- Simulator status (generic; rendered only when provided) ---- #}
+                    {% if status %}
+                    <section class="lw-status" id="lw-status" aria-label="Lab status">
+                        {% for item in status %}
+                        <div class="lw-status__item">
+                            <span class="lw-status__label">{{ item.label }}</span>
+                            <span class="lw-status__value{% if item.state %} lw-status__value--{{ item.state }}{% endif %}">{{ item.value }}</span>
+                        </div>
+                        {% endfor %}
+                    </section>
+                    {% endif %}
+
                     {# ---- Current objective ---- #}
                     <section class="lw-current" id="lw-current"
                              {% if done == total %}hidden{% endif %}>
@@ -96,11 +112,33 @@
                     </button>
                 </aside>
 
-                {# ---------- RIGHT 65%: terminal ---------- #}
-                <section class="lw-term" aria-label="Simulated terminal">
+                {# ---------- RIGHT 65%: topology (if any) + terminal ---------- #}
+                <section class="lw-workarea">
+                    {% if ui and ui.topology %}
+                    <div class="lw-topo" id="lw-topo" aria-label="Network topology — click a device to switch to it">
+                        <div class="lw-topo__hint">Click a device to switch to its terminal.</div>
+                        <svg class="lw-topo__svg" viewBox="0 0 720 340" role="img" aria-hidden="true">
+                            <defs>
+                                <filter id="lw-glow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="4" result="b"/>
+                                    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                </filter>
+                            </defs>
+                            <g id="lw-topo-links" stroke="var(--color-border-strong)" stroke-width="2"></g>
+                            <g id="lw-topo-nodes"></g>
+                        </svg>
+                    </div>
+                    {% endif %}
+
+                    <section class="lw-term" aria-label="Simulated terminal">
                     <div class="lw-term__bar">
                         <span class="lw-term__dots"><i></i><i></i><i></i></span>
-                        <span class="lw-term__title">student@linux-lab — simulated shell</span>
+                        <span class="lw-term__title" id="lw-term-title">{{ (ui.title if ui and ui.title) or "student@linux-lab — simulated shell" }}</span>
+                        <button type="button" class="lw-term__copy" id="lw-copy"
+                                aria-label="Copy terminal output" title="Copy output">
+                            <span class="lw-term__copy-icon" aria-hidden="true">⧉</span>
+                            <span class="lw-term__copy-label">Copy</span>
+                        </button>
                         <span class="lw-term__safe">🔒 simulated · nothing runs on a real system</span>
                     </div>
 
@@ -115,6 +153,7 @@
                                aria-label="Terminal command input">
                         <span class="lw-cursor" aria-hidden="true"></span>
                     </div>
+                    </section>
                 </section>
             </div>
 
@@ -135,11 +174,20 @@
                             <span class="lw-modal__value">{{ total }}</span>
                             <span class="lw-modal__label">Objectives</span>
                         </div>
+                        <div class="lw-modal__stat">
+                            <span class="lw-modal__value" id="lw-modal-cmds">0</span>
+                            <span class="lw-modal__label">Commands Used</span>
+                        </div>
+                    </div>
+
+                    <div class="lw-modal__achievements" id="lw-modal-achievements" hidden>
+                        <h3 class="lw-modal__ach-title">🏅 Achievements Unlocked</h3>
+                        <ul class="lw-modal__ach-list" id="lw-modal-ach-list"></ul>
                     </div>
 
                     <div class="lw-modal__actions">
                         <a href="{{ url_for('labs.index') }}" class="btn btn--outline">Back to Labs</a>
-                        <a href="{{ url_for('labs.index') }}" class="btn btn--primary">Next Lab →</a>
+                        <a href="{{ url_for('labs.index') }}" class="btn btn--primary" id="lw-modal-next">Next Lab →</a>
                     </div>
                 </div>
             </div>
@@ -151,7 +199,9 @@
                   csrf:      "{{ csrf_token() }}",
                   total:     {{ total }},
                   labXp:     {{ lab.xp_reward }},
-                  objectives: {{ objectives|tojson }}
+                  bootPrompt: {{ prompt|tojson }},
+                  objectives: {{ objectives|tojson }},
+                  topology:  {{ (ui.topology if ui and ui.topology else none)|tojson }}
               };
             </script>
             <script src="{{ url_for('static', filename='js/lab_terminal.js') }}"></script>
@@ -173,5 +223,6 @@
     </div>
 </div>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
 </body>
 </html>

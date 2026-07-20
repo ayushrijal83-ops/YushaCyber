@@ -69,14 +69,28 @@ def seed_labs() -> dict[str, int]:
     if LabCategory.query.first() is not None:
         # Catalogue exists; still ensure engine content is present (idempotent).
         from app.labs.linux_track_seed import seed_linux_track
+        from app.labs.networking_track_seed import seed_networking_track
+        from app.labs.interactive_network_seed import seed_interactive_network
         engine = seed_linux_track()
+        network = seed_networking_track()
+        interactive = seed_interactive_network()
+        from app.labs.nmap_seed import seed_nmap_labs
+        nmap = seed_nmap_labs()
+        from app.labs.wireshark_seed import seed_wireshark_labs
+        ws = seed_wireshark_labs()
+        from app.labs.websec_seed import seed_websec_labs
+        websec = seed_websec_labs()
+        from app.labs.soc_seed import seed_soc_labs
+        soc = seed_soc_labs()
         return {
-            "created": 0,
+            "created": network["labs"] + interactive["labs"],
             "categories": LabCategory.query.count(),
             "labs": Lab.query.count(),
             "objectives": LabObjective.query.count(),
             "files": LabFile.query.count(),
             "fs_nodes": engine["fs_nodes"],
+            "networking_labs": network["labs"] + interactive["labs"],
+            "networking_achievements": network["achievements"] + interactive["achievements"],
         }
 
     labs = objectives = files = 0
@@ -137,13 +151,29 @@ def seed_labs() -> dict[str, int]:
     from app.labs.linux_track_seed import seed_linux_track
     engine = seed_linux_track()
 
+    # Seed the interactive Networking track (idempotent) — YC-013.0.
+    from app.labs.networking_track_seed import seed_networking_track
+    from app.labs.interactive_network_seed import seed_interactive_network
+    network = seed_networking_track()
+    interactive = seed_interactive_network()
+    from app.labs.nmap_seed import seed_nmap_labs
+    nmap = seed_nmap_labs()
+    from app.labs.wireshark_seed import seed_wireshark_labs
+    ws = seed_wireshark_labs()
+    from app.labs.websec_seed import seed_websec_labs
+    websec = seed_websec_labs()
+    from app.labs.soc_seed import seed_soc_labs
+    soc = seed_soc_labs()
+
     return {
         "created": 1,
         "categories": len(CATEGORIES),
-        "labs": labs + engine["labs"],
-        "objectives": objectives + engine["objectives"],
+        "labs": labs + engine["labs"] + network["labs"],
+        "objectives": objectives + engine["objectives"] + network["objectives"],
         "files": files,
         "fs_nodes": engine["fs_nodes"],
+        "networking_labs": network["labs"] + interactive["labs"],
+        "networking_achievements": network["achievements"] + interactive["achievements"],
     }
 
 

@@ -248,3 +248,73 @@
     .cc-hero__orb, .cc-dot { animation: none; }
     .cc-mod:hover, .cc-stat:hover { transform: none; }
 }
+
+/* ===========================================================================
+   YC-022.0 — dashboard polish additions
+   =========================================================================== */
+.cc-continue__cat { color: var(--color-text-muted); font-size: 0.82rem; }
+.cc-continue__meta {
+    margin: 8px 0 14px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+.cc-panel .ui-progress { margin-top: 4px; }
+.ui-progress--thin { height: 6px; }
+
+.cc-track {
+    display: grid;
+    grid-template-columns: 96px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+.cc-track__label {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cc-track__pct {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    text-align: right;
+}
+.cc-panel > .btn { margin-top: 14px; }
+
+.cc-ach { list-style: none; margin: 0 0 4px; padding: 0; }
+.cc-ach__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+.cc-ach__item:last-child { border-bottom: 0; }
+.cc-ach__icon {
+    display: grid;
+    place-items: center;
+    width: 34px; height: 34px;
+    flex: 0 0 34px;
+    border-radius: 10px;
+    background: var(--color-primary-dim);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary-glow);
+}
+.cc-ach__item.is-locked .cc-ach__icon {
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    border-color: var(--color-border-strong);
+}
+.cc-ach__item.is-locked { opacity: 0.72; }
+.cc-ach__body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cc-ach__title { font-size: 0.88rem; font-weight: 600; color: var(--color-text); }
+.cc-ach__meta {
+    font-size: 0.76rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

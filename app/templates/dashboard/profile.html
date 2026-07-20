@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/command.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+</head>
+<body class="dash-body">
+
+{% from "dashboard/_icons.html" import icon %}
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="dash">
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content" id="main-content">
+
+            {# ---- Identity card ---- #}
+            <section class="ui-card ui-card--accent profile-hero">
+                <div class="profile-hero__id">
+                    <span class="shell-avatar shell-avatar--xl" aria-hidden="true">{{ user.username[0]|upper }}</span>
+                    <div>
+                        <h1 class="profile-hero__name">{{ user.username }}</h1>
+                        <p class="profile-hero__meta">
+                            <span class="ui-badge ui-badge--primary">{{ icon("trending", 13) }} Level {{ xp_info.level }}</span>
+                            <span class="ui-badge">{{ icon("zap", 13) }} {{ xp_info.xp }} XP</span>
+                            <span class="ui-badge">{{ icon("flame", 13) }} {{ user.streak }} day streak</span>
+                            <span class="ui-badge">{{ icon("user", 13) }} {{ user.role|capitalize }}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <dl class="profile-facts">
+                    <div><dt>Email</dt><dd>{{ user.email }}</dd></div>
+                    <div><dt>Member since</dt>
+                        <dd>{{ user.created_at.strftime("%b %d, %Y") if user.created_at else "—" }}</dd></div>
+                    <div><dt>Next level</dt>
+                        <dd>{{ xp_info.xp_span - xp_info.xp_into_level }} XP to Level {{ xp_info.level + 1 }}</dd></div>
+                </dl>
+
+                <div class="cc-xp" aria-label="XP progress">
+                    <div class="cc-xp__head">
+                        <span>Level {{ xp_info.level }}</span>
+                        <span class="cc-xp__nums">{{ xp_info.xp_into_level }} / {{ xp_info.xp_span }} XP</span>
+                    </div>
+                    <div class="ui-progress" role="progressbar" aria-valuenow="{{ xp_info.percent }}"
+                         aria-valuemin="0" aria-valuemax="100" aria-label="Progress to next level">
+                        <span class="ui-progress__fill" style="width: {{ xp_info.percent }}%"></span>
+                    </div>
+                </div>
+            </section>
+
+            {# ---- Journey stats ---- #}
+            <h2 class="cc-h2">{{ icon("target", 16) }} Your Journey</h2>
+            <div class="cc-stats">
+                {% for stat in profile_stats %}
+                <div class="cc-stat">
+                    <span class="cc-stat__icon">{{ icon(stat.icon, 16) }}</span>
+                    <span class="cc-stat__value">{{ stat.value }}</span>
+                    <span class="cc-stat__label">{{ stat.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            {# ---- Shortcuts ---- #}
+            <h2 class="cc-h2">{{ icon("grid", 16) }} Quick Links</h2>
+            <div class="cc-modules">
+                <a href="{{ url_for('dashboard.achievements') }}" class="cc-mod">
+                    <span class="cc-mod__icon">🏆</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Achievements</span>
+                        <span class="cc-mod__meta">Milestones you've unlocked</span>
+                    </span>
+                    <span class="cc-mod__cta">View →</span>
+                </a>
+                <a href="{{ url_for('dashboard.certificates') }}" class="cc-mod">
+                    <span class="cc-mod__icon">📜</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Certificates</span>
+                        <span class="cc-mod__meta">Your earned credentials</span>
+                    </span>
+                    <span class="cc-mod__cta">View →</span>
+                </a>
+                <a href="{{ url_for('ctf.leaderboard') }}" class="cc-mod">
+                    <span class="cc-mod__icon">🥇</span>
+                    <span class="cc-mod__body">
+                        <span class="cc-mod__title">Leaderboard</span>
+                        <span class="cc-mod__meta">Where you rank</span>
+                    </span>
+                    <span class="cc-mod__cta">View →</span>
+                </a>
+            </div>
+
+            {% include "dashboard/footer.html" %}
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+</body>
+</html>

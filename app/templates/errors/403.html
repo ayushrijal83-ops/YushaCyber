@@ -1,0 +1,13 @@
+{% extends "errors/_error_base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block code %}403{% endblock %}
+{% block heading %}Access denied{% endblock %}
+{% block terminal %}
+<div>student@yushacyber:~$ sudo cat {{ request.path }}</div>
+<div class="bad">Permission denied (are you admin?)</div>
+{% endblock %}
+{% block message %}
+You don't have permission to view this page. If you believe you should,
+sign in with an account that has the right role — privilege escalation
+is a lab exercise, not a navigation strategy. 😉
+{% endblock %}

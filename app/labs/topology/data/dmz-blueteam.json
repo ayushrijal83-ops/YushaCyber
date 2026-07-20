@@ -1,0 +1,77 @@
+{
+  "title": "DMZ + Blue Team",
+  "description": "A perimeter firewall in front of a DMZ web server plus an internal LAN monitored by an IDS feeding a SIEM. Future-ready device types (firewall, ids, siem) exercise the schema — no simulator is bound to them yet.",
+  "devices": [
+    {
+      "hostname": "internet",
+      "label": "Internet",
+      "device_type": "internet",
+      "ip": "203.0.113.1"
+    },
+    {
+      "hostname": "fw-1",
+      "label": "Perimeter Firewall",
+      "device_type": "firewall",
+      "os": "pfSense 2.7",
+      "ip": "203.0.113.2",
+      "mac": "02:42:cb:00:71:02",
+      "tags": ["perimeter"]
+    },
+    {
+      "hostname": "dmz-web",
+      "label": "DMZ Web Server",
+      "device_type": "linux-server",
+      "os": "Ubuntu 22.04",
+      "ip": "10.10.1.20",
+      "mac": "02:42:0a:0a:01:14",
+      "gateway": "10.10.1.1",
+      "open_ports": [80, 443],
+      "services": {"80": "http", "443": "https"},
+      "tags": ["dmz"]
+    },
+    {
+      "hostname": "core-sw",
+      "label": "Core Switch",
+      "device_type": "switch",
+      "mac": "02:42:0a:0a:00:02"
+    },
+    {
+      "hostname": "ids-1",
+      "label": "IDS Sensor",
+      "device_type": "ids",
+      "os": "Suricata 7",
+      "ip": "10.10.0.15",
+      "mac": "02:42:0a:0a:00:0f",
+      "tags": ["blue-team"]
+    },
+    {
+      "hostname": "siem-1",
+      "label": "SIEM",
+      "device_type": "siem",
+      "os": "Wazuh 4",
+      "ip": "10.10.0.16",
+      "mac": "02:42:0a:0a:00:10",
+      "open_ports": [443],
+      "services": {"443": "wazuh-ui"},
+      "tags": ["blue-team"]
+    },
+    {
+      "hostname": "analyst-pc",
+      "label": "Analyst PC",
+      "device_type": "pc",
+      "os": "Kali 2026.1",
+      "ip": "10.10.0.50",
+      "mac": "02:42:0a:0a:00:32",
+      "gateway": "10.10.0.1"
+    }
+  ],
+  "links": [
+    {"a": "internet",   "b": "fw-1", "kind": "wan"},
+    {"a": "fw-1",       "b": "dmz-web"},
+    {"a": "fw-1",       "b": "core-sw"},
+    {"a": "core-sw",    "b": "ids-1"},
+    {"a": "core-sw",    "b": "siem-1"},
+    {"a": "core-sw",    "b": "analyst-pc"},
+    {"a": "ids-1",      "b": "siem-1"}
+  ]
+}

@@ -1,0 +1,654 @@
+/* ===========================================================================
+   YushaCyber — Neumorphism theme layer (YC-023 "Soft UI" restyle)
+
+   Loaded LAST on every page so it re-skins existing components without any
+   template rewrites. Classic soft-UI mechanics:
+
+     · Raised elements: dual shadow — highlight from the top-left light
+       source, deep shadow to the bottom-right — over a subtle 145°
+       surface gradient. No hard borders.
+     · Sunken (debossed) elements: the same pair, inset — inputs, search,
+       progress tracks, the terminal.
+     · Press feedback: buttons collapse from raised to inset in 150ms.
+
+   Accessibility guardrails (neumorphism's known weakness is contrast):
+   text colors, the green accent, and the :focus-visible ring from ui.css
+   are deliberately left untouched — only surface chrome changes here.
+   All values derive from per-theme tokens below, so Dark / Light / Cyber
+   each get physically-correct light sources.
+   =========================================================================== */
+
+:root {
+    /* Dark (default): light source is a faint white sheen. */
+    --neo-hi: rgba(255, 255, 255, 0.055);
+    --neo-lo: rgba(0, 0, 0, 0.65);
+    --neo-hi-soft: rgba(255, 255, 255, 0.035);
+    --neo-lo-soft: rgba(0, 0, 0, 0.45);
+    --neo-grad-a: #1A2029;
+    --neo-grad-b: #12161D;
+    --neo-radius: 16px;
+
+    --neo-raise:
+        -6px -6px 14px var(--neo-hi),
+         6px  6px 14px var(--neo-lo);
+    --neo-raise-sm:
+        -3px -3px 8px var(--neo-hi-soft),
+         3px  3px 8px var(--neo-lo-soft);
+    --neo-inset:
+        inset -4px -4px 9px var(--neo-hi-soft),
+        inset  4px  4px 9px var(--neo-lo);
+    --neo-inset-sm:
+        inset -2px -2px 5px var(--neo-hi-soft),
+        inset  2px  2px 5px var(--neo-lo-soft);
+}
+
+html[data-theme="light"] {
+    --neo-hi: rgba(255, 255, 255, 0.95);
+    --neo-lo: rgba(163, 177, 198, 0.55);
+    --neo-hi-soft: rgba(255, 255, 255, 0.75);
+    --neo-lo-soft: rgba(163, 177, 198, 0.38);
+    --neo-grad-a: #FBFDFF;
+    --neo-grad-b: #E9EDF4;
+}
+
+html[data-theme="cyber"] {
+    --neo-hi: rgba(0, 255, 136, 0.07);
+    --neo-lo: rgba(0, 0, 0, 0.8);
+    --neo-hi-soft: rgba(0, 255, 136, 0.045);
+    --neo-lo-soft: rgba(0, 0, 0, 0.55);
+    --neo-grad-a: #101820;
+    --neo-grad-b: #0A1016;
+}
+
+/* ---------------------------------------------------------------------------
+   1. Raised surfaces — cards, panels, tiles, menus.
+--------------------------------------------------------------------------- */
+.ui-card,
+.cc-panel,
+.cc-stat,
+.cc-mod,
+.cc-hero,
+.quiz-stat-card,
+.quiz-result-stat,
+.ctf-card,
+.rs-card,
+.ach-card,
+.cert-card,
+.adm-card,
+.adm-stat,
+.auth-card,
+.lw-panel,
+.lp-feature,
+.lp-why__card,
+.lp-step,
+.lp-faq__item,
+.lp-quote,
+.lp-stat,
+.err-card,
+.ach-head__stat,
+.shell-menu,
+.ui-table-wrap {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    border-radius: var(--neo-radius);
+    box-shadow: var(--neo-raise);
+}
+
+/* Hover: lift a touch further instead of border glows. */
+.cc-mod:hover,
+.ctf-card:hover,
+.rs-card:hover,
+.ach-card:hover,
+.cert-card:hover,
+.lp-feature:hover,
+.lp-why__card:hover,
+.lp-quote:hover {
+    border-color: transparent;
+    transform: translateY(-3px);
+    box-shadow:
+        -8px -8px 18px var(--neo-hi),
+         8px  8px 18px var(--neo-lo);
+}
+
+/* Small raised chips. */
+.ui-badge,
+.cc-badge,
+.lp-pill,
+.ach-filter,
+.shell-icon-btn,
+.shell-theme,
+.shell-profile {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    box-shadow: var(--neo-raise-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   2. Navigation shell — soft slab, sunken search.
+--------------------------------------------------------------------------- */
+.shell-nav {
+    background: linear-gradient(180deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-bottom: 0;
+    box-shadow: 0 8px 18px var(--neo-lo-soft);
+}
+.shell-link.is-active {
+    background: linear-gradient(145deg, var(--neo-grad-b), var(--neo-grad-a));
+    border-radius: 12px;
+    box-shadow: var(--neo-inset-sm);
+}
+.shell-search,
+.shell-search--mobile {
+    background: var(--neo-grad-b);
+    border-color: transparent;
+    box-shadow: var(--neo-inset-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   3. Buttons — raised at rest, debossed on press (150ms, per soft-UI spec).
+--------------------------------------------------------------------------- */
+.btn,
+.adm-btn,
+.lp-btn {
+    border-color: transparent;
+    border-radius: 14px;
+    box-shadow: var(--neo-raise-sm);
+    transition: box-shadow 150ms ease, transform 150ms ease,
+                background 150ms ease, color 150ms ease;
+}
+.btn:hover,
+.adm-btn:hover,
+.lp-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--neo-raise);
+}
+.btn:active,
+.adm-btn:active,
+.lp-btn:active,
+.btn.is-loading {
+    transform: none;
+    box-shadow: var(--neo-inset-sm);
+}
+/* Primary buttons keep their filled accent but gain the soft depth. */
+.btn--primary { box-shadow: var(--neo-raise-sm), 0 0 18px var(--color-primary-dim); }
+.btn--primary:active { box-shadow: var(--neo-inset-sm); }
+
+/* ---------------------------------------------------------------------------
+   4. Sunken elements — inputs, selects, progress tracks, terminal, code.
+--------------------------------------------------------------------------- */
+.ui-input,
+.ui-field input,
+.ui-field select,
+.ui-field textarea,
+.auth-field__input,
+.adm-input,
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+    background: var(--neo-grad-b);
+    border-color: transparent;
+    border-radius: 12px;
+    box-shadow: var(--neo-inset-sm);
+}
+.ui-field input:focus,
+.auth-field__input:focus,
+.adm-input:focus,
+.ui-input:focus {
+    box-shadow: var(--neo-inset-sm), var(--focus-ring);
+    border-color: transparent;
+}
+
+.ui-progress,
+.progress-bar {
+    background: var(--neo-grad-b);
+    border-color: transparent;
+    box-shadow: var(--neo-inset-sm);
+}
+.ui-progress__fill,
+.progress-bar__fill {
+    box-shadow: 0 0 10px var(--color-primary-dim);
+}
+
+/* Terminal and objectives: the screen is a debossed well in the panel. */
+.lw-term,
+.lw-obj,
+.err-card__terminal,
+pre, code.block {
+    border-color: transparent;
+    box-shadow: var(--neo-inset);
+    border-radius: 14px;
+}
+.quiz-option {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    border-radius: 14px;
+    box-shadow: var(--neo-raise-sm);
+    transition: box-shadow 150ms ease;
+}
+.quiz-option:hover { box-shadow: var(--neo-raise); }
+.quiz-option.is-selected,
+.quiz-option:has(input:checked) {
+    box-shadow: var(--neo-inset-sm), 0 0 0 1px var(--color-primary-glow);
+}
+
+/* ---------------------------------------------------------------------------
+   5. Empty states & flashes — soft plates instead of dashed boxes.
+--------------------------------------------------------------------------- */
+.ui-empty,
+.ach-empty,
+.adm-empty,
+.rs-empty {
+    border: 0;
+    background: linear-gradient(145deg, var(--neo-grad-b), var(--neo-grad-a));
+    box-shadow: var(--neo-inset-sm);
+    border-radius: var(--neo-radius);
+}
+.ui-empty__icon,
+.ach-empty__icon {
+    box-shadow: var(--neo-raise-sm);
+    border-color: transparent;
+}
+.ui-flash,
+.dash-flash__item {
+    border-color: transparent;
+    box-shadow: var(--neo-raise-sm);
+    border-radius: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   6. Topbar action buttons added in YC-023 (switch user / logout).
+--------------------------------------------------------------------------- */
+.shell-icon-btn--danger { color: var(--color-danger); }
+.shell-icon-btn--danger:hover { color: var(--color-danger); }
+.shell-icon-btn:active { box-shadow: var(--neo-inset-sm); }
+
+/* ---------------------------------------------------------------------------
+   7. Reduced motion: lifts and presses become instant, never disorienting.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .btn:hover, .cc-mod:hover, .ctf-card:hover, .rs-card:hover,
+    .lp-feature:hover, .lp-why__card:hover, .lp-quote:hover {
+        transform: none;
+    }
+}
+
+/* ===========================================================================
+   YC-023.1 — DEEP PASS: quiz, CTF, admin, leaderboard, roadmap, labs.
+   Same physics, applied to every remaining feature surface.
+   =========================================================================== */
+
+/* ---- Quiz engine ---------------------------------------------------- */
+.quiz-header-card,
+.quiz-locked-card,
+.quiz-result-card,
+.quiz-modal__card {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    border-radius: var(--neo-radius);
+    box-shadow: var(--neo-raise);
+}
+.quiz-option {
+    cursor: pointer;
+    user-select: none;
+}
+.quiz-option:active {
+    box-shadow: var(--neo-inset-sm);
+}
+.quiz-option:has(input:checked) .quiz-option__text {
+    color: var(--color-primary);
+}
+.quiz-result-card__icon,
+.quiz-locked-card__icon {
+    box-shadow: var(--neo-raise-sm);
+    border-color: transparent;
+    border-radius: 50%;
+}
+
+/* ---- CTF arena ------------------------------------------------------- */
+.ctf-card__pts,
+.ctf-card__xp,
+.ctf-card__time,
+.lw-chip {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    box-shadow: var(--neo-raise-sm);
+    border-radius: 999px;
+}
+.ctf-card__status--solved {
+    background: var(--neo-grad-b);
+    border-color: transparent;
+    box-shadow: var(--neo-inset-sm), 0 0 0 1px var(--color-primary-glow);
+    border-radius: 999px;
+}
+.ctf-card__status--unsolved {
+    box-shadow: var(--neo-inset-sm);
+    border-color: transparent;
+    border-radius: 999px;
+}
+.ctf-category__title { border-color: transparent; }
+
+/* ---- Admin panel ------------------------------------------------------ */
+.adm-alert {
+    border-color: transparent;
+    border-radius: 12px;
+    box-shadow: var(--neo-raise-sm);
+}
+.adm-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.adm-table th { border-color: transparent; }
+.adm-table tbody tr:hover td { background: var(--neo-grad-a); }
+.adm-btn--del:active,
+.adm-btn--edit:active,
+.adm-btn--ghost:active { box-shadow: var(--neo-inset-sm); }
+
+/* ---- Leaderboard ------------------------------------------------------ */
+.lb-table {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    border-radius: var(--neo-radius);
+    box-shadow: var(--neo-raise);
+    overflow: hidden;
+}
+.lb-row { border-color: transparent; }
+.lb-row--head { background: var(--neo-grad-b); }
+.lb-row--me {
+    background: var(--neo-grad-b);
+    box-shadow: var(--neo-inset-sm), 0 0 0 1px var(--color-primary-glow);
+    border-radius: 10px;
+}
+.lb-avatar {
+    box-shadow: var(--neo-raise-sm);
+    border-color: transparent;
+}
+.lb-card--champ {
+    box-shadow:
+        -8px -8px 18px var(--neo-hi),
+         8px  8px 18px var(--neo-lo),
+         0 0 22px var(--color-primary-dim);
+    border-color: transparent;
+}
+
+/* ---- Roadmap tree ------------------------------------------------------ */
+.rm-hero,
+.rm-cat {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    border-radius: var(--neo-radius);
+    box-shadow: var(--neo-raise);
+}
+.rm-module-block {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-color: transparent;
+    border-radius: 14px;
+    box-shadow: var(--neo-raise-sm);
+    transition: box-shadow 150ms ease, transform 150ms ease;
+}
+.rm-module-block:hover { box-shadow: var(--neo-raise); }
+.rm-lesson-row {
+    border-color: transparent;
+    border-radius: 10px;
+    transition: box-shadow 150ms ease;
+}
+.rm-lesson-row:hover { box-shadow: var(--neo-inset-sm); }
+.rm-lesson-row--locked { opacity: 0.55; }
+
+/* ---- Lab workspace deep touches ---------------------------------------- */
+.lw-hintbtn {
+    border-color: transparent;
+    border-radius: 12px;
+    box-shadow: var(--neo-raise-sm);
+    transition: box-shadow 150ms ease;
+}
+.lw-hintbtn:active { box-shadow: var(--neo-inset-sm); }
+.lw-hint {
+    background: var(--neo-grad-b);
+    border-color: transparent;
+    box-shadow: var(--neo-inset-sm);
+    border-radius: 10px;
+}
+.lw-fill { box-shadow: 0 0 10px var(--color-primary-dim); }
+
+/* ---- Achievements & filters -------------------------------------------- */
+.ach-card { transition: box-shadow 150ms ease, transform 150ms ease; }
+.ach-card--unlocked {
+    box-shadow: var(--neo-raise), 0 0 20px var(--color-primary-dim);
+}
+.ach-filter { cursor: pointer; transition: box-shadow 150ms ease, color 150ms ease; }
+.ach-filter.is-active {
+    box-shadow: var(--neo-inset-sm), 0 0 0 1px var(--color-primary-glow);
+    color: var(--color-primary);
+}
+.ach-filter:active { box-shadow: var(--neo-inset-sm); }
+
+/* ---- Notification / theme cluster press states --------------------------- */
+.shell-theme__btn:active,
+.shell-icon-btn:active,
+.shell-profile:active { box-shadow: var(--neo-inset-sm); }
+.shell-theme__btn.is-active {
+    box-shadow: var(--neo-inset-sm);
+    border-radius: 10px;
+}
+
+/* ===========================================================================
+   YC-023.2 — UNIVERSAL NAVBAR REDESIGN ("cyber dock")
+
+   Loaded last, so everything below wins over the legacy shell styles in
+   dashboard.css. Design:
+
+     · Primary links live in a single SUNKEN pill rail (the dock), centred
+       between the logo and the action cluster.
+     · The active page is a RAISED pill with a soft green glow — one clear
+       focal point instead of eight competing labels.
+     · Below 1400px labels fold away into icon pills (native tooltips via
+       title=""), so the bar never crams or wraps.
+     · Right cluster: uniform circular buttons, a sunken segmented theme
+       switch, and a raised profile chip.
+   =========================================================================== */
+
+/* ---- The bar itself ---- */
+.shell-nav {
+    background: linear-gradient(180deg, var(--neo-grad-a), var(--neo-grad-b));
+    backdrop-filter: blur(14px);
+    border-bottom: 0;
+    box-shadow: 0 10px 24px var(--neo-lo-soft);
+}
+.shell-nav__inner {
+    max-width: 1400px;
+    padding: 10px 22px;
+    gap: 16px;
+}
+
+/* ---- Logo: raised chip mark ---- */
+.shell-logo__mark {
+    border: 0;
+    box-shadow: var(--neo-raise-sm);
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    padding: 5px 9px;
+    border-radius: 10px;
+}
+
+/* ---- The dock ---- */
+.shell-links {
+    flex: 0 1 auto;
+    margin-inline: auto;          /* centred between logo and actions */
+    padding: 5px;
+    gap: 2px;
+    background: var(--neo-grad-b);
+    border-radius: 999px;
+    box-shadow: var(--neo-inset-sm);
+}
+.shell-link {
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    gap: 7px;
+    color: var(--color-text-muted);
+    transition: color 150ms ease, box-shadow 150ms ease,
+                background 150ms ease, transform 150ms ease;
+}
+.shell-link svg { display: inline-block; opacity: 0.9; }
+.shell-link:hover {
+    color: var(--color-text);
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    box-shadow: var(--neo-raise-sm);
+}
+.shell-link:active { box-shadow: var(--neo-inset-sm); }
+.shell-link.is-active {
+    color: var(--color-primary);
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    box-shadow: var(--neo-raise-sm), 0 0 14px var(--color-primary-dim);
+}
+.shell-link--admin,
+.shell-link--admin:hover,
+.shell-link--admin.is-active { color: var(--color-warning); }
+.shell-link--admin.is-active {
+    box-shadow: var(--neo-raise-sm), 0 0 14px rgba(255, 201, 77, 0.18);
+}
+
+/* ---- Right cluster: uniform geometry ---- */
+.shell-right { gap: 8px; }
+
+.shell-icon-btn {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    box-shadow: var(--neo-raise-sm);
+    transition: color 150ms ease, box-shadow 150ms ease;
+}
+.shell-icon-btn:hover { border: 0; box-shadow: var(--neo-raise); }
+.shell-icon-btn:active { box-shadow: var(--neo-inset-sm); }
+
+/* Theme switch: one sunken segmented pill, active segment pressed-in green */
+.shell-theme {
+    padding: 4px;
+    gap: 2px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--neo-grad-b);
+    box-shadow: var(--neo-inset-sm);
+}
+.shell-theme__btn {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.8rem;
+    transition: box-shadow 150ms ease, background 150ms ease;
+}
+.shell-theme__btn:hover {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    box-shadow: var(--neo-raise-sm);
+}
+.shell-theme__btn.is-active {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    box-shadow: var(--neo-raise-sm), 0 0 10px var(--color-primary-dim);
+    border-radius: 50%;
+}
+
+/* Search: sunken pill that stays quiet until focused */
+.shell-search {
+    border-radius: 999px;
+    padding: 7px 14px;
+}
+.shell-search:focus-within {
+    border-color: transparent;
+    box-shadow: var(--neo-inset-sm), var(--focus-ring);
+}
+
+/* Profile chip: raised, presses on open */
+.shell-profile {
+    border: 0;
+    border-radius: 999px;
+    padding: 5px 12px 5px 5px;
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    box-shadow: var(--neo-raise-sm);
+    transition: box-shadow 150ms ease;
+}
+.shell-profile:hover { border: 0; box-shadow: var(--neo-raise); }
+.shell-profile[aria-expanded="true"] { box-shadow: var(--neo-inset-sm); }
+.shell-avatar {
+    box-shadow: var(--neo-raise-sm);
+    border: 0;
+}
+
+/* Dropdown menus: floating soft slabs */
+.shell-menu {
+    border: 0;
+    border-radius: var(--neo-radius);
+    box-shadow: var(--neo-raise), 0 18px 40px var(--neo-lo);
+}
+.shell-item { border-radius: 10px; transition: box-shadow 150ms ease, color 150ms ease; }
+.shell-item:hover { box-shadow: var(--neo-inset-sm); }
+
+/* ---- Breadcrumbs: quiet mono strip ---- */
+.shell-crumbs {
+    border-top: 0;
+    background: transparent;
+}
+.shell-crumbs ol {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    padding-top: 9px; padding-bottom: 9px;
+}
+
+/* ---- Responsive behaviour (replaces the old cramped 1024–1320 rule) ---- */
+@media (min-width: 1024px) and (max-width: 1320px) {
+    .shell-links { gap: 2px; }
+    .shell-link { padding: 7px 14px; font-size: 0.83rem; }
+    .shell-link svg { display: inline-block; }   /* undo old icon-hiding */
+    .shell-search { max-width: 190px; }
+}
+/* Labels fold to icon pills before anything can wrap or shrink awkwardly. */
+@media (max-width: 1400px) {
+    .shell-search { max-width: 200px; }
+}
+@media (max-width: 1300px) {
+    .shell-link span { display: none; }          /* icon-only + tooltip */
+    .shell-link { padding: 9px 12px; }
+    .shell-link svg { width: 17px; height: 17px; }
+}
+@media (max-width: 1150px) {
+    .shell-search { display: none; }             /* drawer keeps search */
+}
+@media (max-width: 1080px) {
+    .shell-links { display: none; }              /* burger takes over */
+}
+@media (max-width: 720px) {
+    .shell-theme { display: none; }              /* theme stays on landing + drawer pages */
+    .shell-icon-btn { width: 36px; height: 36px; }
+}
+
+/* ---- Mobile drawer: soft panel, pressed active row ---- */
+.shell-mobile__panel {
+    background: linear-gradient(160deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-right: 0;
+    box-shadow: 12px 0 34px var(--neo-lo);
+}
+.shell-mobile__link {
+    border-radius: 12px;
+    transition: box-shadow 150ms ease, color 150ms ease;
+}
+.shell-mobile__link:hover { box-shadow: var(--neo-raise-sm); }
+.shell-mobile__link.is-active {
+    color: var(--color-primary);
+    box-shadow: var(--neo-inset-sm), 0 0 0 1px var(--color-primary-glow);
+}
+.shell-burger {
+    border: 0;
+    border-radius: 12px;
+    box-shadow: var(--neo-raise-sm);
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+}
+.shell-burger:active { box-shadow: var(--neo-inset-sm); }

@@ -9,15 +9,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/labs.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
 </head>
 <body class="dash-body">
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
 {% from "dashboard/_icons.html" import icon %}
 <div class="dash">
     <div class="dash__main">
         {% include "dashboard/topbar.html" %}
-        <main class="dash__content">
+        <main id="main-content" class="dash__content">
 
             <header class="lt-head">
                 <h1 class="lt-head__title">🧪 Cyber Labs</h1>
@@ -34,13 +38,23 @@
                 {% endif %}
             {% endwith %}
 
-            {% if track and track.total %}
-            {# ---------- Linux track ---------- #}
+            {% if not categories %}
+            <section class="ui-empty">
+                <span class="ui-empty__icon" aria-hidden="true">🧪</span>
+                <h2 class="ui-empty__title">No labs available yet</h2>
+                <p class="ui-empty__text">The lab catalogue hasn't been seeded on this
+                installation. Run <code>flask seed-labs</code> to load the interactive tracks.</p>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn--outline">← Back to Dashboard</a>
+            </section>
+            {% endif %}
+
+            {% for track in tracks if track.total %}
+            {# ---------- Learning track (Linux, Networking, …) ---------- #}
             <section class="lt-track">
                 <div class="lt-track__head">
                     <div>
-                        <h2 class="lt-track__title">{{ icon("terminal", 17) }} Linux Learning Track</h2>
-                        <p class="lt-track__desc">Beginner to intermediate · unlock labs by completing the previous one.</p>
+                        <h2 class="lt-track__title">{{ icon(track.icon or "terminal", 17) }} {{ track.category.name }} Learning Track</h2>
+                        <p class="lt-track__desc">Unlock labs by completing the previous one.</p>
                     </div>
                     <div class="lt-track__stats">
                         <div class="lt-stat"><span class="lt-stat__v">{{ track.completed }}/{{ track.total }}</span><span class="lt-stat__l">Labs</span></div>
@@ -86,11 +100,10 @@
                     {% endfor %}
                 </ol>
             </section>
-            {% endif %}
+            {% endfor %}
 
             {# ---------- Other (non-track) categories ---------- #}
-            {% set shown = track.category.slug if track and track.category else 'linux' %}
-            {% for cat in categories if cat.slug != shown %}
+            {% for cat in categories if cat.slug not in track_slugs %}
             {% set catlabs = cat.labs | selectattr('is_active') | list %}
             {% if catlabs %}
             <section class="lt-other">
@@ -112,5 +125,6 @@
     </div>
 </div>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
 </body>
 </html>

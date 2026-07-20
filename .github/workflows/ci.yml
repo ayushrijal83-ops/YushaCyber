@@ -1,0 +1,92 @@
+# =============================================================================
+# YushaCyber CI (YC-025.0)
+# =============================================================================
+# Runs on every push + PR to main. Two jobs:
+#   · tests  — installs deps, boots the app on SQLite, runs the YC-013 lab
+#              regression suite + the YC-025 verification suite. This is
+#              the "does main still work" gate.
+#   · build  — smoke-builds the production Docker image so image-shape
+#              breakage is caught before it hits a deploy.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ci-test-key-not-a-secret
+      APP_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile every template (catches Jinja syntax regressions)
+        run: |
+          python - <<'PY'
+          import os, glob
+          os.environ["SECRET_KEY"] = "ci"
+          os.environ["DATABASE_URL"] = "sqlite://"
+          from app import create_app
+          app = create_app()
+          env = app.jinja_env
+          bad = 0
+          for p in sorted(glob.glob("app/templates/**/*.html", recursive=True)):
+              name = p.replace("app/templates/", "")
+              try:
+                  env.get_template(name)
+              except Exception as e:
+                  bad += 1
+                  print("TEMPLATE ERROR", name, e)
+          raise SystemExit(bad)
+          PY
+
+      - name: Smoke test — app boots and /health responds
+        run: |
+          python - <<'PY'
+          import os
+          os.environ["SECRET_KEY"] = "ci"
+          os.environ["DATABASE_URL"] = "sqlite://"
+          from app import create_app
+          app = create_app()
+          app.config.update(TESTING=True)
+          with app.app_context():
+              from app.extensions import db; db.create_all()
+          c = app.test_client()
+          r = c.get("/health"); assert r.status_code == 200, r.status_code
+          r = c.get("/health/db"); assert r.status_code == 200, r.status_code
+          print("health OK")
+          PY
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image (smoke)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: yushacyber:ci

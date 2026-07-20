@@ -79,6 +79,30 @@ def logout():
     return redirect(url_for("index"))
 
 
+@auth_bp.route("/switch")
+def switch_user():
+    """Switch account (YC-023): end the current session and land on the
+    sign-in page ready to accept a different account.
+
+    Unlike plain ``logout``, this stashes the previous username in the
+    session flash + a one-shot session key so the login form can show
+    "Signed in as X? Continue as someone else." — making the difference
+    visible to the user instead of behaving identically to logout.
+    """
+    from flask import session
+    previous_name = None
+    if current_user.is_authenticated:
+        previous_name = current_user.username
+    logout_user()
+    if previous_name:
+        session["_switch_from"] = previous_name
+        flash(f"Signed out from {previous_name}. Sign in to a different account.",
+              "success")
+    else:
+        flash("Sign in to continue.", "success")
+    return redirect(url_for("auth.login"))
+
+
 @auth_bp.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     """Password recovery request.

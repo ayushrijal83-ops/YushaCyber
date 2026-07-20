@@ -131,6 +131,8 @@ def get_dashboard_context(user: User) -> dict[str, Any]:
         "learning_progress": _get_learning_progress(user),
         "achievements": _get_achievements(user),
         "quiz_analytics": get_dashboard_quiz_context(user),
+        "continue_learning": _get_continue_learning(user),
+        "active_roadmap": _get_active_roadmap(user),
         "nav_items": get_nav_items(active="dashboard"),
     }
 
@@ -158,7 +160,11 @@ def get_nav_items(active: str) -> list[dict[str, str | bool]]:
 # Section data — placeholder-backed, database-shaped.
 # ---------------------------------------------------------------------------
 def _get_stats(user: User) -> list[dict[str, Any]]:
-    """The four stat cards. Level/XP/streak come from the real account."""
+    """The four stat cards — all real account data (YC-022.0)."""
+    from app.roadmap.models import UserModuleProgress
+
+    modules_done = UserModuleProgress.query.filter_by(
+        user_id=user.id, completed=True).count()
     return [
         {"key": "level", "label": "Level", "value": user.level, "icon": "trending",
          "hint": "Earn XP to level up"},
@@ -166,64 +172,206 @@ def _get_stats(user: User) -> list[dict[str, Any]]:
          "hint": "Total experience points"},
         {"key": "streak", "label": "Streak", "value": user.streak, "icon": "flame",
          "hint": "Consecutive active days"},
-        # Placeholder until the courses feature lands (course progress table).
-        {"key": "courses", "label": "Courses Completed", "value": 0, "icon": "book",
-         "hint": "Finished courses"},
+        {"key": "modules", "label": "Modules Completed", "value": modules_done,
+         "icon": "book", "hint": "Finished roadmap modules"},
     ]
 
 
 def _get_quick_actions() -> list[dict[str, str]]:
-    """Large action buttons. Targets move to real pages as features ship."""
+    """Quick Access cards — every target is a real page (YC-022.0)."""
     return [
-        {"label": "Continue Learning", "icon": "play", "url": "/#courses",
+        {"label": "Continue Learning", "icon": "play", "url": "/roadmap/",
          "style": "primary"},
-        {"label": "Explore Roadmap", "icon": "map", "url": "/#roadmap",
+        {"label": "Open Labs", "icon": "cpu", "url": "/labs/",
          "style": "outline"},
-        {"label": "Solve Daily Challenge", "icon": "zap", "url": "/#challenge",
+        {"label": "CTF Arena", "icon": "flag", "url": "/ctf/",
          "style": "outline"},
-        {"label": "Go to CTF Arena", "icon": "flag", "url": "/#ctf",
+        {"label": "Browse Resources", "icon": "book", "url": "/resources/",
          "style": "outline"},
     ]
 
 
-def _get_recent_activity(user: User) -> list[dict[str, str]]:
-    """Timeline entries. PLACEHOLDER — future activity/events table."""
+def _get_recent_activity(user: User) -> list[dict[str, Any]]:
+    """Real activity feed (YC-022.0): latest achievement unlocks, lab
+    completions and CTF solves, merged newest-first. Three small indexed
+    queries; falls back to a friendly onboarding timeline for new users."""
+    from app.achievement.models import Achievement, UserAchievement
+    from app.ctf.models import Challenge, ChallengeSolve
+    from app.labs.models import Lab, UserLabProgress
+
+    events: list[tuple] = []
+
+    unlocks = (
+        db.session.query(UserAchievement.unlocked_at, Achievement.title)
+        .join(Achievement, Achievement.id == UserAchievement.achievement_id)
+        .filter(UserAchievement.user_id == user.id,
+                UserAchievement.unlocked_at.isnot(None))
+        .order_by(UserAchievement.unlocked_at.desc())
+        .limit(4).all()
+    )
+    events += [(ts, "target", f"Achievement unlocked — {title}", "Achievements")
+               for ts, title in unlocks]
+
+    labs_done = (
+        db.session.query(UserLabProgress.completed_at, Lab.title)
+        .join(Lab, Lab.id == UserLabProgress.lab_id)
+        .filter(UserLabProgress.user_id == user.id,
+                UserLabProgress.completed.is_(True),
+                UserLabProgress.completed_at.isnot(None))
+        .order_by(UserLabProgress.completed_at.desc())
+        .limit(4).all()
+    )
+    events += [(ts, "cpu", f"Completed lab — {title}", "Labs")
+               for ts, title in labs_done]
+
+    solves = (
+        db.session.query(ChallengeSolve.solved_at, Challenge.title)
+        .join(Challenge, Challenge.id == ChallengeSolve.challenge_id)
+        .filter(ChallengeSolve.user_id == user.id,
+                ChallengeSolve.solved.is_(True),
+                ChallengeSolve.solved_at.isnot(None))
+        .order_by(ChallengeSolve.solved_at.desc())
+        .limit(4).all()
+    )
+    events += [(ts, "flag", f"Captured flag — {title}", "CTF")
+               for ts, title in solves]
+
+    events.sort(key=lambda e: e[0], reverse=True)
+    if events:
+        return [
+            {"icon": icon, "title": title, "detail": area,
+             "time": ts.strftime("%b %d")}
+            for ts, icon, title, area in events[:6]
+        ]
+
+    # New account — show the onboarding path instead of an empty panel.
     joined = user.created_at.strftime("%b %d, %Y") if user.created_at else "today"
     return [
         {"icon": "user", "title": "Account created",
          "detail": f"Welcome aboard — joined {joined}.", "time": "Start"},
         {"icon": "map", "title": "Roadmap unlocked",
-         "detail": "8 stages from Linux to CTF are ready for you.", "time": "Next"},
-        {"icon": "play", "title": "First lesson awaits",
-         "detail": "Linux Essentials · Lesson 01: The Terminal.", "time": "Todo"},
-        {"icon": "zap", "title": "Daily challenge available",
-         "detail": "Solve today's challenge to start your streak.", "time": "Todo"},
+         "detail": "Structured paths from Linux to CTF are ready.", "time": "Next"},
+        {"icon": "cpu", "title": "First lab awaits",
+         "detail": "Open the Labs section and try the terminal.", "time": "Todo"},
     ]
 
 
 def _get_learning_progress(user: User) -> list[dict[str, Any]]:
-    """Progress bars. PLACEHOLDER percentages — future progress table."""
+    """Real per-category roadmap progress (was a placeholder)."""
+    from app.roadmap.services import get_all_categories, get_category_progress
+
+    progress = get_category_progress(user)  # one batched computation
     return [
-        {"label": "Networking", "percent": 0},
-        {"label": "Linux", "percent": 0},
-        {"label": "Python", "percent": 0},
-        {"label": "Web Security", "percent": 0},
+        {"label": cat.title, "percent": progress.get(cat.id, 0)}
+        for cat in get_all_categories()
     ]
 
 
 def _get_achievements(user: User) -> list[dict[str, Any]]:
-    """Six badge previews. PLACEHOLDER — future achievements table."""
+    """Recent REAL achievements: newest unlocks first, padded with the next
+    locked ones so the panel always previews what to chase (max 6)."""
+    from app.achievement.models import Achievement, UserAchievement
+
+    rows = (
+        db.session.query(Achievement, UserAchievement.unlocked_at)
+        .outerjoin(UserAchievement,
+                   (UserAchievement.achievement_id == Achievement.id)
+                   & (UserAchievement.user_id == user.id))
+        .filter(Achievement.is_active.is_(True))
+        .order_by(UserAchievement.unlocked_at.desc().nullslast(),
+                  Achievement.display_order)
+        .limit(6).all()
+    )
     return [
-        {"icon": "terminal", "title": "First Steps", "unlocked": True,
-         "detail": "Created your account"},
-        {"icon": "flame", "title": "On Fire", "unlocked": False,
-         "detail": "7-day streak"},
-        {"icon": "book", "title": "Bookworm", "unlocked": False,
-         "detail": "Complete a course"},
-        {"icon": "flag", "title": "Flag Bearer", "unlocked": False,
-         "detail": "Capture your first flag"},
-        {"icon": "zap", "title": "Challenger", "unlocked": False,
-         "detail": "Solve 10 daily challenges"},
-        {"icon": "award", "title": "Century", "unlocked": False,
-         "detail": "Earn 100 XP"},
+        {"icon": a.icon or "award", "title": a.title,
+         "unlocked": ts is not None, "detail": a.description,
+         "when": ts.strftime("%b %d") if ts else None}
+        for a, ts in rows
     ]
+
+
+def _get_continue_learning(user: User) -> dict[str, Any] | None:
+    """The user's next step in the roadmap: the first available module that
+    isn't finished, plus its first incomplete lesson (YC-022.0)."""
+    from app.roadmap.services import (
+        _completed_lesson_ids, get_all_categories, get_lessons, get_modules,
+        get_module_progress, module_status,
+    )
+
+    for category in get_all_categories():
+        for module in get_modules(category.id):
+            if module_status(user, module) != "available":
+                continue
+            lessons = get_lessons(module.id)
+            if not lessons:
+                continue
+            done = _completed_lesson_ids(user, [l.id for l in lessons])
+            next_lesson = next((l for l in lessons if l.id not in done), None)
+            progress = get_module_progress(user, module)
+            return {
+                "category": category.title,
+                "module_title": module.title,
+                "module_slug": module.slug,
+                "lesson_title": next_lesson.title if next_lesson else None,
+                "lesson_slug": next_lesson.slug if next_lesson else None,
+                "percent": progress["percent"],
+                "done": progress.get("completed_lessons", len(done)),
+                "total": len(lessons),
+            }
+    return None
+
+
+def _get_active_roadmap(user: User) -> dict[str, Any] | None:
+    """The category the user is actively working through — highest non-zero
+    progress wins; brand-new users get the first category at 0%."""
+    from app.roadmap.services import get_all_categories, get_category_progress
+
+    categories = get_all_categories()
+    if not categories:
+        return None
+    progress = get_category_progress(user)
+
+    active = max(categories, key=lambda c: progress.get(c.id, 0))
+    if progress.get(active.id, 0) == 0:
+        active = categories[0]
+    return {
+        "title": active.title,
+        "icon": active.icon,
+        "percent": progress.get(active.id, 0),
+        "description": active.description,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Profile page (YC-022.0) — read-only summary built from existing tables.
+# ---------------------------------------------------------------------------
+def get_profile_context(user: User) -> dict[str, Any]:
+    """Everything the profile page needs — five cheap indexed COUNT queries,
+    no new models, no writes."""
+    from app.achievement.models import Achievement, UserAchievement
+    from app.certificates.models import UserCertificate
+    from app.ctf.models import ChallengeSolve
+    from app.labs.models import UserLabProgress
+    from app.roadmap.models import UserLessonProgress
+
+    achievements_unlocked = UserAchievement.query.filter_by(user_id=user.id).count()
+    achievements_total = Achievement.query.filter_by(is_active=True).count()
+
+    return {
+        "xp_info": get_xp_info(user),
+        "profile_stats": [
+            {"icon": "book", "label": "Lessons Completed",
+             "value": UserLessonProgress.query.filter_by(
+                 user_id=user.id, completed=True).count()},
+            {"icon": "cpu", "label": "Labs Completed",
+             "value": UserLabProgress.query.filter_by(
+                 user_id=user.id, completed=True).count()},
+            {"icon": "flag", "label": "CTF Solves",
+             "value": ChallengeSolve.query.filter_by(
+                 user_id=user.id, solved=True).count()},
+            {"icon": "target", "label": "Achievements",
+             "value": f"{achievements_unlocked} / {achievements_total}"},
+            {"icon": "award", "label": "Certificates",
+             "value": UserCertificate.query.filter_by(user_id=user.id).count()},
+        ],
+    }

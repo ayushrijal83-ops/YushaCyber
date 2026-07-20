@@ -51,6 +51,22 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+
+    # ------------------------------------------------------------------
+    # Production knobs (YC-025.0) — tuned via env vars, safe defaults
+    # ------------------------------------------------------------------
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    APP_VERSION = os.environ.get("APP_VERSION", "dev")
+
+    # SQLAlchemy engine tuning. On PostgreSQL these values keep a small
+    # connection pool warm and recycle connections before the server
+    # times them out (typically 300s on managed Postgres).
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 280,
+    }
+
+
     # ------------------------------------------------------------------
     # Session / cookie hardening
     # ------------------------------------------------------------------

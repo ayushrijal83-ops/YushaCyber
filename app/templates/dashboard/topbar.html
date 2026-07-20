@@ -6,13 +6,15 @@
 {% from "dashboard/_icons.html" import icon %}
 
 {% set path = request.path %}
+{% set is_admin = user.is_admin %}
 {% set nav = [
-    ("Home",        url_for('index'),            "grid",  path == '/'),
-    ("Dashboard",   url_for('dashboard.index'),  "grid",  path.startswith('/dashboard/') and 'achievements' not in path and 'certificates' not in path),
-    ("Roadmaps",    url_for('roadmap.index'),    "map",   path.startswith('/roadmap')),
-    ("Labs",        url_for('labs.index'),       "cpu",   path.startswith('/labs')),
-    ("CTF",         url_for('ctf.index'),        "flag",  path.startswith('/ctf') and 'leaderboard' not in path),
-    ("Leaderboard", url_for('ctf.leaderboard'),  "award", 'leaderboard' in path)
+    ("Dashboard",    url_for('dashboard.index'),        "grid",   path.startswith('/dashboard/') and 'achievements' not in path and 'certificates' not in path and 'profile' not in path),
+    ("Roadmaps",     url_for('roadmap.index'),          "map",    path.startswith('/roadmap')),
+    ("Labs",         url_for('labs.index'),             "cpu",    path.startswith('/labs')),
+    ("CTF",          url_for('ctf.index'),              "flag",   path.startswith('/ctf') and 'leaderboard' not in path),
+    ("Resources",    url_for('resources.index'),        "book",   path.startswith('/resources')),
+    ("Certificates", url_for('dashboard.certificates'), "file-text", 'certificates' in path),
+    ("Achievements", url_for('dashboard.achievements'), "target", 'achievements' in path)
 ] %}
 
 <header class="shell-nav">
@@ -33,17 +35,19 @@
         {# ---- Desktop nav ---- #}
         <nav class="shell-links" aria-label="Primary">
             {% for label, href, ico, is_active in nav %}
-            <a href="{{ href }}"
+            <a href="{{ href }}" title="{{ label }}"
                class="shell-link{% if is_active %} is-active{% endif %}"
                {% if is_active %}aria-current="page"{% endif %}>
                 {{ icon(ico, 15) }}<span>{{ label }}</span>
             </a>
             {% endfor %}
-            <a href="{{ url_for('resources.index') }}"
-               class="shell-link{% if path.startswith('/resources') %} is-active{% endif %}"
-               {% if path.startswith('/resources') %}aria-current="page"{% endif %}>
-                {{ icon("book", 15) }}<span>Resources</span>
+            {% if is_admin %}
+            <a href="{{ url_for('admin.ctf_overview') }}" title="Admin"
+               class="shell-link shell-link--admin{% if path.startswith('/admin') %} is-active{% endif %}"
+               {% if path.startswith('/admin') %}aria-current="page"{% endif %}>
+                {{ icon("settings", 15) }}<span>Admin</span>
             </a>
+            {% endif %}
         </nav>
 
         {# ---- Right cluster ---- #}
@@ -104,6 +108,16 @@
                 </div>
             </div>
 
+            {# Switch user + Logout — always visible (YC-023) #}
+            <a href="{{ url_for('auth.switch_user') }}" class="shell-icon-btn"
+               title="Switch user" aria-label="Switch user">
+                {{ icon("users", 18) }}
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="shell-icon-btn shell-icon-btn--danger"
+               title="Logout" aria-label="Logout">
+                {{ icon("logout", 18) }}
+            </a>
+
             {# Profile dropdown #}
             <div class="shell-drop">
                 <button class="shell-profile" id="profile-toggle" aria-expanded="false"
@@ -121,11 +135,15 @@
                             <small>{{ user.role|capitalize }} · Level {{ user.level }}</small>
                         </span>
                     </div>
+                    <a href="{{ url_for('profiles.my_profile') }}" class="shell-item">{{ icon("user", 15) }} Profile</a>
                     <a href="{{ url_for('dashboard.index') }}" class="shell-item">{{ icon("grid", 15) }} Dashboard</a>
-                    <span class="shell-item shell-item--soon">{{ icon("user", 15) }} Profile <em class="shell-soon">Soon</em></span>
                     <a href="{{ url_for('dashboard.certificates') }}" class="shell-item">{{ icon("award", 15) }} Certificates</a>
                     <a href="{{ url_for('dashboard.achievements') }}" class="shell-item">{{ icon("target", 15) }} Achievements</a>
-                    <span class="shell-item shell-item--soon">{{ icon("settings", 15) }} Settings <em class="shell-soon">Soon</em></span>
+                    <a href="{{ url_for('leaderboard.index') }}" class="shell-item">{{ icon("award", 15) }} Leaderboard</a>
+                    {% if is_admin %}
+                    <a href="{{ url_for('admin.ctf_overview') }}" class="shell-item">{{ icon("settings", 15) }} Admin Panel</a>
+                    {% endif %}
+                    <a href="{{ url_for('auth.switch_user') }}" class="shell-item">{{ icon("users", 15) }} Switch User</a>
                     <a href="{{ url_for('auth.logout') }}" class="shell-item shell-item--danger">{{ icon("logout", 15) }} Logout</a>
                 </div>
             </div>
@@ -138,6 +156,8 @@
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Roadmaps", None)] %}
     {% elif path.startswith('/labs') %}
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Labs", None)] %}
+    {% elif path.startswith('/leaderboard') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Leaderboard", None)] %}
     {% elif 'leaderboard' in path %}
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("CTF", url_for('ctf.index')), ("Leaderboard", None)] %}
     {% elif path.startswith('/ctf') %}
@@ -146,6 +166,12 @@
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Achievements", None)] %}
     {% elif 'certificates' in path %}
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Certificates", None)] %}
+    {% elif 'profile' in path %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Profile", None)] %}
+    {% elif path.startswith('/resources') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Resources", None)] %}
+    {% elif path.startswith('/admin') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Admin", None)] %}
     {% elif path.startswith('/dashboard') %}
         {% set crumbs = [("Dashboard", None)] %}
     {% endif %}
@@ -191,16 +217,23 @@
                 {{ icon(ico, 17) }}<span>{{ label }}</span>
             </a>
             {% endfor %}
-            <a href="{{ url_for('resources.index') }}"
-               class="shell-mobile__link{% if path.startswith('/resources') %} is-active{% endif %}">
-                {{ icon("book", 17) }}<span>Resources</span>
-            </a>
             <hr class="shell-mobile__sep">
-            <a href="{{ url_for('dashboard.certificates') }}" class="shell-mobile__link">
-                {{ icon("award", 17) }}<span>Certificates</span>
+            <a href="{{ url_for('profiles.my_profile') }}"
+               class="shell-mobile__link{% if 'profile' in path %} is-active{% endif %}">
+                {{ icon("user", 17) }}<span>Profile</span>
             </a>
-            <a href="{{ url_for('dashboard.achievements') }}" class="shell-mobile__link">
-                {{ icon("target", 17) }}<span>Achievements</span>
+            <a href="{{ url_for('leaderboard.index') }}"
+               class="shell-mobile__link{% if 'leaderboard' in path %} is-active{% endif %}">
+                {{ icon("award", 17) }}<span>Leaderboard</span>
+            </a>
+            {% if is_admin %}
+            <a href="{{ url_for('admin.ctf_overview') }}"
+               class="shell-mobile__link{% if path.startswith('/admin') %} is-active{% endif %}">
+                {{ icon("settings", 17) }}<span>Admin Panel</span>
+            </a>
+            {% endif %}
+            <a href="{{ url_for('auth.switch_user') }}" class="shell-mobile__link">
+                {{ icon("users", 17) }}<span>Switch User</span>
             </a>
             <a href="{{ url_for('auth.logout') }}" class="shell-mobile__link shell-mobile__link--danger">
                 {{ icon("logout", 17) }}<span>Logout</span>

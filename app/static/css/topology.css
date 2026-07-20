@@ -1,0 +1,238 @@
+/* ===========================================================================
+   Virtual Network Topology (YC-026.1) — reusable component styles
+
+   Composes with ui.css and neo.css. Anywhere the topology_view.html is
+   embedded, these styles apply. Colour, radius, shadows and typography
+   derive from the design tokens so light / dark / cyber themes just
+   work.
+   =========================================================================== */
+
+.topo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+/* --- Head -------------------------------------------------------------- */
+.topo__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+.topo__title {
+    margin: 0 0 4px;
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    color: var(--color-text);
+}
+.topo__desc {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    max-width: 68ch;
+    line-height: 1.55;
+}
+.topo__toolbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--color-surface-2);
+    box-shadow: var(--neo-inset-sm);
+}
+.topo__zoom {
+    width: 32px; height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    color: var(--color-text);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: var(--neo-raise-sm);
+    transition: box-shadow 150ms ease;
+}
+.topo__zoom:hover   { box-shadow: var(--neo-raise); }
+.topo__zoom:active  { box-shadow: var(--neo-inset-sm); }
+.topo__zoomval {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    min-width: 42px;
+    text-align: center;
+}
+
+/* --- Stage: map + detail panel side-by-side --------------------------- */
+.topo__stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--space-4);
+    align-items: stretch;
+}
+#topo-svg {
+    width: 100%;
+    height: 460px;
+    max-height: 60vh;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    box-shadow: var(--neo-raise);
+    /* faint grid overlay for a "cyber" feel */
+    background-image:
+        linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b)),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 40px);
+}
+#topo-viewport { transition: transform 200ms ease; }
+
+/* --- Links ------------------------------------------------------------- */
+.topo__link {
+    stroke: var(--color-border-strong);
+    stroke-width: 2;
+    opacity: 0.85;
+    transition: stroke 200ms ease, stroke-width 200ms ease, filter 200ms ease;
+}
+.topo__link--wan {
+    stroke-dasharray: 6 4;
+}
+.topo__link--active {
+    stroke: var(--color-primary);
+    stroke-width: 3;
+    filter: url(#topo-glow);
+}
+.topo__pulse {
+    fill: var(--color-primary);
+    opacity: 0.5;
+}
+.topo__pulse--active { opacity: 1; }
+
+/* --- Nodes ------------------------------------------------------------- */
+.topo__node { cursor: pointer; transition: transform 200ms ease; }
+.topo__node:hover { transform: scale(1.05); }
+.topo__node:focus { outline: none; }
+.topo__ring {
+    fill: var(--color-surface-2);
+    stroke: var(--color-border-strong);
+    stroke-width: 2;
+    transition: fill 200ms ease, stroke 200ms ease, filter 200ms ease;
+}
+.topo__node:hover .topo__ring,
+.topo__node:focus-visible .topo__ring { stroke: var(--color-primary); }
+.topo__node.is-selected .topo__ring {
+    fill: var(--color-primary-dim);
+    stroke: var(--color-primary);
+    stroke-width: 3;
+    filter: url(#topo-glow);
+}
+.topo__node.is-future .topo__ring { stroke-dasharray: 4 3; }
+
+.topo__glyph { font-size: 22px; }
+.topo__label {
+    fill: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    font-weight: 600;
+    pointer-events: none;
+}
+.topo__ip {
+    fill: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    pointer-events: none;
+}
+
+/* --- Detail panel ------------------------------------------------------ */
+.topo__panel {
+    background: linear-gradient(145deg, var(--neo-grad-a), var(--neo-grad-b));
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    box-shadow: var(--neo-raise);
+    overflow-y: auto;
+    max-height: 60vh;
+    min-height: 460px;
+}
+.topo__panel-empty {
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--space-6) 0;
+    font-size: 0.88rem;
+}
+.topo__panel-title {
+    margin: 0 0 6px;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    color: var(--color-text);
+}
+.topo__panel-sub {
+    margin: var(--space-4) 0 6px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+}
+.topo__facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin: 10px 0 0;
+    font-size: 0.82rem;
+}
+.topo__facts dt {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding-top: 2px;
+}
+.topo__facts dd {
+    margin: 0;
+    color: var(--color-text);
+    overflow-wrap: anywhere;
+}
+.topo__ports, .topo__conns {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+.topo__ports-empty { color: var(--color-text-muted); }
+.topo__conns a {
+    color: var(--color-text);
+    text-decoration: none;
+    transition: color 150ms ease;
+}
+.topo__conns a:hover { color: var(--color-primary); }
+
+/* --- Responsive -------------------------------------------------------- */
+@media (max-width: 900px) {
+    .topo__stage {
+        grid-template-columns: 1fr;
+    }
+    .topo__panel {
+        max-height: none;
+        min-height: 0;
+    }
+    #topo-svg { height: 340px; }
+}
+@media (max-width: 560px) {
+    .topo__label { font-size: 10.5px; }
+    .topo__ip { font-size: 9px; }
+    .topo__glyph { font-size: 19px; }
+}
+
+/* --- Offline hosts (YC-026.3) ----------------------------------------- */
+.topo__node.is-offline .topo__ring {
+    stroke: var(--color-danger, #e5484d);
+    stroke-dasharray: 3 3;
+    opacity: 0.6;
+}
+.topo__node.is-offline .topo__glyph { opacity: 0.4; }
+.topo__node.is-offline .topo__label { fill: var(--color-danger, #e5484d); }
+.topo__node.is-offline .topo__ip { opacity: 0.5; }

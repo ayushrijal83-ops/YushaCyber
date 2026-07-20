@@ -1,0 +1,14 @@
+{% extends "errors/_error_base.html" %}
+{% block title %}Something Went Wrong{% endblock %}
+{% block code %}500{% endblock %}
+{% block heading %}Something broke on our side{% endblock %}
+{% block terminal %}
+<div>student@yushacyber:~$ systemctl status yushacyber</div>
+<div class="bad">● service degraded — engineers notified</div>
+<div class="ok">● your data is safe</div>
+{% endblock %}
+{% block message %}
+An unexpected error occurred while processing your request. It's not you,
+it's us. Try again in a moment — if it keeps happening, the logs already
+know about it.
+{% endblock %}

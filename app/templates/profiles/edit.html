@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile — YushaCyber</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/command.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profiles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+    <script>
+      (function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+        document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+    </script>
+</head>
+<body class="dash-body">
+
+{% from "dashboard/_icons.html" import icon %}
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="dash">
+    <div class="dash__main">
+
+        {% include "dashboard/topbar.html" %}
+
+        <main class="dash__content" id="main-content">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="dash-flash" role="status">
+                    {% for category, message in messages %}
+                    <p class="ui-flash ui-flash--{{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endwith %}
+
+            <section class="ui-card pf-editcard">
+                <h1 class="ui-card__title">{{ icon("settings", 18) }} Edit Profile</h1>
+                <p class="pf-edithint">Everything here is shown on your
+                    <a href="{{ url_for('profiles.my_profile') }}">public profile</a>.
+                    All fields are optional.</p>
+
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="ui-field">
+                        {{ form.avatar_url.label }}
+                        {{ form.avatar_url(class="ui-input", placeholder="https://example.com/me.png",
+                                           **{"aria-describedby": "hint-avatar"}) }}
+                        <span class="ui-field__hint" id="hint-avatar">Direct link to an image (http/https).</span>
+                        {% for e in form.avatar_url.errors %}<span class="ui-field__error">{{ e }}</span>{% endfor %}
+                    </div>
+
+                    <div class="ui-field">
+                        {{ form.bio.label }}
+                        {{ form.bio(class="ui-input", rows=4, maxlength=500,
+                                    placeholder="Red team hopeful from Kathmandu. Currently deep in OWASP Top 10.") }}
+                        <span class="ui-field__hint">Max 500 characters.</span>
+                        {% for e in form.bio.errors %}<span class="ui-field__error">{{ e }}</span>{% endfor %}
+                    </div>
+
+                    <div class="ui-field">
+                        {{ form.country.label }}
+                        {{ form.country(class="ui-input", placeholder="Nepal") }}
+                        {% for e in form.country.errors %}<span class="ui-field__error">{{ e }}</span>{% endfor %}
+                    </div>
+
+                    <div class="ui-field">
+                        {{ form.github_url.label }}
+                        {{ form.github_url(class="ui-input", placeholder="https://github.com/username") }}
+                        {% for e in form.github_url.errors %}<span class="ui-field__error">{{ e }}</span>{% endfor %}
+                    </div>
+
+                    <div class="ui-field">
+                        {{ form.linkedin_url.label }}
+                        {{ form.linkedin_url(class="ui-input", placeholder="https://www.linkedin.com/in/username") }}
+                        {% for e in form.linkedin_url.errors %}<span class="ui-field__error">{{ e }}</span>{% endfor %}
+                    </div>
+
+                    <div class="ui-field">
+                        {{ form.website_url.label }}
+                        {{ form.website_url(class="ui-input", placeholder="https://yourblog.dev") }}
+                        {% for e in form.website_url.errors %}<span class="ui-field__error">{{ e }}</span>{% endfor %}
+                    </div>
+
+                    <div class="pf-editactions">
+                        {{ form.submit(class="btn btn--primary") }}
+                        <a href="{{ url_for('profiles.my_profile') }}" class="btn btn--outline">Cancel</a>
+                    </div>
+                </form>
+            </section>
+
+            {% include "dashboard/footer.html" %}
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+</body>
+</html>

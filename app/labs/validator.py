@@ -139,6 +139,7 @@ def _state_flag(spec: dict, ctx: ValidationContext) -> bool:
 
     spec: {"path": "flags.created_projects", "equals": true}
           {"path": "cwd", "equals": "/home/user/Documents"}
+          {"path": "flags.visited", "min_length": 4}   # YC-026.0
     """
     path = spec.get("path")
     if not path:
@@ -146,6 +147,11 @@ def _state_flag(spec: dict, ctx: ValidationContext) -> bool:
     value = ctx.state_value(path)
     if "equals" in spec:
         return value == spec["equals"]
+    if "min_length" in spec:
+        try:
+            return len(value) >= int(spec["min_length"])
+        except TypeError:
+            return False
     return bool(value)  # presence/truthiness check
 
 
@@ -157,6 +163,7 @@ def _event_emitted(spec: dict, ctx: ValidationContext) -> bool:
     intercepted, code executed…) with NO engine change.
 
     spec: {"event": "flag", "key": "asset_id", "equals": 42}
+          {"event": "nmap", "key": "services", "contains": "http"}
           {"event": "code_run"}
     """
     event_type = spec.get("event")
@@ -167,6 +174,12 @@ def _event_emitted(spec: dict, ctx: ValidationContext) -> bool:
     value = ctx.event_value(event_type, spec["key"])
     if "equals" in spec:
         return value == spec["equals"]
+    if "contains" in spec:
+        # Works for lists (["http","https"]) and strings ("http")
+        try:
+            return spec["contains"] in value
+        except TypeError:
+            return False
     return value is not None
 
 
