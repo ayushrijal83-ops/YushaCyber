@@ -1,0 +1,118 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'analytics' %}
+{% block title %}{{ student.username }} — Analytics{% endblock %}
+{% block heading %}{{ student.username }}{% endblock %}
+{% block subheading %}{{ student.email }} · joined {{ student.created_at.date().isoformat() if student.created_at else "—" }}{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<nav class="ana-subnav" aria-label="Analytics sections">
+    <a class="ana-subnav__link" href="{{ url_for('analytics.overview') }}">Overview</a>
+    <a class="ana-subnav__link is-active" href="{{ url_for('analytics.students') }}">← Back to students</a>
+</nav>
+
+{% set hours = data.time_spent_seconds // 3600 %}
+{% set minutes = (data.time_spent_seconds % 3600) // 60 %}
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("flame", 18) }}</span>
+        <span class="adm-stat__value">{{ data.streak }}</span>
+        <span class="adm-stat__label">Learning Streak (days)</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("trending", 18) }}</span>
+        <span class="adm-stat__value">{{ student.xp }}</span>
+        <span class="adm-stat__label">Total XP (level {{ student.level }})</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("help", 18) }}</span>
+        <span class="adm-stat__value">{{ data.avg_quiz_score }}%</span>
+        <span class="adm-stat__label">Avg Quiz Score ({{ data.quiz_attempts }} attempts)</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("round", 18) }}</span>
+        <span class="adm-stat__value">{{ hours }}h {{ minutes }}m</span>
+        <span class="adm-stat__label">Time Spent (tracked)</span>
+    </article>
+</div>
+
+<div class="ana-charts">
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("trending", 16) }} XP Trend (30 days)</h2></header>
+        <div class="ana-chart__canvas"><canvas id="chart-student-xp"></canvas></div>
+    </section>
+
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("target", 16) }} Completion</h2></header>
+        {% for key, label in [("lessons", "Lessons"), ("labs", "Labs"), ("ctf", "CTF Challenges")] %}
+        {% set c = data.completion[key] %}
+        <div class="ana-bar">
+            <div class="ana-bar__head">
+                <span>{{ label }}</span>
+                <span>{{ c.done }} / {{ c.total }} · {{ c.pct }}%</span>
+            </div>
+            <div class="ana-bar__track"><div class="ana-bar__fill" style="width: {{ c.pct }}%"></div></div>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+
+<div class="ana-charts">
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("zap", 16) }} Recent Activity</h2></header>
+        {% if not data.recent_activity %}
+        <p class="ana-chart__note">No activity recorded yet.</p>
+        {% else %}
+        <ul class="ana-feed">
+            {% for item in data.recent_activity %}
+            <li>
+                <span class="ana-feed__when">{{ item.when.date().isoformat() if item.when else "—" }}</span>
+                <span class="ana-feed__kind ana-feed__kind--{{ item.kind }}">{{ item.kind }}</span>
+                <span>{{ item.label }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("award", 16) }} Certificates & Achievements</h2></header>
+        {% if not data.certificates and not data.achievements %}
+        <p class="ana-chart__note">Nothing earned yet.</p>
+        {% endif %}
+        {% if data.certificates %}
+        <ul class="ana-feed">
+            {% for issued, cert in data.certificates %}
+            <li>
+                <span class="ana-feed__when">{{ issued.issued_at.date().isoformat() if issued.issued_at else "—" }}</span>
+                <span class="ana-feed__kind ana-feed__kind--certificate">cert</span>
+                <span>{{ cert.title }} · <code>{{ issued.certificate_code }}</code></span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if data.achievements %}
+        <ul class="ana-feed">
+            {% for unlock, ach in data.achievements %}
+            <li>
+                <span class="ana-feed__when">{{ unlock.unlocked_at.date().isoformat() if unlock.unlocked_at else "—" }}</span>
+                <span class="ana-feed__kind ana-feed__kind--achievement">ach</span>
+                <span>{{ ach.title }} (+{{ ach.bonus_xp }} XP)</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+</div>
+
+<script type="application/json" id="ana-student-trend">{{ {"labels": data.xp_labels, "data": data.xp_trend}|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/analytics_charts.js') }}"></script>
+{% endblock %}

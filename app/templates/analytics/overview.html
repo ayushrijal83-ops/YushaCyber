@@ -1,0 +1,100 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'analytics' %}
+{% block title %}Analytics{% endblock %}
+{% block heading %}Learning Analytics{% endblock %}
+{% block subheading %}Student learning, engagement and performance — computed live from the platform's own progress data.{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<nav class="ana-subnav" aria-label="Analytics sections">
+    <a class="ana-subnav__link is-active" href="{{ url_for('analytics.overview') }}">Overview</a>
+    <a class="ana-subnav__link" href="{{ url_for('analytics.students') }}">Students</a>
+    <a class="ana-subnav__link" href="{{ url_for('analytics.content') }}">Roadmaps · Labs · CTF</a>
+    <a class="ana-subnav__link" href="{{ url_for('analytics.export_csv', report='overview') }}">⭳ Export CSV</a>
+</nav>
+
+{# ---- The eight headline cards ---- #}
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("users", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.total_students }}</span>
+        <span class="adm-stat__label">Total Students</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("zap", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.active_students_7d }}</span>
+        <span class="adm-stat__label">Active (7 days)</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("book", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.completed_lessons }}</span>
+        <span class="adm-stat__label">Completed Lessons</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("terminal", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.completed_labs }}</span>
+        <span class="adm-stat__label">Completed Labs</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("flag", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.completed_ctfs }}</span>
+        <span class="adm-stat__label">Completed CTFs</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("award", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.certificates_issued }}</span>
+        <span class="adm-stat__label">Certificates Issued</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("trending", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.avg_xp }}</span>
+        <span class="adm-stat__label">Average XP</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("target", 18) }}</span>
+        <span class="adm-stat__value">{{ stats.avg_level }}</span>
+        <span class="adm-stat__label">Average Level</span>
+    </article>
+</div>
+
+{# ---- Six interactive charts ---- #}
+<div class="ana-charts">
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("users", 16) }} Daily Active Users</h2></header>
+        <div class="ana-chart__canvas"><canvas id="chart-dau"></canvas></div>
+    </section>
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("trending", 16) }} XP Growth</h2></header>
+        <div class="ana-chart__canvas"><canvas id="chart-xp"></canvas></div>
+        <div class="ana-chart__note">Reconstructed from completions, solves and unlocks (XP history is not stored).</div>
+    </section>
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("book", 16) }} Lesson Completion</h2></header>
+        <div class="ana-chart__canvas"><canvas id="chart-lessons"></canvas></div>
+    </section>
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("help", 16) }} Quiz Pass Rate</h2></header>
+        <div class="ana-chart__canvas"><canvas id="chart-quiz"></canvas></div>
+        <div class="ana-chart__note">Days without attempts are blank, not zero.</div>
+    </section>
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("terminal", 16) }} Lab Completion</h2></header>
+        <div class="ana-chart__canvas"><canvas id="chart-labs"></canvas></div>
+    </section>
+    <section class="adm-card ana-chart">
+        <header class="adm-card__head"><h2 class="adm-card__title">{{ icon("flag", 16) }} CTF Solves</h2></header>
+        <div class="ana-chart__canvas"><canvas id="chart-ctf"></canvas></div>
+    </section>
+</div>
+
+<script type="application/json" id="ana-series">{{ series|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/analytics_charts.js') }}"></script>
+{% endblock %}

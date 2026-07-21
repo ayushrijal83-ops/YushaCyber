@@ -1,0 +1,87 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'analytics' %}
+{% block title %}Student Analytics{% endblock %}
+{% block heading %}Students{% endblock %}
+{% block subheading %}Search and inspect individual student progress.{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<nav class="ana-subnav" aria-label="Analytics sections">
+    <a class="ana-subnav__link" href="{{ url_for('analytics.overview') }}">Overview</a>
+    <a class="ana-subnav__link is-active" href="{{ url_for('analytics.students') }}">Students</a>
+    <a class="ana-subnav__link" href="{{ url_for('analytics.content') }}">Roadmaps · Labs · CTF</a>
+    <a class="ana-subnav__link" href="{{ url_for('analytics.export_csv', report='students', q=q, level=level, min_xp=min_xp, sort=sort) }}">⭳ Export CSV</a>
+</nav>
+
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("search", 16) }} Search students</h2>
+    </header>
+
+    <form method="GET" class="ana-filters" action="{{ url_for('analytics.students') }}">
+        <label class="adm-field">
+            <span class="adm-label">Username or email</span>
+            <input class="adm-input" type="text" name="q" value="{{ q }}" placeholder="e.g. ayush">
+        </label>
+        <label class="adm-field">
+            <span class="adm-label">Level (exact)</span>
+            <input class="adm-input" type="number" name="level" min="1" value="{{ level if level is not none }}">
+        </label>
+        <label class="adm-field">
+            <span class="adm-label">Minimum XP</span>
+            <input class="adm-input" type="number" name="min_xp" min="0" value="{{ min_xp if min_xp is not none }}">
+        </label>
+        <label class="adm-field">
+            <span class="adm-label">Sort by</span>
+            <select class="adm-input" name="sort">
+                <option value="xp" {% if sort == 'xp' %}selected{% endif %}>XP (high → low)</option>
+                <option value="level" {% if sort == 'level' %}selected{% endif %}>Level</option>
+                <option value="username" {% if sort == 'username' %}selected{% endif %}>Username (A→Z)</option>
+                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest first</option>
+            </select>
+        </label>
+        <button type="submit" class="btn btn--primary btn--sm">Search</button>
+    </form>
+
+    {% if not students %}
+    <div class="adm-empty">
+        <div class="adm-empty__art">{{ icon("users", 30) }}</div>
+        <h3 class="adm-empty__title">No students match</h3>
+        <p class="adm-empty__text">Loosen the filters and search again.</p>
+    </div>
+    {% else %}
+    <div class="adm-table" role="table">
+        <div class="adm-table__head" role="row">
+            <span>Student</span>
+            <span class="adm-num">Level</span>
+            <span class="adm-num">XP</span>
+            <span class="adm-num">Streak</span>
+            <span>Joined</span>
+            <span class="adm-right">Actions</span>
+        </div>
+        {% for s in students %}
+        <div class="adm-table__row" role="row">
+            <span class="adm-cell adm-cell--main">
+                <span class="adm-cell__title">{{ s.username }}</span>
+                <span class="adm-cell__meta">{{ s.email }}</span>
+            </span>
+            <span class="adm-cell adm-num" data-label="Level">{{ s.level }}</span>
+            <span class="adm-cell adm-num" data-label="XP">{{ s.xp }}</span>
+            <span class="adm-cell adm-num" data-label="Streak">{{ s.streak or 0 }}</span>
+            <span class="adm-cell" data-label="Joined">{{ s.created_at.date().isoformat() if s.created_at else "—" }}</span>
+            <span class="adm-cell adm-cell--actions">
+                <a href="{{ url_for('analytics.student_detail', user_id=s.id) }}"
+                   class="adm-btn adm-btn--edit" title="Open analytics">
+                   {{ icon("trending", 14) }}<span>Analytics</span></a>
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="ana-chart__note">Showing up to 200 results — refine the search for more precision.</p>
+    {% endif %}
+</section>
+{% endblock %}

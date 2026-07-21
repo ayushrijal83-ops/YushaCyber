@@ -1,0 +1,134 @@
+/* ===========================================================================
+   Learning Analytics dashboard (YC-033.0)
+   Additions on top of the admin design system (adm-* classes stay the
+   source of truth for cards/tables/stats). Same neumorphic tokens.
+   =========================================================================== */
+
+/* ---------- section sub-navigation ---------- */
+.ana-subnav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0 0 16px;
+}
+.ana-subnav__link {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #7a8794);
+    background: var(--color-surface, #10161d);
+    border: 1px solid var(--color-border, #1d2733);
+    box-shadow: var(--shadow-neo-sm, 3px 3px 8px rgba(0, 0, 0, .4),
+                -3px -3px 8px rgba(255, 255, 255, .02));
+    text-decoration: none;
+}
+.ana-subnav__link.is-active {
+    color: var(--color-primary, #00ff88);
+    border-color: var(--color-primary, #00ff88);
+}
+
+/* ---------- chart grid ---------- */
+.ana-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 16px;
+    margin-bottom: 18px;
+}
+.ana-chart {
+    padding: 14px 14px 10px;
+}
+.ana-chart__canvas {
+    position: relative;
+    height: 220px;
+}
+.ana-chart__note {
+    font-size: .68rem;
+    color: var(--color-text-muted, #7a8794);
+    padding-top: 6px;
+}
+
+/* ---------- completion bars (student detail) ---------- */
+.ana-bar {
+    margin: 10px 0;
+}
+.ana-bar__head {
+    display: flex;
+    justify-content: space-between;
+    font-size: .78rem;
+    margin-bottom: 4px;
+    color: var(--color-text, #dbe4ee);
+}
+.ana-bar__track {
+    height: 10px;
+    border-radius: 999px;
+    background: var(--color-bg, #0a0f14);
+    border: 1px solid var(--color-border, #1d2733);
+    overflow: hidden;
+}
+.ana-bar__fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--color-primary, #00ff88);
+    opacity: .85;
+}
+
+/* ---------- activity feed ---------- */
+.ana-feed {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: .82rem;
+}
+.ana-feed li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 4px;
+    border-bottom: 1px dashed var(--color-border, #1d2733);
+}
+.ana-feed li:last-child { border-bottom: none; }
+.ana-feed__when {
+    flex: 0 0 88px;
+    color: var(--color-text-muted, #7a8794);
+    font-size: .72rem;
+}
+.ana-feed__kind {
+    flex: 0 0 auto;
+    font-size: .62rem;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border, #1d2733);
+    color: var(--color-text-muted, #7a8794);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.ana-feed__kind--lab         { color: #4dd6d6; border-color: rgba(77, 214, 214, .5); }
+.ana-feed__kind--lesson      { color: #6fb7ff; border-color: rgba(111, 183, 255, .5); }
+.ana-feed__kind--ctf         { color: #ff6b6b; border-color: rgba(255, 107, 107, .5); }
+.ana-feed__kind--quiz        { color: #ffb454; border-color: rgba(255, 180, 84, .5); }
+.ana-feed__kind--achievement { color: #b98cff; border-color: rgba(185, 140, 255, .5); }
+.ana-feed__kind--certificate { color: var(--color-primary, #00ff88);
+                               border-color: rgba(0, 255, 136, .5); }
+
+/* ---------- filters row ---------- */
+.ana-filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 14px;
+}
+.ana-filters .adm-field { min-width: 140px; }
+
+/* ---------- funnel ---------- */
+.ana-funnel {
+    font-size: .78rem;
+    color: var(--color-text-muted, #7a8794);
+}
+.ana-funnel__step { padding: 2px 0; }
+.ana-funnel__lost { color: #ff6b6b; }
+
+@media (max-width: 720px) {
+    .ana-chart__canvas { height: 180px; }
+}

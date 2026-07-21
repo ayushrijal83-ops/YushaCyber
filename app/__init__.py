@@ -106,6 +106,9 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(profiles_bp)  # routes: /profile, /users/<username>
     app.register_blueprint(leaderboard_bp)  # route: /leaderboard
 
+    from app.analytics import analytics_bp
+    app.register_blueprint(analytics_bp, url_prefix="/admin/analytics")
+
 
 def _register_routes(app: Flask) -> None:
     """Application-level routes (homepage stays exactly as before)."""
@@ -155,6 +158,7 @@ def _register_models() -> None:
     from app.labs import models as labs_models  # noqa: F401
     from app.labs.ad import models as ad_models  # noqa: F401
     from app.labs.cloud import models as cloud_models  # noqa: F401
+    from app.analytics import models as analytics_models  # noqa: F401
     from app.resources import models as resources_models  # noqa: F401
     from app.profiles import models as profiles_models  # noqa: F401
 

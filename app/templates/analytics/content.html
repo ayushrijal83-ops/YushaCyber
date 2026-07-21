@@ -1,0 +1,169 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'analytics' %}
+{% block title %}Content Analytics{% endblock %}
+{% block heading %}Roadmaps · Labs · CTF{% endblock %}
+{% block subheading %}Which content works, where students struggle, and where they drop off.{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<nav class="ana-subnav" aria-label="Analytics sections">
+    <a class="ana-subnav__link" href="{{ url_for('analytics.overview') }}">Overview</a>
+    <a class="ana-subnav__link" href="{{ url_for('analytics.students') }}">Students</a>
+    <a class="ana-subnav__link is-active" href="{{ url_for('analytics.content') }}">Roadmaps · Labs · CTF</a>
+</nav>
+
+{# ================= ROADMAPS ================= #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("map", 16) }} Roadmap Analytics</h2>
+        <div class="adm-card__tools">
+            <a href="{{ url_for('analytics.export_csv', report='roadmaps') }}" class="adm-btn adm-btn--ghost">⭳ CSV</a>
+        </div>
+    </header>
+
+    <div class="adm-stats">
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--green">{{ icon("trending", 18) }}</span>
+            <span class="adm-stat__value">{{ roadmaps.most_completed.category if roadmaps.most_completed else "—" }}</span>
+            <span class="adm-stat__label">Most Completed ({{ roadmaps.most_completed.completion_rate if roadmaps.most_completed else 0 }}%)</span>
+        </article>
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("chevron", 18) }}</span>
+            <span class="adm-stat__value">{{ roadmaps.least_completed.category if roadmaps.least_completed else "—" }}</span>
+            <span class="adm-stat__label">Least Completed ({{ roadmaps.least_completed.completion_rate if roadmaps.least_completed else 0 }}%)</span>
+        </article>
+    </div>
+
+    <div class="adm-table" role="table">
+        <div class="adm-table__head" role="row">
+            <span>Roadmap</span>
+            <span class="adm-num">Lessons</span>
+            <span class="adm-num">Enrolled</span>
+            <span class="adm-num">Completion</span>
+            <span class="adm-num">Avg lesson time</span>
+            <span>Biggest drop-off</span>
+        </div>
+        {% for r in roadmaps.rows %}
+        <div class="adm-table__row" role="row">
+            <span class="adm-cell adm-cell--main">
+                <span class="adm-cell__title">{{ r.category }}</span>
+                {% if r.funnel %}
+                <span class="adm-cell__meta ana-funnel">
+                    {% for step in r.funnel %}{{ step.module }} ({{ step.completers }}){% if not loop.last %} → {% endif %}{% endfor %}
+                </span>
+                {% endif %}
+            </span>
+            <span class="adm-cell adm-num" data-label="Lessons">{{ r.lessons }}</span>
+            <span class="adm-cell adm-num" data-label="Enrolled">{{ r.enrolled }}</span>
+            <span class="adm-cell adm-num" data-label="Completion">{{ r.completion_rate }}%</span>
+            <span class="adm-cell adm-num" data-label="Avg time">{{ (r.avg_lesson_seconds // 60) }}m</span>
+            <span class="adm-cell" data-label="Drop-off">
+                {% if r.drop_off %}
+                <span class="ana-funnel__lost">−{{ r.drop_off.lost }} after “{{ r.drop_off.after }}”</span>
+                {% else %}—{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{# ================= LABS ================= #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("terminal", 16) }} Lab Analytics</h2>
+        <div class="adm-card__tools">
+            <a href="{{ url_for('analytics.export_csv', report='labs') }}" class="adm-btn adm-btn--ghost">⭳ CSV</a>
+        </div>
+    </header>
+
+    <div class="adm-stats">
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("play", 18) }}</span>
+            <span class="adm-stat__value">{{ labs.most_attempted.lab if labs.most_attempted else "—" }}</span>
+            <span class="adm-stat__label">Most Attempted ({{ labs.most_attempted.attempts if labs.most_attempted else 0 }})</span>
+        </article>
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("flame", 18) }}</span>
+            <span class="adm-stat__value">{{ labs.highest_failure.lab if labs.highest_failure else "—" }}</span>
+            <span class="adm-stat__label">Highest Failure Rate ({{ labs.highest_failure.failure_rate if labs.highest_failure else 0 }}%)</span>
+        </article>
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("help", 18) }}</span>
+            <span class="adm-stat__value">{{ labs.total_hints_used }}</span>
+            <span class="adm-stat__label">Hints Used (tracked from now on)</span>
+        </article>
+    </div>
+
+    <div class="adm-table" role="table">
+        <div class="adm-table__head" role="row">
+            <span>Lab</span>
+            <span class="adm-num">Attempts</span>
+            <span class="adm-num">Completed</span>
+            <span class="adm-num">Failure rate</span>
+            <span class="adm-num">Avg time</span>
+            <span class="adm-num">Hints</span>
+        </div>
+        {% for r in labs.rows[:20] %}
+        <div class="adm-table__row" role="row">
+            <span class="adm-cell adm-cell--main">
+                <span class="adm-cell__title">{{ r.lab }}</span>
+                <span class="adm-cell__meta">{{ r.slug }} · {{ r.difficulty }}</span>
+            </span>
+            <span class="adm-cell adm-num" data-label="Attempts">{{ r.attempts }}</span>
+            <span class="adm-cell adm-num" data-label="Completed">{{ r.completed }}</span>
+            <span class="adm-cell adm-num" data-label="Failure">{{ r.failure_rate }}%</span>
+            <span class="adm-cell adm-num" data-label="Avg time">{% if r.avg_seconds %}{{ (r.avg_seconds // 60) }}m{% else %}—{% endif %}</span>
+            <span class="adm-cell adm-num" data-label="Hints">{{ r.hints_used }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% if labs.rows|length > 20 %}<p class="ana-chart__note">Top 20 by attempts — full list in the CSV export.</p>{% endif %}
+</section>
+
+{# ================= CTF ================= #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("flag", 16) }} CTF Analytics</h2>
+        <div class="adm-card__tools">
+            <a href="{{ url_for('analytics.export_csv', report='ctf') }}" class="adm-btn adm-btn--ghost">⭳ CSV</a>
+        </div>
+    </header>
+
+    <div class="adm-stats">
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--green">{{ icon("flag", 18) }}</span>
+            <span class="adm-stat__value">{{ ctf.most_solved.challenge if ctf.most_solved else "—" }}</span>
+            <span class="adm-stat__label">Most Solved ({{ ctf.most_solved.solves if ctf.most_solved else 0 }})</span>
+        </article>
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--amber">{{ icon("lock", 18) }}</span>
+            <span class="adm-stat__value">{{ ctf.least_solved.challenge if ctf.least_solved else "—" }}</span>
+            <span class="adm-stat__label">Least Solved ({{ ctf.least_solved.solves if ctf.least_solved else 0 }})</span>
+        </article>
+        <article class="adm-stat">
+            <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("target", 18) }}</span>
+            <span class="adm-stat__value">{{ ctf.avg_attempts }}</span>
+            <span class="adm-stat__label">Average Attempts</span>
+        </article>
+    </div>
+
+    <div class="adm-table" role="table">
+        <div class="adm-table__head" role="row">
+            <span>Difficulty</span>
+            <span class="adm-num">Challenges</span>
+            <span class="adm-num">Solves</span>
+        </div>
+        {% for difficulty, bucket in ctf.difficulty_distribution.items() %}
+        <div class="adm-table__row" role="row">
+            <span class="adm-cell adm-cell--main"><span class="adm-cell__title">{{ difficulty }}</span></span>
+            <span class="adm-cell adm-num" data-label="Challenges">{{ bucket.challenges }}</span>
+            <span class="adm-cell adm-num" data-label="Solves">{{ bucket.solves }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

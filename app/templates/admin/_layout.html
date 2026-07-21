@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+{% block extra_css %}{% endblock %}
 </head>
 <body class="dash-body">
 
@@ -65,6 +66,10 @@
             <a href="{{ url_for('admin.cloud_scenarios') }}"
                class="adm-tab{% if active == 'cloud' %} is-active{% endif %}">
                 {{ icon("layers", 14) }} Cloud Scenarios
+            </a>
+            <a href="{{ url_for('analytics.overview') }}"
+               class="adm-tab{% if active == 'analytics' %} is-active{% endif %}">
+                {{ icon("trending", 14) }} Analytics
             </a>
         </nav>
 
