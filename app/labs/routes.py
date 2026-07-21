@@ -241,3 +241,31 @@ def topology_probe(name: str):
             result["port_state"] = engine.scan_port(src, dst, port,
                                                      protocol=proto).value
     return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
+# Active Directory explorer surface (YC-031.0)
+# ---------------------------------------------------------------------------
+@labs_bp.route("/<slug>/ad/state")
+@login_required
+def ad_state(slug: str):
+    """The AD object-explorer tree for this user's current lab session.
+
+    Read-only, additive, login-required. The frontend refreshes the
+    tree after every action so moves/disables/removals appear live —
+    the server's session state stays the single source of truth.
+    """
+    lab = lab_services.get_lab(slug)
+    if lab is None or lab.simulator_key != "ad":
+        abort(404)
+
+    from app.labs import session_manager
+    from app.labs.ad import engine as ad_engine
+
+    simulator = session_manager.get_simulator(lab)
+    session = session_manager.start_session(current_user, lab)
+    state = session_manager.load_state(session, simulator, lab)
+    return jsonify({
+        "tree": ad_engine.explorer_tree(state.get("directory", {})),
+        "selected": state.get("selected", ""),
+    })

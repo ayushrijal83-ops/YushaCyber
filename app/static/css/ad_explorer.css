@@ -1,0 +1,130 @@
+/* ===========================================================================
+   Active Directory object explorer (YC-031.0)
+   Windows-administration-inspired tree + object list, restyled with the
+   platform's neumorphic design tokens (neo.css variables). The property
+   panel is the existing status panel — this file only styles the tree.
+   =========================================================================== */
+
+.adx {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+    min-height: 220px;
+}
+
+/* ---------- tree pane ---------- */
+.adx__tree {
+    background: var(--color-surface, #10161d);
+    border: 1px solid var(--color-border, #1d2733);
+    border-radius: var(--radius-lg, 14px);
+    box-shadow: var(--shadow-neo-sm, 4px 4px 10px rgba(0, 0, 0, .45),
+                -4px -4px 10px rgba(255, 255, 255, .02));
+    padding: 10px 8px;
+    font-size: .82rem;
+    overflow-y: auto;
+    max-height: 340px;
+}
+
+.adx__domain {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    color: var(--color-primary, #00ff88);
+    padding: 4px 6px 8px;
+    letter-spacing: .02em;
+}
+
+.adx__section {
+    margin: 2px 0;
+}
+
+.adx__section > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 4px 6px;
+    border-radius: 8px;
+    color: var(--color-text, #dbe4ee);
+    font-weight: 600;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.adx__section > summary::-webkit-details-marker { display: none; }
+.adx__section > summary::before {
+    content: "▸";
+    font-size: .7rem;
+    color: var(--color-text-muted, #7a8794);
+    transition: transform .15s ease;
+}
+.adx__section[open] > summary::before { transform: rotate(90deg); }
+.adx__section > summary:hover { background: rgba(255, 255, 255, .04); }
+
+.adx__count {
+    margin-left: auto;
+    font-size: .7rem;
+    color: var(--color-text-muted, #7a8794);
+    font-weight: 400;
+}
+
+.adx__items { padding-left: 16px; }
+
+.adx__node {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    color: var(--color-text-muted, #9aa7b4);
+    font: inherit;
+    font-size: .8rem;
+    padding: 3px 6px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background .12s ease, color .12s ease;
+}
+
+.adx__node:hover {
+    background: rgba(0, 255, 136, .07);
+    color: var(--color-text, #dbe4ee);
+}
+
+.adx__node.is-selected {
+    background: rgba(0, 255, 136, .12);
+    color: var(--color-primary, #00ff88);
+    box-shadow: inset 0 0 0 1px rgba(0, 255, 136, .35);
+}
+
+.adx__node .adx__icon { flex: 0 0 auto; }
+
+.adx__badge {
+    margin-left: auto;
+    font-size: .62rem;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    line-height: 1.4;
+}
+.adx__badge--locked   { color: #ffb454; border-color: rgba(255, 180, 84, .5); }
+.adx__badge--disabled { color: #8b95a1; border-color: rgba(139, 149, 161, .5); }
+.adx__badge--dc       { color: #6fb7ff; border-color: rgba(111, 183, 255, .5); }
+.adx__badge--warn     { color: #ff6b6b; border-color: rgba(255, 107, 107, .5); }
+
+/* ---------- hint bar ---------- */
+.adx__hint {
+    grid-column: 1 / -1;
+    font-size: .72rem;
+    color: var(--color-text-muted, #7a8794);
+    padding: 0 2px;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 860px) {
+    .adx { grid-template-columns: 1fr; }
+    .adx__tree { max-height: 240px; }
+}

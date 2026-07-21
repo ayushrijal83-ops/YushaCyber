@@ -82,6 +82,8 @@ def seed_labs() -> dict[str, int]:
         websec = seed_websec_labs()
         from app.labs.soc_seed import seed_soc_labs
         soc = seed_soc_labs()
+        from app.labs.ad.seed import seed_ad_labs
+        ad = seed_ad_labs()
         return {
             "created": network["labs"] + interactive["labs"],
             "categories": LabCategory.query.count(),
@@ -91,6 +93,7 @@ def seed_labs() -> dict[str, int]:
             "fs_nodes": engine["fs_nodes"],
             "networking_labs": network["labs"] + interactive["labs"],
             "networking_achievements": network["achievements"] + interactive["achievements"],
+            "ad_labs": ad["labs"],
         }
 
     labs = objectives = files = 0
@@ -164,6 +167,8 @@ def seed_labs() -> dict[str, int]:
     websec = seed_websec_labs()
     from app.labs.soc_seed import seed_soc_labs
     soc = seed_soc_labs()
+    from app.labs.ad.seed import seed_ad_labs
+    ad = seed_ad_labs()
 
     return {
         "created": 1,
@@ -174,6 +179,7 @@ def seed_labs() -> dict[str, int]:
         "fs_nodes": engine["fs_nodes"],
         "networking_labs": network["labs"] + interactive["labs"],
         "networking_achievements": network["achievements"] + interactive["achievements"],
+        "ad_labs": ad["labs"],
     }
 
 

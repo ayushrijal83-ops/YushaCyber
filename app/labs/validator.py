@@ -140,6 +140,8 @@ def _state_flag(spec: dict, ctx: ValidationContext) -> bool:
     spec: {"path": "flags.created_projects", "equals": true}
           {"path": "cwd", "equals": "/home/user/Documents"}
           {"path": "flags.visited", "min_length": 4}   # YC-026.0
+          {"path": "directory.groups.domain-admins.members",
+           "not_contains": "intern01"}                 # YC-031.0
     """
     path = spec.get("path")
     if not path:
@@ -150,6 +152,17 @@ def _state_flag(spec: dict, ctx: ValidationContext) -> bool:
     if "min_length" in spec:
         try:
             return len(value) >= int(spec["min_length"])
+        except TypeError:
+            return False
+    if "not_contains" in spec:
+        # Remediation objectives: something must be ABSENT from a
+        # collection (e.g. an intern removed from Domain Admins). A
+        # missing path fails — absence of the whole structure is not
+        # proof of remediation.
+        if value is None:
+            return False
+        try:
+            return spec["not_contains"] not in value
         except TypeError:
             return False
     return bool(value)  # presence/truthiness check

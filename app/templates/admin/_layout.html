@@ -58,6 +58,10 @@
                class="adm-tab{% if active == 'hints' %} is-active{% endif %}">
                 {{ icon("help", 14) }} Hints
             </a>
+            <a href="{{ url_for('admin.ad_domains') }}"
+               class="adm-tab{% if active == 'ad' %} is-active{% endif %}">
+                {{ icon("cpu", 14) }} AD Domains
+            </a>
         </nav>
 
         {# ============ Alerts ============ #}

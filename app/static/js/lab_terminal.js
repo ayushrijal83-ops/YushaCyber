@@ -172,7 +172,7 @@
         /* echo the command exactly as a real shell would */
         line((promptEl ? promptEl.textContent : "$ ") + command, "lw-line--echo");
 
-        send(command).then(function (res) {
+        return send(command).then(function (res) {
             if (!res || !res.ok) { line("Unable to run that. Try again.", "lw-line--err"); return; }
 
             if (res.clear) {
@@ -193,6 +193,7 @@
                 showComplete(res.objectives, res);
             }
             autoscroll();
+            return res;
         }).catch(function () {
             line("Network error.", "lw-line--err");
         });
@@ -478,4 +479,32 @@
     /* ---------- boot ---------- */
     refresh(cfg.objectives || []);       /* real objective data from the server */
     input.focus();                       /* focus terminal on page load */
+
+    /* ---------- workspace API (YC-031.0, additive) ----------
+       Companion scripts (e.g. the AD object explorer) drive the SAME
+       action pipeline instead of duplicating it: run() echoes the
+       command, posts it, renders output, refreshes objectives and the
+       status panel. onResult lets them react (refresh their tree). */
+    var resultHooks = [];
+    var _origRun = run;
+    run = function (command) {
+        var p = _origRun(command);
+        if (p && p.then) {
+            p.then(function (res) {
+                resultHooks.forEach(function (cb) {
+                    try { cb(res); } catch (e) { /* never break the terminal */ }
+                });
+                return res;
+            });
+        }
+        return p;
+    };
+    window.LabWorkspace = {
+        run: function (command) { return run(command); },
+        sendAction: sendAction,
+        line: line,
+        refresh: refresh,
+        renderStatus: renderStatus,
+        onResult: function (cb) { if (typeof cb === "function") resultHooks.push(cb); }
+    };
 })();

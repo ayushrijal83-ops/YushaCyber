@@ -153,6 +153,7 @@ def _register_models() -> None:
     from app.certificates import models as certificate_models  # noqa: F401
     from app.ctf import models as ctf_models  # noqa: F401
     from app.labs import models as labs_models  # noqa: F401
+    from app.labs.ad import models as ad_models  # noqa: F401
     from app.resources import models as resources_models  # noqa: F401
     from app.profiles import models as profiles_models  # noqa: F401
 

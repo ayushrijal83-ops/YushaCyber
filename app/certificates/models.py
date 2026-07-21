@@ -37,6 +37,8 @@ class Certificate(BaseModel):
     # requirements are stored as comma-separated slugs; xp as an integer.
     required_modules = db.Column(db.Text, nullable=True)
     required_quizzes = db.Column(db.Text, nullable=True)
+    # Comma-separated lab slugs, every one must be completed (YC-031.0).
+    required_labs = db.Column(db.Text, nullable=True)
     required_xp = db.Column(db.Integer, nullable=False, default=0)
 
     is_active = db.Column(db.Boolean, nullable=False, default=True)

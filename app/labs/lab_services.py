@@ -309,6 +309,16 @@ def execute_action(user, lab, action_type: str,
                 "Achievement check failed after lab action: user %s", user.id
             )
 
+    # --- Reuse the existing certificate engine (YC-031.0, additive) ---
+    if lab_completed:
+        try:
+            from app.certificates.services import check_all_certificates
+            check_all_certificates(user)
+        except Exception:  # noqa: BLE001 — never fail a lab action on this
+            current_app.logger.exception(
+                "Certificate check failed after lab action: user %s", user.id
+            )
+
     if newly_completed:
         current_app.logger.info(
             "Lab objectives completed: user=%s lab=%s objectives=%s xp=%s",

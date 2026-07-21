@@ -13,6 +13,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/labs.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+    {% if ui and ui.ad %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ad_explorer.css') }}">
+    {% endif %}
 </head>
 <body class="dash-body">
 
@@ -114,6 +117,12 @@
 
                 {# ---------- RIGHT 65%: topology (if any) + terminal ---------- #}
                 <section class="lw-workarea">
+                    {% if ui and ui.ad %}
+                    <div class="adx" aria-label="Active Directory object explorer">
+                        <nav class="adx__tree" id="adx" aria-label="Directory tree"></nav>
+                        <div class="adx__hint">Click any object to inspect it — the console below shows its properties. Tree updates live after every command.</div>
+                    </div>
+                    {% endif %}
                     {% if ui and ui.topology %}
                     <div class="lw-topo" id="lw-topo" aria-label="Network topology — click a device to switch to it">
                         <div class="lw-topo__hint">Click a device to switch to its terminal.</div>
@@ -201,10 +210,14 @@
                   labXp:     {{ lab.xp_reward }},
                   bootPrompt: {{ prompt|tojson }},
                   objectives: {{ objectives|tojson }},
-                  topology:  {{ (ui.topology if ui and ui.topology else none)|tojson }}
+                  topology:  {{ (ui.topology if ui and ui.topology else none)|tojson }},
+                  adStateUrl: {{ (url_for('labs.ad_state', slug=lab.slug) if ui and ui.ad else none)|tojson }}
               };
             </script>
             <script src="{{ url_for('static', filename='js/lab_terminal.js') }}"></script>
+            {% if ui and ui.ad %}
+            <script src="{{ url_for('static', filename='js/ad_explorer.js') }}"></script>
+            {% endif %}
 
             {% else %}
             {# ---------- Non-interactive lab ---------- #}

@@ -273,3 +273,185 @@ def ctf_hint_reorder(hint_id: int):
     result = services.reorder_hint(hint_id, request.form.get("direction", ""))
     _flash_result(result, "Hint reordered.")
     return redirect(url_for("admin.ctf_hints"))
+
+
+# ---------------------------------------------------------------------------
+# Active Directory Domain Builder (YC-031.0)
+# ---------------------------------------------------------------------------
+# Admins author complete virtual domains — users, groups, OUs, computers,
+# shares and Group Policy — as schema-validated JSON. Built-ins are shown
+# read-only as reference templates; the "clone" action prefills the create
+# form with a built-in so a new scenario starts from a working example.
+@admin_bp.route("/ad")
+@admin_required
+def ad_domains():
+    from app.labs.ad.domains import BUILTIN_DOMAINS
+    from app.labs.ad.models import ADCustomDomain
+
+    customs = ADCustomDomain.query.order_by(ADCustomDomain.key).all()
+    builtins = [
+        {"key": key, "name": d["name"],
+         "description": d.get("description", ""),
+         "users": len(d.get("users", [])),
+         "groups": len(d.get("groups", [])),
+         "ous": len(d.get("ous", [])),
+         "gpos": len(d.get("gpos", []))}
+        for key, d in sorted(BUILTIN_DOMAINS.items())
+    ]
+    custom_rows = []
+    for row in customs:
+        definition = row.get_definition()
+        custom_rows.append({
+            "id": row.id, "key": row.key, "name": row.name,
+            "description": row.description or "",
+            "is_active": row.is_active,
+            "users": len(definition.get("users", [])),
+            "groups": len(definition.get("groups", [])),
+            "ous": len(definition.get("ous", [])),
+            "gpos": len(definition.get("gpos", [])),
+        })
+    return render_template("admin/ad_domains.html",
+                           builtins=builtins, customs=custom_rows)
+
+
+@admin_bp.route("/ad/new", methods=["GET"])
+@admin_required
+def ad_domain_new():
+    import json as _json
+
+    from app.labs.ad.domains import BUILTIN_DOMAINS
+
+    template_key = request.args.get("from", "")
+    if template_key in BUILTIN_DOMAINS:
+        definition = dict(BUILTIN_DOMAINS[template_key])
+        definition["key"] = f"{template_key}-copy"
+        definition["name"] = f"{definition['name']} (copy)"
+        raw = _json.dumps(definition, indent=2)
+    else:
+        raw = _json.dumps({
+            "key": "training-local", "name": "TRAINING.LOCAL",
+            "netbios": "TRAINING",
+            "description": "Describe your scenario here.",
+            "ous": [{"slug": "staff", "name": "Staff"}],
+            "groups": [
+                {"slug": "domain-admins", "name": "Domain Admins",
+                 "builtin": True},
+                {"slug": "domain-users", "name": "Domain Users",
+                 "builtin": True},
+            ],
+            "users": [{"sam": "administrator", "display": "Administrator",
+                       "ou": "staff",
+                       "groups": ["domain-admins", "domain-users"]}],
+            "computers": [{"name": "DC-01", "ou": "staff",
+                           "os": "Windows Server 2022", "ip": "10.30.0.10",
+                           "is_dc": True}],
+            "shares": [], "gpos": [],
+        }, indent=2)
+    return render_template("admin/ad_domain_form.html", mode="new",
+                           raw=raw, domain=None)
+
+
+@admin_bp.route("/ad/new", methods=["POST"])
+@admin_required
+def ad_domain_create():
+    from flask_login import current_user
+
+    from app.extensions import db
+    from app.labs.ad.domains import parse_domain_json
+    from app.labs.ad.models import ADCustomDomain
+
+    raw = request.form.get("definition_json", "")
+    definition, errors = parse_domain_json(raw)
+    if errors:
+        for message in errors[:8]:
+            flash(message, "error")
+        return render_template("admin/ad_domain_form.html", mode="new",
+                               raw=raw, domain=None), 400
+
+    key = definition["key"].strip().lower()
+    if ADCustomDomain.query.filter_by(key=key).first() is not None:
+        flash(f"A custom domain with key '{key}' already exists.", "error")
+        return render_template("admin/ad_domain_form.html", mode="new",
+                               raw=raw, domain=None), 400
+
+    row = ADCustomDomain(
+        key=key, name=definition["name"],
+        description=definition.get("description", ""),
+        is_active=True, created_by=current_user.id,
+    )
+    row.set_definition(definition)
+    db.session.add(row)
+    db.session.commit()
+    flash(f"Domain '{definition['name']}' created and validated.", "success")
+    return redirect(url_for("admin.ad_domains"))
+
+
+@admin_bp.route("/ad/<int:domain_id>/edit", methods=["GET"])
+@admin_required
+def ad_domain_edit(domain_id: int):
+    from app.labs.ad.models import ADCustomDomain
+
+    row = ADCustomDomain.query.get_or_404(domain_id)
+    return render_template("admin/ad_domain_form.html", mode="edit",
+                           raw=row.definition_json, domain=row)
+
+
+@admin_bp.route("/ad/<int:domain_id>/edit", methods=["POST"])
+@admin_required
+def ad_domain_update(domain_id: int):
+    from app.extensions import db
+    from app.labs.ad.domains import parse_domain_json
+    from app.labs.ad.models import ADCustomDomain
+
+    row = ADCustomDomain.query.get_or_404(domain_id)
+    raw = request.form.get("definition_json", "")
+    definition, errors = parse_domain_json(raw)
+    if errors:
+        for message in errors[:8]:
+            flash(message, "error")
+        return render_template("admin/ad_domain_form.html", mode="edit",
+                               raw=raw, domain=row), 400
+
+    key = definition["key"].strip().lower()
+    clash = ADCustomDomain.query.filter(
+        ADCustomDomain.key == key, ADCustomDomain.id != row.id).first()
+    if clash is not None:
+        flash(f"Another custom domain already uses key '{key}'.", "error")
+        return render_template("admin/ad_domain_form.html", mode="edit",
+                               raw=raw, domain=row), 400
+
+    row.key = key
+    row.name = definition["name"]
+    row.description = definition.get("description", "")
+    row.set_definition(definition)
+    db.session.commit()
+    flash(f"Domain '{row.name}' updated.", "success")
+    return redirect(url_for("admin.ad_domains"))
+
+
+@admin_bp.route("/ad/<int:domain_id>/toggle", methods=["POST"])
+@admin_required
+def ad_domain_toggle(domain_id: int):
+    from app.extensions import db
+    from app.labs.ad.models import ADCustomDomain
+
+    row = ADCustomDomain.query.get_or_404(domain_id)
+    row.is_active = not row.is_active
+    db.session.commit()
+    flash(f"Domain '{row.name}' "
+          f"{'activated' if row.is_active else 'deactivated'}.", "success")
+    return redirect(url_for("admin.ad_domains"))
+
+
+@admin_bp.route("/ad/<int:domain_id>/delete", methods=["POST"])
+@admin_required
+def ad_domain_delete(domain_id: int):
+    from app.extensions import db
+    from app.labs.ad.models import ADCustomDomain
+
+    row = ADCustomDomain.query.get_or_404(domain_id)
+    name = row.name
+    db.session.delete(row)
+    db.session.commit()
+    flash(f"Domain '{name}' deleted.", "success")
+    return redirect(url_for("admin.ad_domains"))

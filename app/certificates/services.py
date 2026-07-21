@@ -138,6 +138,16 @@ def check_certificate_requirements(user: User, certificate: Certificate) -> bool
         if quiz is None or not has_passed_quiz(user, quiz):
             return False
 
+    # Lab requirements (YC-031.0) — every listed lab slug completed.
+    lab_slugs = _parse_slugs(certificate.required_labs)
+    if lab_slugs:
+        from app.labs import lab_services
+        from app.labs.models import Lab
+        for slug in lab_slugs:
+            lab = Lab.query.filter_by(slug=slug).first()
+            if lab is None or not lab_services.is_lab_completed(user, lab):
+                return False
+
     # XP requirement.
     if certificate.required_xp and (user.xp or 0) < certificate.required_xp:
         return False

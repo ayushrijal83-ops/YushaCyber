@@ -1,0 +1,50 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'ad' %}
+{% block title %}{{ "Edit" if mode == "edit" else "New" }} AD Domain{% endblock %}
+{% block heading %}{{ "Edit Domain" if mode == "edit" else "New Domain" }}{% endblock %}
+{% block subheading %}{{ domain.key if domain else "Define the full scenario as JSON — it is schema-validated on save." }}{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<form method="POST"
+      action="{% if mode == 'edit' %}{{ url_for('admin.ad_domain_update', domain_id=domain.id) }}{% else %}{{ url_for('admin.ad_domain_create') }}{% endif %}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("cpu", 16) }} Domain definition</h2>
+        </header>
+        <div class="adm-grid">
+            <label class="adm-field adm-field--full">
+                <span class="adm-label">Definition (JSON) <em>*</em></span>
+                <textarea name="definition_json" class="adm-input adm-textarea" rows="26"
+                          spellcheck="false"
+                          style="font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.55; white-space: pre; overflow-x: auto;">{{ raw }}</textarea>
+            </label>
+        </div>
+
+        <div class="adm-formfoot">
+            <a href="{{ url_for('admin.ad_domains') }}" class="btn btn--outline btn--sm">Cancel</a>
+            <button type="submit" class="btn btn--primary btn--sm">
+                {{ "Validate & Save Changes" if mode == "edit" else "Validate & Create Domain" }}
+            </button>
+        </div>
+    </section>
+</form>
+
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("help", 16) }} Schema reference</h2>
+    </header>
+    <div class="adm-grid" style="display:block; font-size:.83rem; line-height:1.7; color: var(--color-text-muted, #9aa7b4); padding: 4px 6px 10px;">
+        <p><strong>Top level:</strong> <code>key</code> (unique slug), <code>name</code>, <code>netbios</code>, <code>description</code>, plus the object lists below. Saved domains are immediately usable by the AD simulator (labs select them by key).</p>
+        <p><strong>ous</strong> — <code>{"slug", "name", "description"}</code></p>
+        <p><strong>groups</strong> — <code>{"slug", "name", "description", "builtin"}</code>. Include <code>domain-admins</code> and <code>domain-users</code> for realistic scenarios.</p>
+        <p><strong>users</strong> — <code>{"sam", "display", "title", "ou", "groups": ["slug"], "enabled", "locked", "failed_attempts", "last_logon_days", "description"}</code>. Plant findings: <code>last_logon_days ≥ 90</code> = inactive account, <code>locked: true</code> = lockout incident, a low-privilege user in <code>domain-admins</code> = least-privilege audit.</p>
+        <p><strong>computers</strong> — <code>{"name", "ou", "os", "ip", "is_dc", "description"}</code>. Exactly one DC recommended.</p>
+        <p><strong>shares</strong> — <code>{"slug", "name", "server", "path", "description", "acl": [{"group", "right"}]}</code>, rights <code>read | write | full</code>. An over-broad <code>domain-users</code> entry creates a permission-audit finding.</p>
+        <p><strong>gpos</strong> — <code>{"slug", "name", "linked_to", "kind", "password_policy": {"min_length", "complexity", "max_age_days", "history"}, "lockout_policy": {"threshold", "duration_minutes", "window_minutes"}, "settings", "script"}</code>. The first GPO defining a password policy is the effective one.</p>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'ad' %}
+{% block title %}AD Domains{% endblock %}
+{% block heading %}Active Directory Domains{% endblock %}
+{% block subheading %}Author virtual domains — users, groups, OUs, shares and policies — for AD training scenarios.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("cpu", 18) }}</span>
+        <span class="adm-stat__value">{{ builtins|length }}</span>
+        <span class="adm-stat__label">Built-in Domains</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("layers", 18) }}</span>
+        <span class="adm-stat__value">{{ customs|length }}</span>
+        <span class="adm-stat__label">Custom Domains</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--purple">{{ icon("shield", 18) }}</span>
+        <span class="adm-stat__value">{{ customs|selectattr('is_active')|list|length }}</span>
+        <span class="adm-stat__label">Active Customs</span>
+    </article>
+</div>
+
+{# ============ Built-in domains ============ #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("cpu", 16) }} Built-in domains</h2>
+        <div class="adm-card__tools">
+            <span class="adm-cell__meta">Read-only reference scenarios — clone one to start a custom domain.</span>
+        </div>
+    </header>
+
+    <div class="adm-table" role="table">
+        <div class="adm-table__head" role="row">
+            <span>Domain</span>
+            <span class="adm-num">Users</span>
+            <span class="adm-num">Groups</span>
+            <span class="adm-num">OUs</span>
+            <span class="adm-num">GPOs</span>
+            <span></span>
+            <span class="adm-right">Actions</span>
+        </div>
+        {% for d in builtins %}
+        <div class="adm-table__row" role="row">
+            <span class="adm-cell adm-cell--main">
+                <span class="adm-cell__title">{{ d.name }}</span>
+                <span class="adm-cell__meta">{{ d.key }} · {{ d.description }}</span>
+            </span>
+            <span class="adm-cell adm-num" data-label="Users">{{ d.users }}</span>
+            <span class="adm-cell adm-num" data-label="Groups">{{ d.groups }}</span>
+            <span class="adm-cell adm-num" data-label="OUs">{{ d.ous }}</span>
+            <span class="adm-cell adm-num" data-label="GPOs">{{ d.gpos }}</span>
+            <span class="adm-cell" data-label="Source">
+                <span class="adm-chip">built-in</span>
+            </span>
+            <span class="adm-cell adm-cell--actions">
+                <a href="{{ url_for('admin.ad_domain_new', **{'from': d.key}) }}"
+                   class="adm-btn adm-btn--ghost" title="Clone as custom domain">
+                   {{ icon("layers", 14) }}<span>Clone</span></a>
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{# ============ Custom domains ============ #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("layers", 16) }} Custom domains</h2>
+        <div class="adm-card__tools">
+            <a href="{{ url_for('admin.ad_domain_new') }}" class="btn btn--primary btn--sm">
+                + New Domain
+            </a>
+        </div>
+    </header>
+
+    {% if not customs %}
+    <div class="adm-empty">
+        <div class="adm-empty__art">{{ icon("cpu", 30) }}</div>
+        <h3 class="adm-empty__title">No custom domains yet</h3>
+        <p class="adm-empty__text">Clone a built-in or create one from scratch — every domain is schema-validated before it is saved.</p>
+        <a href="{{ url_for('admin.ad_domain_new') }}" class="btn btn--primary btn--sm">
+            + Create Domain
+        </a>
+    </div>
+    {% else %}
+    <div class="adm-table" role="table">
+        <div class="adm-table__head" role="row">
+            <span>Domain</span>
+            <span class="adm-num">Users</span>
+            <span class="adm-num">Groups</span>
+            <span class="adm-num">OUs</span>
+            <span class="adm-num">GPOs</span>
+            <span>Status</span>
+            <span class="adm-right">Actions</span>
+        </div>
+        {% for d in customs %}
+        <div class="adm-table__row" role="row">
+            <span class="adm-cell adm-cell--main">
+                <span class="adm-cell__title">{{ d.name }}</span>
+                <span class="adm-cell__meta">{{ d.key }}{% if d.description %} · {{ d.description }}{% endif %}</span>
+            </span>
+            <span class="adm-cell adm-num" data-label="Users">{{ d.users }}</span>
+            <span class="adm-cell adm-num" data-label="Groups">{{ d.groups }}</span>
+            <span class="adm-cell adm-num" data-label="OUs">{{ d.ous }}</span>
+            <span class="adm-cell adm-num" data-label="GPOs">{{ d.gpos }}</span>
+            <span class="adm-cell" data-label="Status">
+                {% if d.is_active %}
+                <span class="adm-state adm-state--on">● Active</span>
+                {% else %}
+                <span class="adm-state adm-state--off">● Inactive</span>
+                {% endif %}
+            </span>
+            <span class="adm-cell adm-cell--actions">
+                <a href="{{ url_for('admin.ad_domain_edit', domain_id=d.id) }}"
+                   class="adm-btn adm-btn--edit" title="Edit domain">
+                   {{ icon("settings", 14) }}<span>Edit</span></a>
+
+                <form method="POST" action="{{ url_for('admin.ad_domain_toggle', domain_id=d.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="adm-btn adm-btn--ghost"
+                            title="{{ 'Deactivate' if d.is_active else 'Activate' }} domain">
+                        {{ icon("zap", 14) }}<span>{{ 'Off' if d.is_active else 'On' }}</span>
+                    </button>
+                </form>
+
+                <form method="POST" action="{{ url_for('admin.ad_domain_delete', domain_id=d.id) }}"
+                      data-confirm="Delete &quot;{{ d.name }}&quot;? This cannot be undone.">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="adm-btn adm-btn--del" title="Delete domain">
+                        {{ icon("flame", 14) }}<span>Delete</span>
+                    </button>
+                </form>
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
