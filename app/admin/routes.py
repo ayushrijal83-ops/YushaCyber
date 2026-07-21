@@ -455,3 +455,223 @@ def ad_domain_delete(domain_id: int):
     db.session.commit()
     flash(f"Domain '{name}' deleted.", "success")
     return redirect(url_for("admin.ad_domains"))
+
+
+# ---------------------------------------------------------------------------
+# Cloud Scenario Builder (YC-032.0)
+# ---------------------------------------------------------------------------
+# Admins author complete virtual cloud accounts — IAM users/roles, buckets,
+# VPCs, security groups, VMs, load balancers, databases and the password
+# policy — as schema-validated JSON. Built-ins are shown read-only as
+# reference templates; "clone" prefills the create form with a working
+# example so a new security challenge starts from a known-good scenario.
+@admin_bp.route("/cloud")
+@admin_required
+def cloud_scenarios():
+    from app.labs.cloud.accounts import BUILTIN_ACCOUNTS
+    from app.labs.cloud.models import CloudCustomScenario
+
+    customs = CloudCustomScenario.query.order_by(
+        CloudCustomScenario.key).all()
+    builtins = [
+        {"key": key, "name": d["name"],
+         "description": d.get("description", ""),
+         "users": len(d.get("iam_users", [])),
+         "buckets": len(d.get("buckets", [])),
+         "sgs": len(d.get("security_groups", [])),
+         "dbs": len(d.get("databases", []))}
+        for key, d in sorted(BUILTIN_ACCOUNTS.items())
+    ]
+    custom_rows = []
+    for row in customs:
+        definition = row.get_definition()
+        custom_rows.append({
+            "id": row.id, "key": row.key, "name": row.name,
+            "description": row.description or "",
+            "is_active": row.is_active,
+            "users": len(definition.get("iam_users", [])),
+            "buckets": len(definition.get("buckets", [])),
+            "sgs": len(definition.get("security_groups", [])),
+            "dbs": len(definition.get("databases", [])),
+        })
+    return render_template("admin/cloud_scenarios.html",
+                           builtins=builtins, customs=custom_rows)
+
+
+@admin_bp.route("/cloud/new", methods=["GET"])
+@admin_required
+def cloud_scenario_new():
+    import json as _json
+
+    from app.labs.cloud.accounts import BUILTIN_ACCOUNTS
+
+    template_key = request.args.get("from", "")
+    if template_key in BUILTIN_ACCOUNTS:
+        definition = dict(BUILTIN_ACCOUNTS[template_key])
+        definition["key"] = f"{template_key}-copy"
+        definition["name"] = f"{definition['name']} (copy)"
+        raw = _json.dumps(definition, indent=2)
+    else:
+        raw = _json.dumps({
+            "key": "training-cloud", "provider": "yushacloud",
+            "name": "YushaCloud — Training",
+            "account_id": "yc-900000001", "region": "np-ktm-1",
+            "description": "Describe your scenario here.",
+            "roles": [
+                {"slug": "administrator", "name": "Administrator",
+                 "description": "Full control.", "permissions": ["*:*"]},
+                {"slug": "developer", "name": "Developer",
+                 "description": "Application work.",
+                 "permissions": ["compute:*", "storage:read"]},
+            ],
+            "iam_users": [
+                {"username": "root-admin", "display": "Account Owner",
+                 "roles": ["administrator"],
+                 "expected_role": "administrator", "mfa": True,
+                 "access_key_active": False, "last_used_days": 0},
+            ],
+            "password_policy": {"min_length": 6, "require_numbers": False,
+                                "require_symbols": False,
+                                "mfa_required": False, "max_age_days": 0},
+            "buckets": [
+                {"slug": "data", "name": "data", "public": True,
+                 "encrypted": False, "versioning": False,
+                 "intended_public": False,
+                 "description": "A bucket that should be private.",
+                 "objects": [{"key": "secret.csv", "size": "1 MB",
+                              "sensitive": True}]},
+            ],
+            "vpcs": [
+                {"slug": "main-vpc", "name": "main-vpc",
+                 "cidr": "10.60.0.0/16", "internet_gateway": True,
+                 "subnets": [{"slug": "public-a", "cidr": "10.60.1.0/24",
+                              "public": True}]},
+            ],
+            "security_groups": [
+                {"slug": "default-sg", "name": "default-sg",
+                 "description": "Default group.",
+                 "rules": [{"direction": "ingress", "protocol": "tcp",
+                            "port": 22, "cidr": "0.0.0.0/0",
+                            "description": "SSH from anywhere"}]},
+            ],
+            "vms": [
+                {"slug": "vm-01", "name": "vm-01", "subnet": "public-a",
+                 "security_group": "default-sg",
+                 "public_ip": "203.0.113.50", "state": "running",
+                 "size": "small", "description": "A training VM."},
+            ],
+            "load_balancers": [],
+            "databases": [],
+        }, indent=2)
+    return render_template("admin/cloud_scenario_form.html", mode="new",
+                           raw=raw, scenario=None)
+
+
+@admin_bp.route("/cloud/new", methods=["POST"])
+@admin_required
+def cloud_scenario_create():
+    from flask_login import current_user
+
+    from app.extensions import db
+    from app.labs.cloud.accounts import parse_account_json
+    from app.labs.cloud.models import CloudCustomScenario
+
+    raw = request.form.get("definition_json", "")
+    definition, errors = parse_account_json(raw)
+    if errors:
+        for message in errors[:8]:
+            flash(message, "error")
+        return render_template("admin/cloud_scenario_form.html", mode="new",
+                               raw=raw, scenario=None), 400
+
+    key = definition["key"].strip().lower()
+    if CloudCustomScenario.query.filter_by(key=key).first() is not None:
+        flash(f"A custom scenario with key '{key}' already exists.",
+              "error")
+        return render_template("admin/cloud_scenario_form.html", mode="new",
+                               raw=raw, scenario=None), 400
+
+    row = CloudCustomScenario(
+        key=key, name=definition["name"],
+        description=definition.get("description", ""),
+        is_active=True, created_by=current_user.id,
+    )
+    row.set_definition(definition)
+    db.session.add(row)
+    db.session.commit()
+    flash(f"Scenario '{definition['name']}' created and validated.",
+          "success")
+    return redirect(url_for("admin.cloud_scenarios"))
+
+
+@admin_bp.route("/cloud/<int:scenario_id>/edit", methods=["GET"])
+@admin_required
+def cloud_scenario_edit(scenario_id: int):
+    from app.labs.cloud.models import CloudCustomScenario
+
+    row = CloudCustomScenario.query.get_or_404(scenario_id)
+    return render_template("admin/cloud_scenario_form.html", mode="edit",
+                           raw=row.definition_json, scenario=row)
+
+
+@admin_bp.route("/cloud/<int:scenario_id>/edit", methods=["POST"])
+@admin_required
+def cloud_scenario_update(scenario_id: int):
+    from app.extensions import db
+    from app.labs.cloud.accounts import parse_account_json
+    from app.labs.cloud.models import CloudCustomScenario
+
+    row = CloudCustomScenario.query.get_or_404(scenario_id)
+    raw = request.form.get("definition_json", "")
+    definition, errors = parse_account_json(raw)
+    if errors:
+        for message in errors[:8]:
+            flash(message, "error")
+        return render_template("admin/cloud_scenario_form.html",
+                               mode="edit", raw=raw, scenario=row), 400
+
+    key = definition["key"].strip().lower()
+    clash = CloudCustomScenario.query.filter(
+        CloudCustomScenario.key == key,
+        CloudCustomScenario.id != row.id).first()
+    if clash is not None:
+        flash(f"Another custom scenario already uses key '{key}'.",
+              "error")
+        return render_template("admin/cloud_scenario_form.html",
+                               mode="edit", raw=raw, scenario=row), 400
+
+    row.key = key
+    row.name = definition["name"]
+    row.description = definition.get("description", "")
+    row.set_definition(definition)
+    db.session.commit()
+    flash(f"Scenario '{row.name}' updated.", "success")
+    return redirect(url_for("admin.cloud_scenarios"))
+
+
+@admin_bp.route("/cloud/<int:scenario_id>/toggle", methods=["POST"])
+@admin_required
+def cloud_scenario_toggle(scenario_id: int):
+    from app.extensions import db
+    from app.labs.cloud.models import CloudCustomScenario
+
+    row = CloudCustomScenario.query.get_or_404(scenario_id)
+    row.is_active = not row.is_active
+    db.session.commit()
+    flash(f"Scenario '{row.name}' "
+          f"{'activated' if row.is_active else 'deactivated'}.", "success")
+    return redirect(url_for("admin.cloud_scenarios"))
+
+
+@admin_bp.route("/cloud/<int:scenario_id>/delete", methods=["POST"])
+@admin_required
+def cloud_scenario_delete(scenario_id: int):
+    from app.extensions import db
+    from app.labs.cloud.models import CloudCustomScenario
+
+    row = CloudCustomScenario.query.get_or_404(scenario_id)
+    name = row.name
+    db.session.delete(row)
+    db.session.commit()
+    flash(f"Scenario '{name}' deleted.", "success")
+    return redirect(url_for("admin.cloud_scenarios"))

@@ -84,6 +84,8 @@ def seed_labs() -> dict[str, int]:
         soc = seed_soc_labs()
         from app.labs.ad.seed import seed_ad_labs
         ad = seed_ad_labs()
+        from app.labs.cloud.seed import seed_cloud_labs
+        cloud = seed_cloud_labs()
         return {
             "created": network["labs"] + interactive["labs"],
             "categories": LabCategory.query.count(),
@@ -94,6 +96,7 @@ def seed_labs() -> dict[str, int]:
             "networking_labs": network["labs"] + interactive["labs"],
             "networking_achievements": network["achievements"] + interactive["achievements"],
             "ad_labs": ad["labs"],
+            "cloud_labs": cloud["labs"],
         }
 
     labs = objectives = files = 0
@@ -169,6 +172,8 @@ def seed_labs() -> dict[str, int]:
     soc = seed_soc_labs()
     from app.labs.ad.seed import seed_ad_labs
     ad = seed_ad_labs()
+    from app.labs.cloud.seed import seed_cloud_labs
+    cloud = seed_cloud_labs()
 
     return {
         "created": 1,
@@ -180,6 +185,7 @@ def seed_labs() -> dict[str, int]:
         "networking_labs": network["labs"] + interactive["labs"],
         "networking_achievements": network["achievements"] + interactive["achievements"],
         "ad_labs": ad["labs"],
+        "cloud_labs": cloud["labs"],
     }
 
 

@@ -62,6 +62,10 @@
                class="adm-tab{% if active == 'ad' %} is-active{% endif %}">
                 {{ icon("cpu", 14) }} AD Domains
             </a>
+            <a href="{{ url_for('admin.cloud_scenarios') }}"
+               class="adm-tab{% if active == 'cloud' %} is-active{% endif %}">
+                {{ icon("layers", 14) }} Cloud Scenarios
+            </a>
         </nav>
 
         {# ============ Alerts ============ #}

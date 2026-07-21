@@ -16,6 +16,9 @@
     {% if ui and ui.ad %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ad_explorer.css') }}">
     {% endif %}
+    {% if ui and ui.cloud %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cloud_console.css') }}">
+    {% endif %}
 </head>
 <body class="dash-body">
 
@@ -123,6 +126,12 @@
                         <div class="adx__hint">Click any object to inspect it — the console below shows its properties. Tree updates live after every command.</div>
                     </div>
                     {% endif %}
+                    {% if ui and ui.cloud %}
+                    <div class="cldx" aria-label="Cloud management console">
+                        <nav class="cldx__tree" id="cldx" aria-label="Resource tree"></nav>
+                        <div class="cldx__hint">Click any resource to inspect it — the console below shows its details. Tree updates live after every command.</div>
+                    </div>
+                    {% endif %}
                     {% if ui and ui.topology %}
                     <div class="lw-topo" id="lw-topo" aria-label="Network topology — click a device to switch to it">
                         <div class="lw-topo__hint">Click a device to switch to its terminal.</div>
@@ -211,12 +220,16 @@
                   bootPrompt: {{ prompt|tojson }},
                   objectives: {{ objectives|tojson }},
                   topology:  {{ (ui.topology if ui and ui.topology else none)|tojson }},
-                  adStateUrl: {{ (url_for('labs.ad_state', slug=lab.slug) if ui and ui.ad else none)|tojson }}
+                  adStateUrl: {{ (url_for('labs.ad_state', slug=lab.slug) if ui and ui.ad else none)|tojson }},
+                  cloudStateUrl: {{ (url_for('labs.cloud_state', slug=lab.slug) if ui and ui.cloud else none)|tojson }}
               };
             </script>
             <script src="{{ url_for('static', filename='js/lab_terminal.js') }}"></script>
             {% if ui and ui.ad %}
             <script src="{{ url_for('static', filename='js/ad_explorer.js') }}"></script>
+            {% endif %}
+            {% if ui and ui.cloud %}
+            <script src="{{ url_for('static', filename='js/cloud_console.js') }}"></script>
             {% endif %}
 
             {% else %}

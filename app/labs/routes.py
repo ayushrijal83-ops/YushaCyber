@@ -269,3 +269,29 @@ def ad_state(slug: str):
         "tree": ad_engine.explorer_tree(state.get("directory", {})),
         "selected": state.get("selected", ""),
     })
+
+
+@labs_bp.route("/<slug>/cloud/state")
+@login_required
+def cloud_state(slug: str):
+    """The cloud console resource tree for this user's current session.
+
+    Read-only, additive, login-required. The frontend refreshes the
+    tree after every action so remediations (private buckets, revoked
+    rules, disabled users) appear live — the server's session state
+    stays the single source of truth.
+    """
+    lab = lab_services.get_lab(slug)
+    if lab is None or lab.simulator_key != "cloud":
+        abort(404)
+
+    from app.labs import session_manager
+    from app.labs.cloud import engine as cloud_engine
+
+    simulator = session_manager.get_simulator(lab)
+    session = session_manager.start_session(current_user, lab)
+    state = session_manager.load_state(session, simulator, lab)
+    return jsonify({
+        "tree": cloud_engine.explorer_tree(state.get("deployment", {})),
+        "selected": state.get("selected", ""),
+    })

@@ -1,0 +1,53 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'cloud' %}
+{% block title %}{{ "Edit" if mode == "edit" else "New" }} Cloud Scenario{% endblock %}
+{% block heading %}{{ "Edit Scenario" if mode == "edit" else "New Scenario" }}{% endblock %}
+{% block subheading %}{{ scenario.key if scenario else "Define the full cloud account as JSON — it is schema-validated on save." }}{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<form method="POST"
+      action="{% if mode == 'edit' %}{{ url_for('admin.cloud_scenario_update', scenario_id=scenario.id) }}{% else %}{{ url_for('admin.cloud_scenario_create') }}{% endif %}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("layers", 16) }} Scenario definition</h2>
+        </header>
+        <div class="adm-grid">
+            <label class="adm-field adm-field--full">
+                <span class="adm-label">Definition (JSON) <em>*</em></span>
+                <textarea name="definition_json" class="adm-input adm-textarea" rows="26"
+                          spellcheck="false"
+                          style="font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.55; white-space: pre; overflow-x: auto;">{{ raw }}</textarea>
+            </label>
+        </div>
+
+        <div class="adm-formfoot">
+            <a href="{{ url_for('admin.cloud_scenarios') }}" class="btn btn--outline btn--sm">Cancel</a>
+            <button type="submit" class="btn btn--primary btn--sm">
+                {{ "Validate & Save Changes" if mode == "edit" else "Validate & Create Scenario" }}
+            </button>
+        </div>
+    </section>
+</form>
+
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("help", 16) }} Schema reference</h2>
+    </header>
+    <div class="adm-grid" style="display:block; font-size:.83rem; line-height:1.7; color: var(--color-text-muted, #9aa7b4); padding: 4px 6px 10px;">
+        <p><strong>Top level:</strong> <code>key</code> (unique slug), <code>provider</code> (yushacloud today; aws/azure/gcp reserved), <code>name</code>, <code>account_id</code>, <code>region</code>, <code>description</code>, plus the resource lists below. Saved scenarios are immediately usable by the cloud simulator (labs select them by key, or by a lab content node <code>path: "scenario"</code>).</p>
+        <p><strong>roles</strong> — <code>{"slug", "name", "description", "permissions": ["service:action"]}</code>. Services: <code>compute, storage, iam, network, database, billing</code>; <code>*</code> wildcards on either side; <code>*:*</code> = full administrator.</p>
+        <p><strong>iam_users</strong> — <code>{"username", "display", "roles": ["slug"], "expected_role", "mfa", "access_key_active", "last_used_days", "description"}</code>. Plant findings: a non-admin <code>expected_role</code> holding an admin role = over-permissive IAM; an admin with <code>last_used_days ≥ 90</code> = unused administrator.</p>
+        <p><strong>password_policy</strong> — <code>{"min_length", "require_numbers", "require_symbols", "mfa_required", "max_age_days"}</code>. Below 12 chars or MFA off = weak-policy finding.</p>
+        <p><strong>buckets</strong> — <code>{"slug", "name", "public", "encrypted", "versioning", "intended_public", "description", "objects": [{"key", "size", "sensitive"}]}</code>. <code>public: true</code> with <code>intended_public: false</code> = public-exposure finding.</p>
+        <p><strong>vpcs</strong> — <code>{"slug", "name", "cidr", "internet_gateway", "subnets": [{"slug", "cidr", "public", "description"}]}</code></p>
+        <p><strong>security_groups</strong> — <code>{"slug", "name", "description", "rules": [{"direction", "protocol", "port", "cidr", "description"}]}</code>. Port 22 from <code>0.0.0.0/0</code> = open-SSH finding.</p>
+        <p><strong>vms</strong> — <code>{"slug", "name", "subnet", "security_group", "public_ip", "state", "size", "description"}</code>. Subnet and security group must exist.</p>
+        <p><strong>load_balancers</strong> — <code>{"slug", "name", "scheme", "targets": ["vm-slug"], "listener", "description"}</code></p>
+        <p><strong>databases</strong> — <code>{"slug", "name", "engine", "subnet", "security_group", "publicly_accessible", "encrypted", "description"}</code>. <code>publicly_accessible: true</code> OR a 5432-from-anywhere rule on its group = exposed-database finding.</p>
+    </div>
+</section>
+{% endblock %}

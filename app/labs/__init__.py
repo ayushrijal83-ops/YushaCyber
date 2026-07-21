@@ -19,5 +19,6 @@ from app.labs import interactive_network_simulator  # noqa: E402,F401  (YC-026.0
 from app.labs import web_security_simulator  # noqa: E402,F401  (YC-029.0)
 from app.labs import soc_simulator  # noqa: E402,F401  (YC-030.0)
 from app.labs.ad import simulator as ad_simulator  # noqa: E402,F401  (YC-031.0)
+from app.labs.cloud import simulator as cloud_simulator  # noqa: E402,F401  (YC-032.0)
 # from app.labs import nmap_simulator     # future
 # from app.labs import wireshark_simulator  # future
