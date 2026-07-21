@@ -1,0 +1,79 @@
+{% extends "community/_base.html" %}
+{% block title %}Classrooms{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div>
+        <h1 class="cmty-head__title">{{ icon("book", 22) }} Classrooms</h1>
+        <p class="cmty-head__sub">Guided learning with a teacher — assignments, due dates and progress tracking.</p>
+    </div>
+</header>
+
+<div class="cmty-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+    <section class="ui-card cmty-card">
+        <h2 class="adm-card__title">{{ icon("lock", 16) }} Join a classroom</h2>
+        <form class="cmty-form" method="POST" action="{{ url_for('community.classroom_join') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="cmty-field">
+                <span class="cmty-label">Join code (from your teacher)</span>
+                <div class="cmty-form--row">
+                    <input class="cmty-input" name="code" placeholder="e.g. 4F9A2C1B" required style="text-transform:uppercase">
+                    <button class="btn btn--primary btn--sm">Join</button>
+                </div>
+            </label>
+        </form>
+    </section>
+
+    {% if is_teacher %}
+    <section class="ui-card cmty-card">
+        <h2 class="adm-card__title">{{ icon("zap", 16) }} Create a classroom</h2>
+        <form class="cmty-form" method="POST" action="{{ url_for('community.classroom_create') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="cmty-field">
+                <span class="cmty-label">Name</span>
+                <input class="cmty-input" name="name" required minlength="3" maxlength="80" placeholder="Web Security 101 — Spring batch">
+            </label>
+            <label class="cmty-field">
+                <span class="cmty-label">Description</span>
+                <textarea class="cmty-textarea" name="description" maxlength="500"></textarea>
+            </label>
+            <div><button class="btn btn--primary btn--sm" type="submit">Create classroom</button></div>
+        </form>
+    </section>
+    {% endif %}
+</div>
+
+{% if teaching %}
+<h2 class="adm-card__title" style="margin-bottom:10px">{{ icon("layers", 16) }} Teaching</h2>
+<div class="cmty-grid">
+    {% for classroom in teaching %}
+    <a class="ui-card cmty-card" href="{{ url_for('community.classroom_detail', classroom_id=classroom.id) }}" style="text-decoration:none;color:inherit">
+        <div class="cmty-card__name">{{ classroom.name }}</div>
+        <div class="cmty-card__meta">
+            {{ classroom.members|length }} student{{ '' if classroom.members|length == 1 else 's' }}
+            · {{ classroom.assignments|length }} assignment{{ '' if classroom.assignments|length == 1 else 's' }}
+            · code <code>{{ classroom.join_code }}</code>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<h2 class="adm-card__title" style="margin-bottom:10px">{{ icon("book", 16) }} Enrolled</h2>
+{% if not enrolled %}
+<p class="cmty-head__sub">You are not enrolled in any classroom yet — ask your teacher for a join code.</p>
+{% else %}
+<div class="cmty-grid">
+    {% for classroom in enrolled %}
+    <a class="ui-card cmty-card" href="{{ url_for('community.classroom_detail', classroom_id=classroom.id) }}" style="text-decoration:none;color:inherit">
+        <div class="cmty-card__name">{{ classroom.name }}</div>
+        <div class="cmty-card__meta">
+            Teacher: {{ classroom.teacher.username }}
+            · {{ classroom.assignments|length }} assignment{{ '' if classroom.assignments|length == 1 else 's' }}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

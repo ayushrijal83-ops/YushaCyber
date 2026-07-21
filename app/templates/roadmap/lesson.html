@@ -95,6 +95,10 @@
                 {% endif %}
             </nav>
 
+            {% with subject_type = "lesson", subject_id = lesson.id %}
+                {% include "community/_discussion.html" %}
+            {% endwith %}
+
             <footer class="dash-footer">
                 <p>YushaCyber © 2026</p>
             </footer>

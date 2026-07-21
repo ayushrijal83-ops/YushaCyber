@@ -1,0 +1,105 @@
+{# ===========================================================================
+   Discussion board partial (YC-034.0).
+   Include with: subject_type ("lab"|"lesson") and subject_id set.
+   Self-contained: pulls its own threads, renders flash messages, and
+   posts back to community routes with a `next` return URL.
+   =========================================================================== #}
+{% set discussion_threads = discussion_threads_for(subject_type, subject_id) %}
+<section class="cmty-discussion" id="discussion">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/community.css') }}">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="cmty-flash">
+            {% for category, message in messages %}
+            <div class="cmty-flash__item cmty-flash__item--{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <h2 class="adm-card__title" style="margin-bottom:10px">💬 Discussion
+        <span style="font-weight:400;font-size:.75rem;color:var(--color-text-muted,#7a8794)">
+            ({{ discussion_threads|length }} thread{{ '' if discussion_threads|length == 1 else 's' }})
+        </span>
+    </h2>
+
+    <div class="ui-card cmty-thread">
+        <form class="cmty-form" method="POST" action="{{ url_for('community.discussion_create') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="subject_type" value="{{ subject_type }}">
+            <input type="hidden" name="subject_id" value="{{ subject_id }}">
+            <input type="hidden" name="next" value="{{ request.path }}#discussion">
+            <div class="cmty-form--row">
+                <label class="cmty-field" style="flex:1;min-width:220px">
+                    <span class="cmty-label">Start a thread</span>
+                    <input class="cmty-input" name="title" required minlength="3" maxlength="160"
+                           placeholder="Ask a question or share a tip…">
+                </label>
+                <label class="cmty-field">
+                    <span class="cmty-label">Question?</span>
+                    <input type="checkbox" name="is_question">
+                </label>
+                <button class="btn btn--primary btn--sm" type="submit">Post</button>
+            </div>
+            <label class="cmty-field">
+                <span class="cmty-label">Details (optional)</span>
+                <textarea class="cmty-textarea" name="body" maxlength="4000"></textarea>
+            </label>
+        </form>
+    </div>
+
+    {% for thread in discussion_threads %}
+    <article class="ui-card cmty-thread">
+        <div class="cmty-thread__head">
+            {% if thread.is_question %}<span class="cmty-pill">Q</span>{% endif %}
+            <span class="cmty-thread__title">{{ thread.title }}</span>
+            <span class="cmty-thread__meta">
+                {{ thread.author.username }} ·
+                {{ thread.created_at.strftime("%Y-%m-%d") if thread.created_at else "" }}
+                {% if thread.pinned_reply_id %} · ✅ answered{% endif %}
+            </span>
+        </div>
+        {% if thread.body %}<div class="cmty-thread__body">{{ thread.body }}</div>{% endif %}
+
+        {# Pinned answer first, then the rest in order #}
+        {% for reply in thread.replies if reply.id == thread.pinned_reply_id %}
+        <div class="cmty-reply cmty-reply--pinned">
+            <div class="cmty-reply__meta">
+                📌 Pinned answer · {{ reply.author.username }}
+                <form method="POST" action="{{ url_for('community.discussion_pin', thread_id=thread.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="reply_id" value="{{ reply.id }}">
+                    <input type="hidden" name="next" value="{{ request.path }}#discussion">
+                    <button class="cmty-pin-btn" type="submit">unpin</button>
+                </form>
+            </div>
+            <div class="cmty-reply__body">{{ reply.body }}</div>
+        </div>
+        {% endfor %}
+        {% for reply in thread.replies if reply.id != thread.pinned_reply_id %}
+        <div class="cmty-reply">
+            <div class="cmty-reply__meta">
+                {{ reply.author.username }} ·
+                {{ reply.created_at.strftime("%Y-%m-%d %H:%M") if reply.created_at else "" }}
+                <form method="POST" action="{{ url_for('community.discussion_pin', thread_id=thread.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="reply_id" value="{{ reply.id }}">
+                    <input type="hidden" name="next" value="{{ request.path }}#discussion">
+                    <button class="cmty-pin-btn" type="submit">pin as answer</button>
+                </form>
+            </div>
+            <div class="cmty-reply__body">{{ reply.body }}</div>
+        </div>
+        {% endfor %}
+
+        <form class="cmty-form--row" method="POST" style="margin-top:10px"
+              action="{{ url_for('community.discussion_reply', thread_id=thread.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ request.path }}#discussion">
+            <input class="cmty-input" name="body" placeholder="Write a reply…" required style="flex:1;min-width:200px">
+            <button class="btn btn--outline btn--sm" type="submit">Reply</button>
+        </form>
+    </article>
+    {% endfor %}
+</section>

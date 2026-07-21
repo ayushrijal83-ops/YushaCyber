@@ -109,6 +109,9 @@ def _register_blueprints(app: Flask) -> None:
     from app.analytics import analytics_bp
     app.register_blueprint(analytics_bp, url_prefix="/admin/analytics")
 
+    from app.community import community_bp
+    app.register_blueprint(community_bp)  # /teams, /classrooms, /notifications
+
 
 def _register_routes(app: Flask) -> None:
     """Application-level routes (homepage stays exactly as before)."""
@@ -159,12 +162,31 @@ def _register_models() -> None:
     from app.labs.ad import models as ad_models  # noqa: F401
     from app.labs.cloud import models as cloud_models  # noqa: F401
     from app.analytics import models as analytics_models  # noqa: F401
+    from app.community import models as community_models  # noqa: F401
     from app.resources import models as resources_models  # noqa: F401
     from app.profiles import models as profiles_models  # noqa: F401
 
 
 def _register_cli(app: Flask) -> None:
     """Register custom Flask CLI commands."""
+
+    import click
+
+    @app.cli.command("set-role")
+    @click.argument("username")
+    @click.argument("role", type=click.Choice(["student", "mentor", "admin"]))
+    def set_role_command(username: str, role: str) -> None:
+        """Set a user's role (mentors can create classrooms)."""
+        from app.auth.models import User
+        from app.extensions import db
+
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            print(f"No user named {username!r}.")
+            return
+        user.role = role
+        db.session.commit()
+        print(f"{user.username} is now a {role}.")
 
     @app.cli.command("seed-roadmap")
     def seed_roadmap_command() -> None:

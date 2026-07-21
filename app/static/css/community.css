@@ -1,0 +1,206 @@
+/* ===========================================================================
+   Community platform (YC-034.0) — teams, classrooms, discussions,
+   notifications. Built on the dashboard design tokens; same neumorphic
+   surfaces the rest of the app uses.
+   =========================================================================== */
+
+/* ---------- flash messages ---------- */
+.cmty-flash { margin-bottom: 16px; display: grid; gap: 8px; }
+.cmty-flash__item {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: .82rem;
+    background: var(--color-surface, #10161d);
+    border: 1px solid var(--color-border, #1d2733);
+}
+.cmty-flash__item--success { border-color: rgba(0, 255, 136, .5); color: var(--color-primary, #00ff88); }
+.cmty-flash__item--error   { border-color: rgba(255, 107, 107, .5); color: #ff6b6b; }
+
+/* ---------- page head ---------- */
+.cmty-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+.cmty-head__title { display: flex; align-items: center; gap: 10px; margin: 0; }
+.cmty-head__sub { color: var(--color-text-muted, #7a8794); font-size: .85rem; margin: 4px 0 0; }
+
+/* ---------- generic grid of cards ---------- */
+.cmty-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.cmty-card { padding: 16px; }
+.cmty-card__row { display: flex; align-items: center; gap: 12px; }
+.cmty-logo {
+    font-size: 1.6rem;
+    width: 48px; height: 48px;
+    display: grid; place-items: center;
+    border-radius: 14px;
+    background: var(--color-bg, #0a0f14);
+    border: 1px solid var(--color-border, #1d2733);
+    flex: 0 0 auto;
+}
+.cmty-card__name { font-weight: 700; }
+.cmty-card__meta { color: var(--color-text-muted, #7a8794); font-size: .75rem; }
+
+/* ---------- forms ---------- */
+.cmty-form { display: grid; gap: 10px; }
+.cmty-form--row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.cmty-field { display: grid; gap: 4px; }
+.cmty-label { font-size: .72rem; color: var(--color-text-muted, #7a8794); text-transform: uppercase; letter-spacing: .06em; }
+.cmty-input, .cmty-select, .cmty-textarea {
+    background: var(--color-bg, #0a0f14);
+    border: 1px solid var(--color-border, #1d2733);
+    border-radius: 10px;
+    color: var(--color-text, #dbe4ee);
+    padding: 8px 12px;
+    font: inherit;
+    font-size: .85rem;
+}
+.cmty-textarea { min-height: 70px; resize: vertical; }
+.cmty-input:focus, .cmty-select:focus, .cmty-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary, #00ff88);
+}
+
+/* ---------- stat cards (team dashboard) ---------- */
+.cmty-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.cmty-stat {
+    padding: 14px;
+    text-align: center;
+    display: grid;
+    gap: 2px;
+}
+.cmty-stat__value { font-size: 1.3rem; font-weight: 700; color: var(--color-primary, #00ff88); }
+.cmty-stat__label { font-size: .68rem; color: var(--color-text-muted, #7a8794); text-transform: uppercase; letter-spacing: .05em; }
+
+/* ---------- member / roster lists ---------- */
+.cmty-roster { list-style: none; margin: 0; padding: 0; }
+.cmty-roster li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px dashed var(--color-border, #1d2733);
+    font-size: .85rem;
+}
+.cmty-roster li:last-child { border-bottom: none; }
+.cmty-roster__badge {
+    font-size: .62rem;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 255, 136, .5);
+    color: var(--color-primary, #00ff88);
+    text-transform: uppercase;
+}
+.cmty-roster .spacer { flex: 1; }
+
+/* ---------- tables ---------- */
+.cmty-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.cmty-table th {
+    text-align: left;
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--color-text-muted, #7a8794);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-border, #1d2733);
+}
+.cmty-table td { padding: 9px 10px; border-bottom: 1px dashed var(--color-border, #1d2733); }
+.cmty-table tr:last-child td { border-bottom: none; }
+.cmty-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cmty-rank { font-weight: 700; color: var(--color-primary, #00ff88); }
+
+/* ---------- status pills ---------- */
+.cmty-pill {
+    display: inline-block;
+    font-size: .66rem;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border, #1d2733);
+    color: var(--color-text-muted, #7a8794);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.cmty-pill--done    { color: var(--color-primary, #00ff88); border-color: rgba(0, 255, 136, .5); }
+.cmty-pill--late    { color: #ffb454; border-color: rgba(255, 180, 84, .5); }
+.cmty-pill--overdue { color: #ff6b6b; border-color: rgba(255, 107, 107, .5); }
+
+/* ---------- section tabs ---------- */
+.cmty-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.cmty-tab {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #7a8794);
+    background: var(--color-surface, #10161d);
+    border: 1px solid var(--color-border, #1d2733);
+    text-decoration: none;
+}
+.cmty-tab.is-active { color: var(--color-primary, #00ff88); border-color: var(--color-primary, #00ff88); }
+
+/* ---------- discussions ---------- */
+.cmty-discussion { margin-top: 26px; }
+.cmty-thread {
+    padding: 14px;
+    margin-bottom: 12px;
+}
+.cmty-thread__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cmty-thread__title { font-weight: 700; }
+.cmty-thread__meta { color: var(--color-text-muted, #7a8794); font-size: .72rem; }
+.cmty-thread__body { font-size: .85rem; margin: 8px 0; white-space: pre-line; }
+.cmty-reply {
+    border-left: 2px solid var(--color-border, #1d2733);
+    margin: 10px 0 0 8px;
+    padding: 6px 12px;
+    font-size: .83rem;
+}
+.cmty-reply--pinned {
+    border-left-color: var(--color-primary, #00ff88);
+    background: rgba(0, 255, 136, .05);
+    border-radius: 0 10px 10px 0;
+}
+.cmty-reply__meta { color: var(--color-text-muted, #7a8794); font-size: .7rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cmty-reply__body { white-space: pre-line; margin-top: 3px; }
+.cmty-pin-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--color-text-muted, #7a8794);
+    font-size: .68rem; padding: 0; text-decoration: underline;
+}
+.cmty-pin-btn:hover { color: var(--color-primary, #00ff88); }
+
+/* ---------- notifications ---------- */
+.cmty-notif { list-style: none; margin: 0; padding: 0; }
+.cmty-notif li {
+    display: flex;
+    gap: 12px;
+    padding: 12px 10px;
+    border-bottom: 1px dashed var(--color-border, #1d2733);
+    align-items: baseline;
+}
+.cmty-notif li.is-unread { background: rgba(0, 255, 136, .04); border-radius: 10px; }
+.cmty-notif__when { flex: 0 0 90px; color: var(--color-text-muted, #7a8794); font-size: .7rem; }
+.cmty-notif__title { font-weight: 600; font-size: .85rem; }
+.cmty-notif__body { color: var(--color-text-muted, #7a8794); font-size: .78rem; }
+
+/* ---------- announcements ---------- */
+.cmty-announce { padding: 14px 16px; margin-bottom: 12px; }
+.cmty-announce__title { font-weight: 700; }
+.cmty-announce__meta { color: var(--color-text-muted, #7a8794); font-size: .72rem; margin-bottom: 6px; }
+.cmty-announce__body { font-size: .85rem; white-space: pre-line; }
+
+@media (max-width: 720px) {
+    .cmty-notif__when { flex-basis: 70px; }
+}

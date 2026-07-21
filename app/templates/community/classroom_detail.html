@@ -1,0 +1,218 @@
+{% extends "community/_base.html" %}
+{% block title %}{{ classroom.name }}{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div>
+        <h1 class="cmty-head__title">{{ icon("book", 22) }} {{ classroom.name }}</h1>
+        <p class="cmty-head__sub">
+            Teacher: {{ classroom.teacher.username }}
+            {% if classroom.description %} · {{ classroom.description }}{% endif %}
+            {% if manage %} · join code <code>{{ classroom.join_code }}</code>{% endif %}
+        </p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% if not manage %}
+        <form method="POST" action="{{ url_for('community.classroom_leave', classroom_id=classroom.id) }}"
+              onsubmit="return confirm('Leave this classroom?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn--outline btn--sm">Leave</button>
+        </form>
+        {% endif %}
+        <a class="btn btn--outline btn--sm" href="{{ url_for('community.classrooms') }}">← Classrooms</a>
+    </div>
+</header>
+
+{# ================= ASSIGNMENTS ================= #}
+<section class="ui-card cmty-card">
+    <h2 class="adm-card__title">{{ icon("target", 16) }} Assignments</h2>
+
+    {% if manage %}
+    <form class="cmty-form" method="POST" action="{{ url_for('community.assignment_create', classroom_id=classroom.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="cmty-form--row">
+            <label class="cmty-field">
+                <span class="cmty-label">Type</span>
+                <select class="cmty-select" name="subject_type" id="asg-type" required>
+                    <option value="roadmap">Roadmap</option>
+                    <option value="lesson">Lesson</option>
+                    <option value="lab" selected>Lab</option>
+                    <option value="ctf">CTF Challenge</option>
+                    <option value="quiz">Quiz</option>
+                </select>
+            </label>
+            <label class="cmty-field" style="flex:1;min-width:220px">
+                <span class="cmty-label">Content</span>
+                <select class="cmty-select" name="subject_id" id="asg-subject" required>
+                    {% for sid, label in catalog.get("lab", []) %}
+                    <option value="{{ sid }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="cmty-field">
+                <span class="cmty-label">Due (optional)</span>
+                <input class="cmty-input" type="datetime-local" name="due_at">
+            </label>
+            <button class="btn btn--primary btn--sm" type="submit">Assign</button>
+        </div>
+        <label class="cmty-field">
+            <span class="cmty-label">Instructions (optional)</span>
+            <textarea class="cmty-textarea" name="instructions" maxlength="1000"></textarea>
+        </label>
+    </form>
+    <script type="application/json" id="asg-catalog">{{ catalog|tojson }}</script>
+    <script>
+    (function () {
+        var data = JSON.parse(document.getElementById("asg-catalog").textContent);
+        var typeSel = document.getElementById("asg-type");
+        var subjSel = document.getElementById("asg-subject");
+        if (!typeSel || !subjSel) return;
+        typeSel.addEventListener("change", function () {
+            var options = data[typeSel.value] || [];
+            subjSel.innerHTML = "";
+            options.forEach(function (pair) {
+                var opt = document.createElement("option");
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                subjSel.appendChild(opt);
+            });
+        });
+    })();
+    </script>
+    <hr style="border-color:var(--color-border,#1d2733);opacity:.4;margin:14px 0">
+    {% endif %}
+
+    {% if not classroom.assignments %}
+    <p class="cmty-head__sub">No assignments yet.</p>
+    {% else %}
+    <table class="cmty-table">
+        <thead>
+            <tr>
+                <th>Assignment</th><th>Type</th><th>Due</th>
+                <th class="num">{{ "Completed" if manage else "Your status" }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in classroom.assignments %}
+            {% set statuses = assignment_status[a.id] %}
+            {% set done_count = statuses.values()|selectattr("done")|list|length %}
+            <tr>
+                <td><strong>{{ a.title }}</strong></td>
+                <td>{{ a.subject_type }}</td>
+                <td>{{ a.due_at.strftime("%Y-%m-%d %H:%M") if a.due_at else "—" }}</td>
+                <td class="num">
+                    {% if manage %}
+                        {{ done_count }} / {{ classroom.members|length }}
+                    {% else %}
+                        {% set mine = my_status.get(a.id) %}
+                        {% if mine and mine.done and mine.late %}
+                            <span class="cmty-pill cmty-pill--late">done (late)</span>
+                        {% elif mine and mine.done %}
+                            <span class="cmty-pill cmty-pill--done">done</span>
+                        {% elif mine and mine.overdue %}
+                            <span class="cmty-pill cmty-pill--overdue">overdue</span>
+                        {% else %}
+                            <span class="cmty-pill">pending</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td class="num">
+                    <a class="btn btn--outline btn--sm"
+                       href="{{ url_for('community.assignment_detail', classroom_id=classroom.id, assignment_id=a.id) }}">Open</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+{# ================= PROGRESS BOARD (teacher) ================= #}
+{% if manage %}
+<section class="ui-card cmty-card">
+    <h2 class="adm-card__title">{{ icon("trending", 16) }} Student progress</h2>
+
+    <form class="cmty-form" method="POST" action="{{ url_for('community.classroom_add_student', classroom_id=classroom.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="cmty-field">
+            <span class="cmty-label">Add student by username</span>
+            <div class="cmty-form--row">
+                <input class="cmty-input" name="username" placeholder="username" required>
+                <button class="btn btn--outline btn--sm">Add</button>
+            </div>
+        </label>
+    </form>
+
+    {% if not board %}
+    <p class="cmty-head__sub" style="margin-top:10px">No students yet — share the join code <code>{{ classroom.join_code }}</code>.</p>
+    {% else %}
+    <table class="cmty-table" style="margin-top:12px">
+        <thead>
+            <tr>
+                <th>Student</th>
+                <th class="num">Assignments</th>
+                <th class="num">Completion</th>
+                <th class="num">XP</th>
+                <th class="num">Level</th>
+                <th class="num">Certificates</th>
+                <th class="num">Avg score</th>
+                <th class="num">Time spent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in board %}
+            <tr>
+                <td><strong>{{ row.user.username }}</strong></td>
+                <td class="num">{{ row.assignments_done }} / {{ row.assignments_total }}</td>
+                <td class="num">{{ row.completion_pct }}%</td>
+                <td class="num">{{ '{:,}'.format(row.xp) }}</td>
+                <td class="num">{{ row.level }}</td>
+                <td class="num">{{ row.certificates }}</td>
+                <td class="num">{{ row.avg_score }}%</td>
+                <td class="num">{{ row.time_spent_seconds // 3600 }}h {{ (row.time_spent_seconds % 3600) // 60 }}m</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+{% endif %}
+
+{# ================= ANNOUNCEMENTS ================= #}
+<section class="ui-card cmty-card">
+    <h2 class="adm-card__title">{{ icon("bell", 16) }} Announcements</h2>
+
+    {% if manage %}
+    <form class="cmty-form" method="POST" action="{{ url_for('community.classroom_announce', classroom_id=classroom.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="cmty-field">
+            <span class="cmty-label">Title</span>
+            <input class="cmty-input" name="title" required maxlength="160">
+        </label>
+        <label class="cmty-field">
+            <span class="cmty-label">Message</span>
+            <textarea class="cmty-textarea" name="body" required maxlength="2000"></textarea>
+        </label>
+        <div><button class="btn btn--primary btn--sm">Post to classroom</button></div>
+    </form>
+    <hr style="border-color:var(--color-border,#1d2733);opacity:.4;margin:14px 0">
+    {% endif %}
+
+    {% if not announcements %}
+    <p class="cmty-head__sub">No announcements yet.</p>
+    {% else %}
+    {% for item in announcements %}
+    <article class="ui-card cmty-announce">
+        <div class="cmty-announce__title">{{ item.title }}</div>
+        <div class="cmty-announce__meta">
+            {{ item.author.username if item.author else "—" }} ·
+            {{ item.created_at.strftime("%Y-%m-%d %H:%M") if item.created_at else "" }}
+        </div>
+        <div class="cmty-announce__body">{{ item.body }}</div>
+    </article>
+    {% endfor %}
+    {% endif %}
+</section>
+{% endblock %}

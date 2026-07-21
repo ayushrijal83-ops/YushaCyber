@@ -1,0 +1,52 @@
+{% extends "community/_base.html" %}
+{% block title %}{{ assignment.title }}{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div>
+        <h1 class="cmty-head__title">{{ icon("target", 22) }} {{ assignment.title }}</h1>
+        <p class="cmty-head__sub">
+            {{ assignment.subject_type|capitalize }} assignment in “{{ classroom.name }}”
+            {% if assignment.due_at %} · due {{ assignment.due_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}
+        </p>
+        {% if assignment.instructions %}
+        <p class="cmty-head__sub" style="white-space:pre-line">{{ assignment.instructions }}</p>
+        {% endif %}
+    </div>
+    <a class="btn btn--outline btn--sm" href="{{ url_for('community.classroom_detail', classroom_id=classroom.id) }}">← {{ classroom.name }}</a>
+</header>
+
+<section class="ui-card cmty-card">
+    <h2 class="adm-card__title">{{ icon("users", 16) }} Status</h2>
+    {% if not members %}
+    <p class="cmty-head__sub">No students enrolled yet.</p>
+    {% else %}
+    <table class="cmty-table">
+        <thead>
+            <tr><th>Student</th><th>Status</th><th>Completed at</th></tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            {% set st = statuses.get(member.user_id) %}
+            <tr>
+                <td><strong>{{ member.user.username }}</strong></td>
+                <td>
+                    {% if st and st.done and st.late %}
+                    <span class="cmty-pill cmty-pill--late">done (late)</span>
+                    {% elif st and st.done %}
+                    <span class="cmty-pill cmty-pill--done">done</span>
+                    {% elif st and st.overdue %}
+                    <span class="cmty-pill cmty-pill--overdue">overdue</span>
+                    {% else %}
+                    <span class="cmty-pill">pending</span>
+                    {% endif %}
+                </td>
+                <td>{{ st.completed_at.strftime("%Y-%m-%d %H:%M") if st and st.completed_at else "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+{% endblock %}

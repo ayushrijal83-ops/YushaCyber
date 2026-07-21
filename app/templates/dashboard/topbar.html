@@ -13,6 +13,8 @@
     ("Labs",         url_for('labs.index'),             "cpu",    path.startswith('/labs')),
     ("CTF",          url_for('ctf.index'),              "flag",   path.startswith('/ctf') and 'leaderboard' not in path),
     ("Resources",    url_for('resources.index'),        "book",   path.startswith('/resources')),
+    ("Teams",        url_for('community.teams'),        "users",  path.startswith('/teams')),
+    ("Classes",      url_for('community.classrooms'),   "layers", path.startswith('/classrooms')),
     ("Certificates", url_for('dashboard.certificates'), "file-text", 'certificates' in path),
     ("Achievements", url_for('dashboard.achievements'), "target", 'achievements' in path)
 ] %}
@@ -69,42 +71,39 @@
                 <button type="button" class="shell-theme__btn" data-theme="cyber" title="Cyber" aria-label="Cyber mode">⚡</button>
             </div>
 
-            {# Notifications (placeholder — no backend) #}
+            {# Notifications — live (YC-034.0) #}
             <div class="shell-drop">
                 <button class="shell-icon-btn" id="notif-toggle"
                         aria-label="Notifications" aria-expanded="false"
                         aria-controls="notif-menu" aria-haspopup="true">
                     {{ icon("bell", 18) }}
+                    {% if (notif_unread | default(0)) > 0 %}
                     <span class="shell-dot" aria-hidden="true"></span>
+                    {% endif %}
                 </button>
 
                 <div class="shell-menu shell-menu--wide" id="notif-menu" hidden>
                     <div class="shell-menu__head">
                         <span>Notifications</span>
-                        <span class="shell-menu__tag">3 new</span>
+                        {% if (notif_unread | default(0)) > 0 %}
+                        <span class="shell-menu__tag">{{ notif_unread }} new</span>
+                        {% endif %}
                     </div>
-                    <a href="{{ url_for('roadmap.index') }}" class="shell-note">
-                        <span class="shell-note__icon">📚</span>
+                    {% for n in notif_recent | default([]) %}
+                    <a href="{{ n.link or url_for('community.notifications') }}" class="shell-note">
+                        <span class="shell-note__icon">{{ "🔔" if n.is_read else "🟢" }}</span>
                         <span class="shell-note__body">
-                            <span class="shell-note__title">Your roadmap is waiting</span>
-                            <span class="shell-note__meta">Continue where you left off</span>
+                            <span class="shell-note__title">{{ n.title }}</span>
+                            {% if n.body %}<span class="shell-note__meta">{{ n.body[:70] }}</span>{% endif %}
                         </span>
                     </a>
-                    <a href="{{ url_for('ctf.index') }}" class="shell-note">
-                        <span class="shell-note__icon">🏴</span>
-                        <span class="shell-note__body">
-                            <span class="shell-note__title">New CTF challenges available</span>
-                            <span class="shell-note__meta">Test your skills in the arena</span>
-                        </span>
+                    {% else %}
+                    <div class="shell-menu__foot">You're all caught up 🎉</div>
+                    {% endfor %}
+                    <a class="shell-menu__foot" href="{{ url_for('community.notifications') }}"
+                       style="display:block;text-align:center;text-decoration:none">
+                        View all notifications →
                     </a>
-                    <a href="{{ url_for('dashboard.achievements') }}" class="shell-note">
-                        <span class="shell-note__icon">🏆</span>
-                        <span class="shell-note__body">
-                            <span class="shell-note__title">Achievements to unlock</span>
-                            <span class="shell-note__meta">See what you can earn next</span>
-                        </span>
-                    </a>
-                    <div class="shell-menu__foot">Notification centre coming soon</div>
                 </div>
             </div>
 

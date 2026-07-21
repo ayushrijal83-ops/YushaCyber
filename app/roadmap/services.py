@@ -240,6 +240,7 @@ def get_lesson_view_context(
     return {
         "module": {"title": module.title, "slug": module.slug},
         "lesson": {
+            "id": lesson.id,
             "title": lesson.title,
             "slug": lesson.slug,
             "lesson_type": lesson.lesson_type,
@@ -340,6 +341,7 @@ def get_lesson_view_context(
     return {
         "module": {"title": module.title, "slug": module.slug},
         "lesson": {
+            "id": lesson.id,
             "title": lesson.title,
             "slug": lesson.slug,
             "lesson_type": lesson.lesson_type,

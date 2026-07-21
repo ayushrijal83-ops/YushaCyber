@@ -1,0 +1,37 @@
+{% extends "community/_base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div>
+        <h1 class="cmty-head__title">{{ icon("bell", 22) }} Notifications</h1>
+        <p class="cmty-head__sub">Assignments, achievements, certificates, team invites and announcements.</p>
+    </div>
+    <form method="POST" action="{{ url_for('community.notifications_read_all') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn--outline btn--sm">Mark all read</button>
+    </form>
+</header>
+
+<section class="ui-card cmty-card">
+    {% if not items %}
+    <p class="cmty-head__sub">Nothing yet — notifications will land here.</p>
+    {% else %}
+    <ul class="cmty-notif">
+        {% for n in items %}
+        <li class="{% if not n.is_read %}is-unread{% endif %}">
+            <span class="cmty-notif__when">{{ n.created_at.strftime("%b %d %H:%M") if n.created_at else "" }}</span>
+            <div>
+                <div class="cmty-notif__title">
+                    {% if n.link %}<a href="{{ n.link }}" style="color:inherit">{{ n.title }}</a>
+                    {% else %}{{ n.title }}{% endif %}
+                </div>
+                {% if n.body %}<div class="cmty-notif__body">{{ n.body }}</div>{% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
+{% endblock %}

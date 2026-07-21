@@ -245,6 +245,10 @@
             </section>
             {% endif %}
 
+            {% with subject_type = "lab", subject_id = lab.id %}
+                {% include "community/_discussion.html" %}
+            {% endwith %}
+
             {% include "dashboard/footer.html" %}
         </main>
     </div>

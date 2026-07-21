@@ -1,0 +1,100 @@
+{% extends "community/_base.html" %}
+{% block title %}Teams{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div>
+        <h1 class="cmty-head__title">{{ icon("users", 22) }} Teams</h1>
+        <p class="cmty-head__sub">Learn together — pool XP, labs and CTF solves with your crew.</p>
+    </div>
+    <a class="btn btn--outline btn--sm" href="{{ url_for('community.team_leaderboard') }}">
+        {{ icon("award", 14) }} Team Leaderboard
+    </a>
+</header>
+
+{% if invites %}
+<section class="ui-card cmty-card">
+    <h2 class="adm-card__title">{{ icon("bell", 16) }} Your invites</h2>
+    <ul class="cmty-roster">
+        {% for inv in invites %}
+        <li>
+            <span class="cmty-logo" style="width:34px;height:34px;font-size:1.1rem;">{{ inv.team.logo }}</span>
+            <span><strong>{{ inv.team.name }}</strong></span>
+            <span class="spacer"></span>
+            <form method="POST" action="{{ url_for('community.team_invite_action', invite_id=inv.id, action='accept') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn--primary btn--sm">Accept</button>
+            </form>
+            <form method="POST" action="{{ url_for('community.team_invite_action', invite_id=inv.id, action='decline') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn--outline btn--sm">Decline</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if membership %}
+<section class="ui-card ui-card--accent cmty-card">
+    <div class="cmty-card__row">
+        <span class="cmty-logo">{{ membership.team.logo }}</span>
+        <div>
+            <div class="cmty-card__name">Your team: {{ membership.team.name }}</div>
+            <div class="cmty-card__meta">{{ membership.team.members|length }} member{{ '' if membership.team.members|length == 1 else 's' }}</div>
+        </div>
+        <span class="spacer" style="flex:1"></span>
+        <a class="btn btn--primary btn--sm" href="{{ url_for('community.team_detail', slug=membership.team.slug) }}">Open dashboard</a>
+    </div>
+</section>
+{% else %}
+<section class="ui-card cmty-card">
+    <h2 class="adm-card__title">{{ icon("zap", 16) }} Create a team</h2>
+    <form class="cmty-form" method="POST" action="{{ url_for('community.team_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="cmty-form--row">
+            <label class="cmty-field">
+                <span class="cmty-label">Team name</span>
+                <input class="cmty-input" name="name" required minlength="3" maxlength="60" placeholder="Kathmandu Kernel Krew">
+            </label>
+            <label class="cmty-field">
+                <span class="cmty-label">Logo (emoji)</span>
+                <input class="cmty-input" name="logo" maxlength="10" value="🛡️" style="width:80px">
+            </label>
+            <label class="cmty-field">
+                <span class="cmty-label">Open to join?</span>
+                <input type="checkbox" name="is_open" checked>
+            </label>
+        </div>
+        <label class="cmty-field">
+            <span class="cmty-label">Description</span>
+            <textarea class="cmty-textarea" name="description" maxlength="500" placeholder="What is this team about?"></textarea>
+        </label>
+        <div><button class="btn btn--primary btn--sm" type="submit">Create team</button></div>
+    </form>
+</section>
+{% endif %}
+
+<h2 class="adm-card__title" style="margin-bottom:10px">{{ icon("grid", 16) }} All teams</h2>
+{% if not all_teams %}
+<p class="cmty-head__sub">No teams yet — be the first to create one.</p>
+{% else %}
+<div class="cmty-grid">
+    {% for team in all_teams %}
+    <a class="ui-card cmty-card" href="{{ url_for('community.team_detail', slug=team.slug) }}" style="text-decoration:none;color:inherit">
+        <div class="cmty-card__row">
+            <span class="cmty-logo">{{ team.logo }}</span>
+            <div>
+                <div class="cmty-card__name">{{ team.name }}</div>
+                <div class="cmty-card__meta">
+                    {{ member_counts[team.id] }} member{{ '' if member_counts[team.id] == 1 else 's' }}
+                    · {{ "open" if team.is_open else "invite-only" }}
+                </div>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

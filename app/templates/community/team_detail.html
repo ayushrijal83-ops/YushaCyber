@@ -1,0 +1,107 @@
+{% extends "community/_base.html" %}
+{% block title %}{{ team.name }}{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div class="cmty-card__row">
+        <span class="cmty-logo" style="width:56px;height:56px;font-size:1.9rem;">{{ team.logo }}</span>
+        <div>
+            <h1 class="cmty-head__title" style="margin:0">{{ team.name }}</h1>
+            <p class="cmty-head__sub">
+                {{ "Open team — anyone can join" if team.is_open else "Invite-only team" }}
+                {% if team.description %} · {{ team.description }}{% endif %}
+            </p>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% if is_member %}
+        <form method="POST" action="{{ url_for('community.team_leave') }}"
+              onsubmit="return confirm('Leave {{ team.name }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn--outline btn--sm">Leave team</button>
+        </form>
+        {% elif not membership %}
+        <form method="POST" action="{{ url_for('community.team_join', slug=team.slug) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn--primary btn--sm" {% if not team.is_open %}disabled title="Invite-only"{% endif %}>
+                Join team
+            </button>
+        </form>
+        {% endif %}
+        <a class="btn btn--outline btn--sm" href="{{ url_for('community.team_leaderboard') }}">Leaderboard</a>
+    </div>
+</header>
+
+{# ---- Team dashboard stats ---- #}
+<div class="cmty-stats">
+    <div class="ui-card cmty-stat"><span class="cmty-stat__value">{{ '{:,}'.format(stats.total_xp) }}</span><span class="cmty-stat__label">Total XP</span></div>
+    <div class="ui-card cmty-stat"><span class="cmty-stat__value">{{ stats.avg_level }}</span><span class="cmty-stat__label">Average Level</span></div>
+    <div class="ui-card cmty-stat"><span class="cmty-stat__value">{{ stats.members }}</span><span class="cmty-stat__label">Members</span></div>
+    <div class="ui-card cmty-stat"><span class="cmty-stat__value">{{ stats.completed_labs }}</span><span class="cmty-stat__label">Completed Labs</span></div>
+    <div class="ui-card cmty-stat"><span class="cmty-stat__value">{{ stats.completed_ctfs }}</span><span class="cmty-stat__label">Completed CTFs</span></div>
+    <div class="ui-card cmty-stat"><span class="cmty-stat__value">{{ stats.certificates }}</span><span class="cmty-stat__label">Certificates</span></div>
+    <div class="ui-card cmty-stat"><span class="cmty-stat__value">{{ stats.achievements }}</span><span class="cmty-stat__label">Achievements</span></div>
+</div>
+
+<div class="cmty-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+    <section class="ui-card cmty-card">
+        <h2 class="adm-card__title">{{ icon("users", 16) }} Members</h2>
+        <ul class="cmty-roster">
+            {% for member in team.members %}
+            <li>
+                <span>{{ member.user.username }}</span>
+                {% if member.user_id == team.captain_id %}
+                <span class="cmty-roster__badge">Captain</span>
+                {% endif %}
+                <span class="spacer"></span>
+                <span class="cmty-card__meta">Lv {{ member.user.level }} · {{ '{:,}'.format(member.user.xp) }} XP</span>
+                {% if is_captain and member.user_id != team.captain_id %}
+                <form method="POST" action="{{ url_for('community.team_captain', slug=team.slug) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="user_id" value="{{ member.user_id }}">
+                    <button class="btn btn--outline btn--sm" title="Make captain">⭐</button>
+                </form>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    {% if is_captain %}
+    <section class="ui-card cmty-card">
+        <h2 class="adm-card__title">{{ icon("settings", 16) }} Captain tools</h2>
+
+        <form class="cmty-form" method="POST" action="{{ url_for('community.team_invite', slug=team.slug) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="cmty-field">
+                <span class="cmty-label">Invite by username</span>
+                <div class="cmty-form--row">
+                    <input class="cmty-input" name="username" placeholder="username" required>
+                    <button class="btn btn--primary btn--sm">Invite</button>
+                </div>
+            </label>
+        </form>
+
+        <form class="cmty-form" method="POST" action="{{ url_for('community.team_edit', slug=team.slug) }}" style="margin-top:14px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="cmty-form--row">
+                <label class="cmty-field">
+                    <span class="cmty-label">Logo</span>
+                    <input class="cmty-input" name="logo" maxlength="10" value="{{ team.logo }}" style="width:80px">
+                </label>
+                <label class="cmty-field">
+                    <span class="cmty-label">Open to join?</span>
+                    <input type="checkbox" name="is_open" {% if team.is_open %}checked{% endif %}>
+                </label>
+            </div>
+            <label class="cmty-field">
+                <span class="cmty-label">Description</span>
+                <textarea class="cmty-textarea" name="description" maxlength="500">{{ team.description or "" }}</textarea>
+            </label>
+            <div><button class="btn btn--outline btn--sm" type="submit">Save changes</button></div>
+        </form>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

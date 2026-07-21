@@ -1,0 +1,45 @@
+{% extends "community/_base.html" %}
+{% block title %}Announcements{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div>
+        <h1 class="cmty-head__title">{{ icon("bell", 22) }} Announcements</h1>
+        <p class="cmty-head__sub">Platform-wide news from the YushaCyber team.</p>
+    </div>
+</header>
+
+{% if current_user.is_admin %}
+<section class="ui-card cmty-card">
+    <h2 class="adm-card__title">{{ icon("layers", 16) }} Post a global announcement</h2>
+    <form class="cmty-form" method="POST" action="{{ url_for('community.announcement_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="cmty-field">
+            <span class="cmty-label">Title</span>
+            <input class="cmty-input" name="title" required maxlength="160">
+        </label>
+        <label class="cmty-field">
+            <span class="cmty-label">Message</span>
+            <textarea class="cmty-textarea" name="body" required maxlength="4000"></textarea>
+        </label>
+        <div><button class="btn btn--primary btn--sm">Publish to everyone</button></div>
+    </form>
+</section>
+{% endif %}
+
+{% if not items %}
+<p class="cmty-head__sub">No announcements yet.</p>
+{% else %}
+{% for item in items %}
+<article class="ui-card cmty-announce">
+    <div class="cmty-announce__title">{{ item.title }}</div>
+    <div class="cmty-announce__meta">
+        {{ item.author.username if item.author else "—" }} ·
+        {{ item.created_at.strftime("%Y-%m-%d %H:%M") if item.created_at else "" }}
+    </div>
+    <div class="cmty-announce__body">{{ item.body }}</div>
+</article>
+{% endfor %}
+{% endif %}
+{% endblock %}

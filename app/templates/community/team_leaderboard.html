@@ -1,0 +1,58 @@
+{% extends "community/_base.html" %}
+{% block title %}Team Leaderboard{% endblock %}
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<header class="cmty-head">
+    <div>
+        <h1 class="cmty-head__title">{{ icon("award", 22) }} Team Leaderboard</h1>
+        <p class="cmty-head__sub">Ranked by {{ metric|upper if metric == 'xp' else metric|capitalize }} — switch the metric below.</p>
+    </div>
+    <a class="btn btn--outline btn--sm" href="{{ url_for('community.teams') }}">← Teams</a>
+</header>
+
+<nav class="cmty-tabs" aria-label="Ranking metric">
+    {% for m in metrics %}
+    <a class="cmty-tab{% if m == metric %} is-active{% endif %}"
+       href="{{ url_for('community.team_leaderboard', metric=m) }}">
+        {{ {"xp": "XP", "labs": "Labs", "ctf": "CTFs", "achievements": "Achievements"}[m] }}
+    </a>
+    {% endfor %}
+</nav>
+
+<section class="ui-card cmty-card">
+    {% if not rows %}
+    <p class="cmty-head__sub">No teams yet.</p>
+    {% else %}
+    <table class="cmty-table">
+        <thead>
+            <tr>
+                <th>#</th><th>Team</th>
+                <th class="num">Members</th>
+                <th class="num">XP</th>
+                <th class="num">Labs</th>
+                <th class="num">CTFs</th>
+                <th class="num">Achievements</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="cmty-rank">{{ row.rank }}</td>
+                <td>
+                    <a href="{{ url_for('community.team_detail', slug=row.team.slug) }}" style="text-decoration:none;color:inherit">
+                        {{ row.team.logo }} <strong>{{ row.team.name }}</strong>
+                    </a>
+                </td>
+                <td class="num">{{ row.members }}</td>
+                <td class="num{% if metric == 'xp' %} cmty-rank{% endif %}">{{ '{:,}'.format(row.xp) }}</td>
+                <td class="num{% if metric == 'labs' %} cmty-rank{% endif %}">{{ row.labs }}</td>
+                <td class="num{% if metric == 'ctf' %} cmty-rank{% endif %}">{{ row.ctf }}</td>
+                <td class="num{% if metric == 'achievements' %} cmty-rank{% endif %}">{{ row.achievements }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+{% endblock %}
