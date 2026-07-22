@@ -169,3 +169,44 @@ class ForensicsArtifact(BaseModel):
     def set_data(self, data: dict) -> None:
         self.data_json = _json.dumps(data or {})
 
+
+
+# ===========================================================================
+# Advanced lab (YC-029.5.4): suspects.
+#
+# Small new table for suspect profiles the student picks between. The
+# rest of the advanced lab (network evidence, notes, correlations)
+# rides on existing structures: network artifacts reuse the generic
+# ForensicsArtifact table with new source_type values ("network_dns",
+# "network_http", …); notes and correlations live in session state
+# only — no persistence needed for scratch-pad data.
+# ===========================================================================
+class ForensicsSuspect(BaseModel):
+    """One suspect profile the student can flag as the actor."""
+
+    __tablename__ = "forensics_suspects"
+
+    case_id = db.Column(
+        db.Integer, db.ForeignKey("forensics_cases.id",
+                                  ondelete="CASCADE"),
+        nullable=False, index=True)
+    slug = db.Column(db.String(60), nullable=False)
+    display_name = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(120), nullable=False, default="Employee")
+    account = db.Column(db.String(80), nullable=False, default="")
+    notes = db.Column(db.Text, nullable=True)
+    #: Exactly one suspect per case should be marked `is_key`.
+    is_key = db.Column(db.Boolean, nullable=False, default=False)
+    display_order = db.Column(db.Integer, nullable=False, default=0,
+                              index=True)
+
+    case = db.relationship(
+        "ForensicsCase",
+        backref=db.backref("suspects", cascade="all, delete-orphan",
+                           lazy="selectin",
+                           order_by="ForensicsSuspect.display_order"))
+
+    __table_args__ = (
+        db.UniqueConstraint("case_id", "slug",
+                            name="uq_forensics_suspect_slug"),
+    )

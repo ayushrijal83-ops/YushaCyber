@@ -239,6 +239,80 @@
                                 </label>
                                 <button type="button" class="btn btn--primary btn--sm" id="fx-submit-report" style="margin-top:10px">Submit report</button>
                             </article>
+
+                            {# ---- Advanced-lab panels (hidden in other modes) ---- #}
+                            <article class="ui-card fx-suspects" id="fx-suspects" hidden>
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Suspects</h3>
+                                </header>
+                                <div class="fx-suspect-list" id="fx-suspect-list"></div>
+                            </article>
+
+                            <article class="ui-card fx-notes" id="fx-notes-card" hidden>
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Investigator Notes</h3>
+                                </header>
+                                <ul class="fx-notes__list" id="fx-notes-list"></ul>
+                                <div class="fx-form--row" style="margin-top:8px">
+                                    <input class="fx-field__input" id="fx-note-input" placeholder="Add a note (in-session only)…" style="flex:1">
+                                    <button type="button" class="btn btn--outline btn--sm" id="fx-note-add">Add</button>
+                                </div>
+                            </article>
+
+                            <article class="ui-card fx-correlation" id="fx-correlation" hidden>
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Evidence Correlation</h3>
+                                </header>
+                                <p class="fx-card__hint">Pick two <strong>key</strong> artifacts (highlighted rows in the source viewer) and link them. Chain every key artifact into one graph to complete the correlation objective.</p>
+                                <div class="fx-form--row" style="gap:8px;margin-bottom:8px">
+                                    <select class="fx-field__select" id="fx-link-a" style="flex:1"></select>
+                                    <span style="color:var(--color-text-muted,#7a8794)">↔</span>
+                                    <select class="fx-field__select" id="fx-link-b" style="flex:1"></select>
+                                    <button type="button" class="btn btn--outline btn--sm" id="fx-link-add">Link</button>
+                                </div>
+                                <ul class="fx-links__list" id="fx-links-list"></ul>
+                                <div class="fx-correlation__meter" id="fx-corr-meter"></div>
+                            </article>
+
+                            <article class="ui-card fx-incident" id="fx-incident" hidden>
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Incident Report</h3>
+                                </header>
+                                <p class="fx-card__hint">Sections: <em>Executive Summary · Timeline · Evidence · Root Cause · Impact · Recommendations</em>. Fill from every panel above.</p>
+                                <div class="fx-findings__grid">
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Compromised account</span>
+                                        <input class="fx-field__input" id="fx-adv-account" placeholder="From the Suspects panel">
+                                        <span class="fx-field__mark" id="fx-mark-adv-account"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Attack timeline start (HH:MM)</span>
+                                        <input class="fx-field__input" id="fx-adv-timeline" placeholder="e.g. 21:47">
+                                        <span class="fx-field__mark" id="fx-mark-adv-timeline"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Exfiltrated file</span>
+                                        <input class="fx-field__input" id="fx-adv-file" placeholder="Filename from Downloads">
+                                        <span class="fx-field__mark" id="fx-mark-adv-exfil"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Suspicious IP</span>
+                                        <input class="fx-field__input" id="fx-adv-ip" placeholder="From Network DNS viewer">
+                                        <span class="fx-field__mark" id="fx-mark-adv-ip"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Attack method</span>
+                                        <input class="fx-field__input" id="fx-adv-method" placeholder="e.g. insider credential misuse + HTTPS exfil">
+                                        <span class="fx-field__mark" id="fx-mark-adv-method"></span>
+                                    </label>
+                                </div>
+                                <label class="fx-field" style="margin-top:10px">
+                                    <span class="fx-field__label">Report summary (Executive Summary → Recommendations)</span>
+                                    <textarea class="fx-field__input" id="fx-adv-summary" rows="4" placeholder="60+ characters describing what happened, root cause and recommendations."></textarea>
+                                    <span class="fx-field__mark" id="fx-mark-adv-report"></span>
+                                </label>
+                                <button type="button" class="btn btn--primary btn--sm" id="fx-adv-submit" style="margin-top:10px">Submit incident report</button>
+                            </article>
                         </section>
                     </div>
                     {% endif %}

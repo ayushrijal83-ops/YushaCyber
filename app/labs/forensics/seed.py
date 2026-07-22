@@ -275,5 +275,14 @@ def seed_forensics_labs() -> dict[str, int]:
     result["achievements"] += applied.get("achievements", 0)
     result["applied_artifacts"] = applied.get("artifacts", 0)
 
+    # YC-029.5.4 — layer the advanced lab on top of applied.
+    from app.labs.forensics.advanced_seed import seed_forensics_advanced_lab
+    advanced = seed_forensics_advanced_lab()
+    result["labs"] += advanced.get("labs", 0)
+    result["objectives"] += advanced.get("objectives", 0)
+    result["achievements"] += advanced.get("achievements", 0)
+    result["advanced_artifacts"] = advanced.get("artifacts", 0)
+    result["advanced_suspects"] = advanced.get("suspects", 0)
+
     db.session.commit()
     return result

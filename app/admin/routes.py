@@ -716,7 +716,8 @@ def forensics_case_edit(case_id: int):
         evidence_hashes=evidence_hashes,
         artifact_sources=ARTIFACT_SOURCES,
         source_label=SOURCE_LABEL, artifact_schema=ARTIFACT_SCHEMA,
-        artifacts_by_source=artifacts_by_source)
+        artifacts_by_source=artifacts_by_source,
+        suspects=list(case.suspects))
 
 
 @admin_bp.route("/forensics/<int:case_id>/save", methods=["POST"])
@@ -892,3 +893,40 @@ def forensics_case_artifacts(case_id: int):
     flash(f"Saved {len(kept)} artifact rows across "
           f"{len({s for s, *_ in kept})} sources.", "success")
     return redirect(url_for("admin.forensics_case_edit", case_id=case.id))
+
+
+@admin_bp.route("/forensics/<int:case_id>/suspects", methods=["POST"])
+@admin_required
+def forensics_case_suspects(case_id: int):
+    """Replace the suspect list for the case. Blank slugs delete rows."""
+    from app.extensions import db as _db
+    from app.labs.forensics.models import ForensicsCase, ForensicsSuspect
+    case = ForensicsCase.query.get_or_404(case_id)
+
+    ForensicsSuspect.query.filter_by(case_id=case.id).delete()
+    _db.session.flush()
+    idx = 0
+    order = 0
+    while f"suspect-{idx}-slug" in request.form:
+        slug = (request.form.get(f"suspect-{idx}-slug") or "").strip()
+        name = (request.form.get(f"suspect-{idx}-display_name")
+                or "").strip()
+        if slug and name:
+            order += 1
+            _db.session.add(ForensicsSuspect(
+                case_id=case.id, slug=slug[:60],
+                display_name=name[:120],
+                role=(request.form.get(f"suspect-{idx}-role")
+                      or "Employee")[:120],
+                account=(request.form.get(f"suspect-{idx}-account")
+                         or "")[:80],
+                notes=(request.form.get(f"suspect-{idx}-notes")
+                       or "") or None,
+                is_key=bool(request.form.get(
+                    f"suspect-{idx}-is_key")),
+                display_order=order))
+        idx += 1
+    _db.session.commit()
+    flash(f"Saved {order} suspect profiles.", "success")
+    return redirect(url_for("admin.forensics_case_edit",
+                            case_id=case.id))

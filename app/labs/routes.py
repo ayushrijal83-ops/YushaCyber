@@ -339,6 +339,10 @@ def forensics_state(slug: str):
         for source in view["sources"]
     }
     view["schema"] = forensics_engine.ARTIFACT_SCHEMA
+    view["suspects"] = case.get("suspects") or []
+    view["network_summary"] = forensics_engine.network_summary(case)
+    correlation = forensics_engine.correlation_score(
+        case, state.get("links") or [])
     return jsonify({
         "view": view,
         "selected": state.get("selected") or "",
@@ -349,4 +353,8 @@ def forensics_state(slug: str):
         "active_source": state.get("active_source") or "",
         "opened_sources": list(state.get("opened_sources") or []),
         "seen_artifacts": list(state.get("seen_artifacts") or []),
+        "notes": list(state.get("notes") or []),
+        "links": list(state.get("links") or []),
+        "named_suspect": state.get("named_suspect") or "",
+        "correlation": correlation,
     })

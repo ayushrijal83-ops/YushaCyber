@@ -168,6 +168,46 @@
 </form>
 {% endif %}
 
+{# ============ Suspects (advanced lab) ============ #}
+{% if case.mode == 'advanced' %}
+<form method="POST" action="{{ url_for('admin.forensics_case_suspects', case_id=case.id) }}" class="adm-form" style="margin-top:24px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("users", 16) }} Suspects
+                <span class="adm-hint">Mark exactly one row as <em>is_key</em> — the compromised-account validator expects it.</span>
+            </h2>
+        </header>
+        <table class="adm-table">
+            <thead>
+                <tr>
+                    <th>Slug</th>
+                    <th>Display name</th>
+                    <th>Role</th>
+                    <th>Account</th>
+                    <th>Notes</th>
+                    <th>Key?</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in suspects %}
+                <tr>
+                    <td><input class="adm-input" name="suspect-{{ loop.index0 }}-slug" value="{{ s.slug }}" style="width:120px"></td>
+                    <td><input class="adm-input" name="suspect-{{ loop.index0 }}-display_name" value="{{ s.display_name }}"></td>
+                    <td><input class="adm-input" name="suspect-{{ loop.index0 }}-role" value="{{ s.role }}"></td>
+                    <td><input class="adm-input" name="suspect-{{ loop.index0 }}-account" value="{{ s.account }}"></td>
+                    <td><input class="adm-input" name="suspect-{{ loop.index0 }}-notes" value="{{ s.notes or '' }}"></td>
+                    <td class="num"><input type="checkbox" name="suspect-{{ loop.index0 }}-is_key" {% if s.is_key %}checked{% endif %}></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="adm-hint" style="margin-top:8px">Blanking a slug or display name deletes the row on save.</p>
+    </section>
+    <button class="btn btn--primary" type="submit">Save suspects</button>
+</form>
+{% endif %}
+
 {# ============ Objectives (separate form) ============ #}
 {% if lab %}
 <form method="POST" action="{{ url_for('admin.forensics_case_objectives', case_id=case.id) }}" class="adm-form" style="margin-top:24px">

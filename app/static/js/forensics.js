@@ -42,6 +42,27 @@
     var reportTimelineFirst = document.getElementById("fx-timeline-first");
     var reportSummary = document.getElementById("fx-report-summary");
     var submitReport = document.getElementById("fx-submit-report");
+    /* Advanced-lab (YC-029.5.4) DOM. */
+    var suspectsCard = document.getElementById("fx-suspects");
+    var suspectList = document.getElementById("fx-suspect-list");
+    var notesCard = document.getElementById("fx-notes-card");
+    var notesList = document.getElementById("fx-notes-list");
+    var noteInput = document.getElementById("fx-note-input");
+    var noteAddBtn = document.getElementById("fx-note-add");
+    var correlationCard = document.getElementById("fx-correlation");
+    var linkA = document.getElementById("fx-link-a");
+    var linkB = document.getElementById("fx-link-b");
+    var linkAddBtn = document.getElementById("fx-link-add");
+    var linksList = document.getElementById("fx-links-list");
+    var corrMeter = document.getElementById("fx-corr-meter");
+    var incidentCard = document.getElementById("fx-incident");
+    var advAccount = document.getElementById("fx-adv-account");
+    var advTimeline = document.getElementById("fx-adv-timeline");
+    var advFile = document.getElementById("fx-adv-file");
+    var advIp = document.getElementById("fx-adv-ip");
+    var advMethod = document.getElementById("fx-adv-method");
+    var advSummary = document.getElementById("fx-adv-summary");
+    var advSubmit = document.getElementById("fx-adv-submit");
     if (!explorer || !metadata || !submitBtn) return;
 
     var KIND_ICON = {
@@ -62,6 +83,10 @@
     var currentChecks = {};
     var currentActiveSource = "";
     var currentOpenedSources = [];
+    var currentNotes = [];
+    var currentLinks = [];
+    var currentCorrelation = null;
+    var currentNamedSuspect = "";
 
     function el(tag, cls, text) {
         var node = document.createElement(tag);
@@ -287,16 +312,31 @@
             currentChecks = data.checks || {};
             currentActiveSource = data.active_source || "";
             currentOpenedSources = data.opened_sources || [];
-            var applied = (currentView.mode === "applied");
-            toggleMode(applied);
+            currentNotes = data.notes || [];
+            currentLinks = data.links || [];
+            currentCorrelation = data.correlation || null;
+            currentNamedSuspect = data.named_suspect || "";
+            var mode = currentView.mode || "fundamentals";
+            var applied = (mode === "applied");
+            var advanced = (mode === "advanced");
+            toggleMode(applied, advanced);
             renderExplorer();
-            if (applied) {
+            if (applied || advanced) {
                 renderSourceTabs();
                 renderSourceViewer();
                 renderUnifiedTimeline();
+            }
+            if (applied) {
                 populateReportSelects();
                 renderReportChecks();
-            } else {
+            }
+            if (advanced) {
+                renderSuspects();
+                renderNotes();
+                renderLinks();
+                renderAdvancedChecks();
+            }
+            if (!applied && !advanced) {
                 renderMetadata();
                 renderTimeline();
                 populateSelects();
@@ -305,15 +345,24 @@
         }).catch(function () { /* keep the UI as-is on transient errors */ });
     }
 
-    function toggleMode(applied) {
-        /* Fundamentals panels visible only in fundamentals mode. */
+    function toggleMode(applied, advanced) {
+        var other = applied || advanced;
+        /* Fundamentals-only panels. */
         [metadata, hashBox, findings].forEach(function (n) {
-            if (n) n.hidden = applied;
+            if (n) n.hidden = other;
         });
-        /* Applied panels visible only in applied mode. */
-        [sourcesCard, reportCard].forEach(function (n) {
+        /* Applied-only panels. */
+        [sourcesCard].forEach(function (n) {
+            if (n) n.hidden = !(applied || advanced);
+        });
+        [reportCard].forEach(function (n) {
             if (n) n.hidden = !applied;
         });
+        /* Advanced-only panels. */
+        [suspectsCard, notesCard, correlationCard, incidentCard]
+            .forEach(function (n) {
+                if (n) n.hidden = !advanced;
+            });
     }
 
     /* ---------------------------------------------------------------------
@@ -498,6 +547,174 @@
         return String(text == null ? "" : text)
             .replace(/&/g, "&amp;").replace(/</g, "&lt;")
             .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    /* ---------------------------------------------------------------------
+       Advanced-lab renderers (YC-029.5.4).
+       ------------------------------------------------------------------ */
+    function renderSuspects() {
+        if (!suspectList) return;
+        suspectList.innerHTML = "";
+        (currentView.suspects || []).forEach(function (suspect) {
+            var card = el("div", "fx-suspect");
+            if (suspect.slug === currentNamedSuspect) {
+                card.classList.add("is-named");
+            }
+            card.appendChild(el("div", "fx-suspect__name",
+                suspect.display_name));
+            card.appendChild(el("div", "fx-suspect__role",
+                suspect.role + " · " + (suspect.account || "—")));
+            if (suspect.notes) {
+                card.appendChild(el("div", "fx-suspect__notes",
+                    suspect.notes));
+            }
+            var btn = el("button", "btn btn--outline btn--sm",
+                suspect.slug === currentNamedSuspect
+                    ? "named" : "Name suspect");
+            btn.addEventListener("click", function () {
+                window.LabWorkspace.sendAction({
+                    type: "select_suspect",
+                    payload: { slug: suspect.slug }
+                }).then(refresh);
+            });
+            card.appendChild(btn);
+            suspectList.appendChild(card);
+        });
+    }
+
+    function renderNotes() {
+        if (!notesList) return;
+        notesList.innerHTML = "";
+        currentNotes.forEach(function (text, i) {
+            var li = el("li", "fx-note");
+            li.appendChild(el("span", "fx-note__index", "#" + (i + 1)));
+            li.appendChild(el("span", "fx-note__body", text));
+            notesList.appendChild(li);
+        });
+        if (!currentNotes.length) {
+            notesList.appendChild(el("li", "fx-note fx-note--empty",
+                "No notes yet — capture your reasoning as you go."));
+        }
+    }
+    if (noteAddBtn) {
+        noteAddBtn.addEventListener("click", function () {
+            var text = (noteInput.value || "").trim();
+            if (!text) return;
+            window.LabWorkspace.sendAction({
+                type: "add_note", payload: { text: text }
+            }).then(function () { noteInput.value = ""; refresh(); });
+        });
+    }
+
+    function describeArtifact(a) {
+        var d = a.data || {};
+        return d.filename || d.url || d.host || d.query
+            || d.device_name || d.username || d.description || "";
+    }
+
+    function renderLinks() {
+        if (!linkA || !linkB) return;
+        var keyArtifacts = [];
+        var srcMap = currentView.artifacts_by_source || {};
+        Object.keys(srcMap).forEach(function (src) {
+            (srcMap[src] || []).forEach(function (a) {
+                if (a.is_key) keyArtifacts.push({
+                    id: a.id, label: (src + " · " + a.at_time
+                        + " · " + describeArtifact(a))
+                });
+            });
+        });
+        [linkA, linkB].forEach(function (sel) {
+            var cur = sel.value;
+            sel.innerHTML = "";
+            sel.appendChild(new Option("— pick artifact —", ""));
+            keyArtifacts.forEach(function (k) {
+                sel.appendChild(new Option(k.label, String(k.id)));
+            });
+            if (cur) sel.value = cur;
+        });
+
+        linksList.innerHTML = "";
+        currentLinks.forEach(function (link) {
+            var li = el("li", "fx-link-row");
+            li.appendChild(el("span", "",
+                "#" + link[0] + " ↔ #" + link[1]));
+            var un = el("button", "btn btn--outline btn--sm", "unlink");
+            un.addEventListener("click", function () {
+                window.LabWorkspace.sendAction({
+                    type: "unlink_artifacts",
+                    payload: { a: link[0], b: link[1] }
+                }).then(refresh);
+            });
+            li.appendChild(un);
+            linksList.appendChild(li);
+        });
+        if (!currentLinks.length) {
+            linksList.appendChild(el("li", "fx-link-row fx-note--empty",
+                "No links yet."));
+        }
+
+        if (corrMeter && currentCorrelation) {
+            var status = currentCorrelation.complete
+                ? "✓ chain complete"
+                : (currentCorrelation.linked + " / "
+                    + Math.max(0, currentCorrelation.total - 1)
+                    + " links");
+            corrMeter.textContent = "Correlation: " + status;
+            corrMeter.className = "fx-correlation__meter"
+                + (currentCorrelation.complete ? " is-complete" : "");
+        }
+    }
+    if (linkAddBtn) {
+        linkAddBtn.addEventListener("click", function () {
+            var a = parseInt(linkA.value, 10);
+            var b = parseInt(linkB.value, 10);
+            if (!a || !b || a === b) return;
+            window.LabWorkspace.sendAction({
+                type: "link_artifacts",
+                payload: { a: a, b: b }
+            }).then(refresh);
+        });
+    }
+
+    function renderAdvancedChecks() {
+        function mark(node, ok) {
+            if (!node) return;
+            if (ok == null) {
+                node.textContent = ""; node.className = "fx-field__mark";
+            } else {
+                node.textContent = ok ? "✓ correct" : "✖ try again";
+                node.className = "fx-field__mark fx-field__mark--"
+                    + (ok ? "ok" : "bad");
+            }
+        }
+        mark(document.getElementById("fx-mark-adv-account"),
+             pick(currentChecks, "account"));
+        mark(document.getElementById("fx-mark-adv-timeline"),
+             pick(currentChecks, "timeline"));
+        mark(document.getElementById("fx-mark-adv-exfil"),
+             pick(currentChecks, "exfiltrated"));
+        mark(document.getElementById("fx-mark-adv-ip"),
+             pick(currentChecks, "ip"));
+        mark(document.getElementById("fx-mark-adv-method"),
+             pick(currentChecks, "method"));
+        mark(document.getElementById("fx-mark-adv-report"),
+             pick(currentChecks, "report"));
+    }
+
+    if (advSubmit) {
+        advSubmit.addEventListener("click", function () {
+            window.LabWorkspace.sendAction({
+                type: "submit", payload: {
+                    compromised_account: (advAccount.value || "").trim(),
+                    timeline_start_time: (advTimeline.value || "").trim(),
+                    exfiltrated_file: (advFile.value || "").trim(),
+                    suspicious_ip: (advIp.value || "").trim(),
+                    attack_method: (advMethod.value || "").trim(),
+                    report_summary: (advSummary.value || "").trim()
+                }
+            }).then(refresh);
+        });
     }
 
     /* Refresh after every action anyone dispatches — keeps every panel

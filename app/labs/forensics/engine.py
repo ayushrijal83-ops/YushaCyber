@@ -206,6 +206,7 @@ def case_from_orm(case) -> dict[str, Any]:
             } for t in case.timeline
         ],
         "artifacts": artifacts_from_orm(case),
+        "suspects": suspects_from_orm(case),
     }
 
 
@@ -390,3 +391,204 @@ def artifacts_from_orm(case) -> list[dict[str, Any]]:
             "is_key": a.is_key, "sort_order": a.sort_order,
         } for a in getattr(case, "artifacts", []) or []
     ]
+
+
+# ===========================================================================
+# Advanced lab (YC-029.5.4) — network evidence, suspects, correlations.
+#
+# Network evidence rides the generic ForensicsArtifact table with new
+# source_type values ("network_dns", "network_http", …). Schema entries
+# below drive the same table-viewer used by the applied lab.
+# ===========================================================================
+
+NETWORK_SOURCES = (
+    "network_dns", "network_http", "network_https",
+    "network_ftp", "network_smb", "network_icmp",
+)
+
+# Extend the existing schema + labels with network sources.
+ARTIFACT_SCHEMA.update({
+    "network_dns":   ["query", "response_ip", "domain"],
+    "network_http":  ["method", "host", "path", "response_code",
+                      "bytes_sent"],
+    "network_https": ["host", "sni", "bytes_sent", "bytes_received"],
+    "network_ftp":   ["host", "username", "operation", "filename"],
+    "network_smb":   ["host", "share", "filename", "operation"],
+    "network_icmp":  ["host", "message_type", "count"],
+})
+SOURCE_LABEL.update({
+    "network_dns":   "DNS Requests",
+    "network_http":  "HTTP Requests",
+    "network_https": "HTTPS Sessions",
+    "network_ftp":   "FTP Sessions",
+    "network_smb":   "SMB Traffic",
+    "network_icmp":  "ICMP Packets",
+})
+
+
+def network_summary(case: dict[str, Any]) -> dict[str, int]:
+    """Row counts per network source — feeds the Network panel."""
+    counts: dict[str, int] = {}
+    for artifact in case.get("artifacts") or []:
+        source = artifact.get("source_type") or ""
+        if source in NETWORK_SOURCES:
+            counts[source] = counts.get(source, 0) + 1
+    return counts
+
+
+def suspects_from_orm(case) -> list[dict[str, Any]]:
+    """ORM → plain dict for suspect rows."""
+    return [
+        {
+            "id": s.id, "slug": s.slug,
+            "display_name": s.display_name,
+            "role": s.role, "account": s.account,
+            "notes": s.notes or "",
+            "is_key": s.is_key,
+            "display_order": s.display_order,
+        } for s in getattr(case, "suspects", []) or []
+    ]
+
+
+def key_suspect(case: dict[str, Any]) -> dict[str, Any] | None:
+    for suspect in case.get("suspects") or []:
+        if suspect.get("is_key"):
+            return suspect
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Correlation scoring.
+#
+# The student adds "links" — pairs of artifact ids they consider related.
+# A correlation is credited when a link connects two key artifacts (the
+# ones marked `is_key` in the case). This is deliberately forgiving:
+# any chain that touches every key artifact via a graph of links counts
+# as a full correlation.
+# ---------------------------------------------------------------------------
+def key_artifact_ids(case: dict[str, Any]) -> set[int]:
+    return {a["id"] for a in case.get("artifacts") or []
+            if a.get("is_key") and a.get("id") is not None}
+
+
+def correlation_score(case: dict[str, Any],
+                      links: list[list[int]]) -> dict[str, Any]:
+    """How much of the key-artifact chain the student has connected."""
+    key_ids = key_artifact_ids(case)
+    if not key_ids:
+        return {"linked": 0, "total": 0, "complete": True,
+                "ratio": 1.0}
+    # Union-find over key artifact ids.
+    parent = {k: k for k in key_ids}
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for link in links or []:
+        try:
+            a, b = int(link[0]), int(link[1])
+        except (ValueError, TypeError, IndexError):
+            continue
+        if a in key_ids and b in key_ids:
+            union(a, b)
+
+    components = {find(k) for k in key_ids}
+    linked_pairs = 0
+    seen_pair: set[tuple[int, int]] = set()
+    for link in links or []:
+        try:
+            a, b = int(link[0]), int(link[1])
+        except (ValueError, TypeError, IndexError):
+            continue
+        if a in key_ids and b in key_ids and a != b:
+            pair = tuple(sorted((a, b)))
+            if pair not in seen_pair:
+                seen_pair.add(pair)
+                linked_pairs += 1
+    return {
+        "linked": linked_pairs,
+        "total": len(key_ids),
+        "complete": len(components) == 1,
+        "ratio": (0.0 if not linked_pairs
+                  else float(linked_pairs) / max(1, len(key_ids) - 1)),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Advanced findings validator — 6 correlated fields plus report length.
+# ---------------------------------------------------------------------------
+def evaluate_advanced_findings(
+        case: dict[str, Any],
+        findings: dict[str, str],
+        links: list[list[int]] | None = None) -> dict[str, Any]:
+    """Grade the advanced incident report.
+
+    findings keys:
+      compromised_account   — the key suspect's ``account`` field
+      timeline_start_time   — earliest key-artifact ``at_time``
+      exfiltrated_file      — filename from the key `downloads` or
+                              key `network_ftp`/`network_http` row
+      suspicious_ip         — response_ip from the key `network_dns`
+                              row (or host from a key HTTPS row)
+      attack_method         — free text; matches any of a small
+                              tolerated set (case-insensitive contains)
+      report_summary        — free text; passes when >= 60 chars
+
+    ``links`` scores a bonus but is NOT required for `all_correct` —
+    the correlation objective fires on its own event.
+    """
+    def _match(user: str, expected: str) -> bool:
+        return (user or "").strip().lower() \
+            == (expected or "").strip().lower()
+
+    suspect = key_suspect(case) or {}
+    download = key_artifact(case, "downloads") or {}
+    dns = key_artifact(case, "network_dns") or {}
+
+    account = suspect.get("account") or ""
+
+    # Earliest key artifact drives the "when did it begin" answer.
+    key_times = sorted(
+        a.get("at_time") or ""
+        for a in case.get("artifacts") or []
+        if a.get("is_key"))
+    timeline_start = key_times[0] if key_times else ""
+
+    dl_filename = ((download.get("data") or {}).get("filename")
+                   or "")
+    suspicious_ip = ((dns.get("data") or {}).get("response_ip")
+                     or "")
+
+    method_hits = ("credential", "exfil", "insider", "upload",
+                   "dns", "usb")
+    method_input = (findings.get("attack_method") or "").lower()
+    method_ok = any(word in method_input for word in method_hits)
+
+    report_summary = (findings.get("report_summary") or "").strip()
+
+    checks = {
+        "account": _match(findings.get("compromised_account", ""),
+                          account),
+        "timeline": _match(findings.get("timeline_start_time", ""),
+                           timeline_start),
+        "exfiltrated": _match(findings.get("exfiltrated_file", ""),
+                              dl_filename),
+        "ip": _match(findings.get("suspicious_ip", ""), suspicious_ip),
+        "method": method_ok,
+        "report": len(report_summary) >= 60,
+    }
+    checks["all_correct"] = all(checks.values())
+
+    # Correlation is scored independently (informational — objectives
+    # fire on ``correlation_complete`` when the student links every key
+    # artifact into one graph).
+    checks["correlation"] = correlation_score(case, links or [])
+    return checks

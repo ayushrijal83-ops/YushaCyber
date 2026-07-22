@@ -704,3 +704,371 @@ class TestAppliedSeedAndHTTP:
                 user_id=student_id,
                 achievement_id=correlator.id).first()
             assert unlocked is not None
+
+
+# ===========================================================================
+# YC-029.5.4 — Advanced lab
+# ===========================================================================
+ADVANCED_CASE = {
+    "id": 555, "lab_slug": "forensics-advanced", "mode": "advanced",
+    "title": "Advanced test", "briefing": "b",
+    "workstation_name": "WS", "investigator": "I",
+    "evidence": [], "timeline": [],
+    "suspects": [
+        {"id": 1, "slug": "s1", "display_name": "S One",
+         "role": "Eng", "account": "s.one", "is_key": True,
+         "display_order": 1, "notes": ""},
+        {"id": 2, "slug": "s2", "display_name": "S Two",
+         "role": "PM", "account": "s.two", "is_key": False,
+         "display_order": 2, "notes": ""},
+    ],
+    "artifacts": [
+        # Key chain: login -> file access -> dns -> https upload
+        {"id": 10, "source_type": "login_history", "at_time": "21:00",
+         "data": {"username": "s.one", "login_at": "21:00",
+                  "logout_at": "22:00", "duration": "01h"},
+         "is_key": True, "sort_order": 1},
+        {"id": 11, "source_type": "event_log", "at_time": "21:10",
+         "data": {"event_id": 4663, "description": "file access"},
+         "is_key": True, "sort_order": 2},
+        {"id": 12, "source_type": "network_dns", "at_time": "21:20",
+         "data": {"query": "evil.example",
+                  "response_ip": "203.0.113.99",
+                  "domain": "evil.example"},
+         "is_key": True, "sort_order": 3},
+        {"id": 13, "source_type": "network_https", "at_time": "21:25",
+         "data": {"host": "evil.example", "bytes_sent": 999_999},
+         "is_key": True, "sort_order": 4},
+        {"id": 14, "source_type": "downloads", "at_time": "21:27",
+         "data": {"filename": "secret.zip",
+                  "url": "https://evil.example/upload"},
+         "is_key": True, "sort_order": 5},
+        # Non-key noise
+        {"id": 15, "source_type": "browser_history", "at_time": "20:00",
+         "data": {"url": "https://google.com/", "title": "Google",
+                  "visit_count": 100},
+         "is_key": False, "sort_order": 6},
+    ],
+}
+
+
+class TestAdvancedEngine:
+    def test_network_schema_extended(self):
+        assert "network_dns" in engine.ARTIFACT_SCHEMA
+        assert "network_https" in engine.ARTIFACT_SCHEMA
+        assert engine.SOURCE_LABEL["network_dns"] == "DNS Requests"
+
+    def test_network_summary_counts_only_network(self):
+        counts = engine.network_summary(ADVANCED_CASE)
+        assert counts == {"network_dns": 1, "network_https": 1}
+
+    def test_key_suspect_lookup(self):
+        assert engine.key_suspect(ADVANCED_CASE)["slug"] == "s1"
+
+    def test_key_artifact_ids(self):
+        ids = engine.key_artifact_ids(ADVANCED_CASE)
+        assert ids == {10, 11, 12, 13, 14}
+
+    def test_correlation_score_incomplete_and_complete(self):
+        # Zero links.
+        score = engine.correlation_score(ADVANCED_CASE, [])
+        assert score["complete"] is False
+        assert score["total"] == 5
+
+        # Chain all 5 key artifacts.
+        chain = [[10, 11], [11, 12], [12, 13], [13, 14]]
+        score = engine.correlation_score(ADVANCED_CASE, chain)
+        assert score["complete"] is True
+        assert score["linked"] == 4
+
+    def test_correlation_ignores_non_key(self):
+        score = engine.correlation_score(ADVANCED_CASE, [[10, 15]])
+        assert score["linked"] == 0
+
+    def test_evaluate_advanced_all_correct(self):
+        payload = {
+            "compromised_account": "s.one",
+            "timeline_start_time": "21:00",
+            "exfiltrated_file": "secret.zip",
+            "suspicious_ip": "203.0.113.99",
+            "attack_method": "insider credential misuse — HTTPS exfil",
+            "report_summary": ("The user s.one signed in, accessed the "
+                               "target file, uploaded it via HTTPS to a "
+                               "non-corporate host after DNS lookup."),
+        }
+        checks = engine.evaluate_advanced_findings(
+            ADVANCED_CASE, payload, links=[])
+        assert checks["all_correct"] is True
+
+    def test_evaluate_advanced_wrong_ip_fails(self):
+        payload = {
+            "compromised_account": "s.one",
+            "timeline_start_time": "21:00",
+            "exfiltrated_file": "secret.zip",
+            "suspicious_ip": "1.2.3.4",
+            "attack_method": "insider credential misuse",
+            "report_summary": ("A long report summary that easily "
+                               "clears sixty characters of prose."),
+        }
+        checks = engine.evaluate_advanced_findings(
+            ADVANCED_CASE, payload)
+        assert checks["ip"] is False
+        assert checks["all_correct"] is False
+
+    def test_evaluate_advanced_short_report_fails(self):
+        payload = {
+            "compromised_account": "s.one",
+            "timeline_start_time": "21:00",
+            "exfiltrated_file": "secret.zip",
+            "suspicious_ip": "203.0.113.99",
+            "attack_method": "insider credential misuse",
+            "report_summary": "brief",
+        }
+        checks = engine.evaluate_advanced_findings(
+            ADVANCED_CASE, payload)
+        assert checks["report"] is False
+
+    def test_evaluate_advanced_attack_method_tolerant_match(self):
+        payload = {
+            "compromised_account": "s.one",
+            "timeline_start_time": "21:00",
+            "exfiltrated_file": "secret.zip",
+            "suspicious_ip": "203.0.113.99",
+            "attack_method": "unauthorised DNS-based upload",
+            "report_summary": ("Report copy long enough to easily "
+                               "clear the sixty character floor."),
+        }
+        checks = engine.evaluate_advanced_findings(
+            ADVANCED_CASE, payload)
+        assert checks["method"] is True
+
+
+class TestAdvancedSimulator:
+    def _sim_state(self):
+        sim = ForensicsSimulator()
+        return sim, sim.bootstrap(None, {"case": ADVANCED_CASE})
+
+    def test_bootstrap_carries_advanced_state(self):
+        sim, state = self._sim_state()
+        for key in ("notes", "links", "named_suspect"):
+            assert key in state
+
+    def test_add_note_appends(self):
+        sim, state = self._sim_state()
+        r = sim.handle(state, Action("add_note",
+                                      {"text": "First lead."}))
+        assert r.new_state["notes"] == ["First lead."]
+        assert any(e["type"] == "note_added" for e in r.events)
+
+    def test_select_suspect_key_fires(self):
+        sim, state = self._sim_state()
+        r = sim.handle(state, Action("select_suspect",
+                                      {"slug": "s1"}))
+        assert r.new_state["named_suspect"] == "s1"
+        assert any(e["type"] == "key_suspect_named" for e in r.events)
+
+    def test_select_suspect_non_key_does_not_fire(self):
+        sim, state = self._sim_state()
+        r = sim.handle(state, Action("select_suspect",
+                                      {"slug": "s2"}))
+        assert not any(e["type"] == "key_suspect_named"
+                       for e in r.events)
+
+    def test_link_and_correlation_complete(self):
+        sim, state = self._sim_state()
+        events_all = []
+        for pair in ([10, 11], [11, 12], [12, 13], [13, 14]):
+            r = sim.handle(state, Action("link_artifacts",
+                                          {"a": pair[0], "b": pair[1]}))
+            state = r.new_state
+            events_all.extend(r.events)
+        assert any(e["type"] == "correlation_complete"
+                   for e in events_all)
+
+    def test_link_idempotent(self):
+        sim, state = self._sim_state()
+        r = sim.handle(state, Action("link_artifacts",
+                                      {"a": 10, "b": 11}))
+        state = r.new_state
+        r = sim.handle(state, Action("link_artifacts",
+                                      {"a": 11, "b": 10}))
+        state = r.new_state
+        assert len(state["links"]) == 1
+
+    def test_unlink(self):
+        sim, state = self._sim_state()
+        state = sim.handle(state, Action("link_artifacts",
+                                          {"a": 10, "b": 11})).new_state
+        state = sim.handle(state, Action("unlink_artifacts",
+                                          {"a": 10, "b": 11})).new_state
+        assert state["links"] == []
+
+    def test_submit_routes_to_advanced(self):
+        sim, state = self._sim_state()
+        r = sim.handle(state, Action("submit", {
+            "compromised_account": "s.one",
+            "timeline_start_time": "21:00",
+            "exfiltrated_file": "secret.zip",
+            "suspicious_ip": "203.0.113.99",
+            "attack_method": "insider credential misuse — HTTPS exfil",
+            "report_summary": ("Ample summary that clears the "
+                               "sixty character floor requirement."),
+        }))
+        assert r.new_state["findings_correct"] is True
+        types = [e["type"] for e in r.events]
+        assert "findings_correct" in types
+        assert "incident_report_submitted" in types
+
+
+class TestAdvancedSeedAndHTTP:
+    def test_advanced_lab_seeded(self, app):
+        with app.app_context():
+            from app.labs.forensics.models import ForensicsCase
+            case = ForensicsCase.query.filter_by(
+                lab_slug="forensics-advanced").first()
+            assert case is not None
+            assert case.mode == "advanced"
+            assert len(case.suspects) == 3
+            # 6 fundamentals sources + 6 network sources — some empty.
+            assert len(case.artifacts) >= 10
+
+    def test_master_investigator_seeded(self, app):
+        with app.app_context():
+            from app.achievement.models import Achievement
+            a = Achievement.query.filter_by(
+                title="Master Investigator").first()
+            assert a is not None
+            assert a.bonus_xp == 100
+            assert a.condition_value == 3
+
+    def test_advanced_lab_shape(self, app):
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(
+                slug="forensics-advanced").first()
+            assert lab is not None
+            assert lab.xp_reward == 200
+            assert lab.difficulty == "Hard"
+            assert len(lab.objectives) == 6
+
+    def test_state_endpoint_returns_advanced_view(self, app, student):
+        with app.test_client() as client:
+            _login(client, student)
+            client.get("/labs/forensics-advanced")
+            r = client.get(
+                "/labs/forensics-advanced/forensics/state")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["view"]["mode"] == "advanced"
+            assert len(data["view"]["suspects"]) == 3
+            assert data["correlation"]["total"] >= 2
+            # Network sources present in the schema
+            assert "network_dns" in data["view"]["schema"]
+
+    def test_advanced_playthrough_unlocks_master(self, app):
+        from app.auth.models import User
+        from app.extensions import db as _db
+        with app.app_context():
+            student = User(username="master_tester",
+                           email="mt@test.io")
+            student.set_password("Str0ngPass!")
+            _db.session.add(student)
+            _db.session.commit()
+            student_id = student.id
+
+        with app.test_client() as client:
+            _login(client, "master_tester")
+
+            # --- 1. Complete fundamentals ---
+            for slug in ("report-docx", "confidential-pdf",
+                         "holiday-jpg", "backup-zip", "usb-toshiba",
+                         "browser-history", "resume-pdf",
+                         "recycle-old-notes"):
+                client.post("/labs/forensics-fundamentals/action",
+                            json={"type": "select",
+                                  "payload": {"asset_id": slug}})
+            client.post("/labs/forensics-fundamentals/action",
+                        json={"type": "flag",
+                              "payload": {"asset_id": "usb-toshiba"}})
+            mod_hash = engine.simulated_hash("confidential-pdf",
+                                              "sha256")
+            client.post("/labs/forensics-fundamentals/action",
+                        json={"type": "submit", "payload": {
+                            "modified_slug": "confidential-pdf",
+                            "modified_hash": mod_hash,
+                            "modified_time": "08:35",
+                            "suspicious_slug": "usb-toshiba"}})
+
+            # --- 2. Complete applied ---
+            for source_type in ("event_log", "login_history",
+                                "browser_history", "downloads",
+                                "usb_history", "recent_docs"):
+                client.post("/labs/forensics-applied/action",
+                            json={"type": "select_source",
+                                  "payload": {"source_type": source_type}})
+            client.post("/labs/forensics-applied/action", json={
+                "type": "submit", "payload": {
+                    "first_login_time": "08:07",
+                    "usb_serial": "KDT-7YQ-4419",
+                    "downloaded_filename": "portfolio.zip",
+                    "suspicious_url":
+                        "https://pastebin.com/raw/9Zx4KpQ2",
+                    "timeline_first_kind": "event_log",
+                    "report_summary": (
+                        "User attached rogue KINGSTON USB, modified "
+                        "client-list.xlsx and downloaded portfolio.zip "
+                        "from a non-corporate host — insider exfil."),
+                }})
+
+            # --- 3. Complete advanced ---
+            # Fetch key artifact ids from the case dict.
+            with app.app_context():
+                from app.labs.forensics.engine import case_from_orm
+                from app.labs.forensics.models import ForensicsCase
+                case = ForensicsCase.query.filter_by(
+                    lab_slug="forensics-advanced").first()
+                case_dict = case_from_orm(case)
+                key_ids = sorted(a["id"] for a in case_dict["artifacts"]
+                                 if a["is_key"])
+                dl = engine.key_artifact(case_dict, "downloads")
+                dns = engine.key_artifact(case_dict, "network_dns")
+                suspect = engine.key_suspect(case_dict)
+                tl_start = sorted(a["at_time"]
+                                  for a in case_dict["artifacts"]
+                                  if a["is_key"])[0]
+
+            client.post("/labs/forensics-advanced/action",
+                        json={"type": "select_suspect",
+                              "payload": {"slug": suspect["slug"]}})
+            for i in range(len(key_ids) - 1):
+                client.post("/labs/forensics-advanced/action",
+                            json={"type": "link_artifacts",
+                                  "payload": {"a": key_ids[i],
+                                              "b": key_ids[i + 1]}})
+
+            r = client.post("/labs/forensics-advanced/action", json={
+                "type": "submit", "payload": {
+                    "compromised_account": suspect["account"],
+                    "timeline_start_time": tl_start,
+                    "exfiltrated_file": dl["data"]["filename"],
+                    "suspicious_ip": dns["data"]["response_ip"],
+                    "attack_method":
+                        "Insider credential misuse — HTTPS exfil",
+                    "report_summary": (
+                        "Compromised VPN account accessed the roadmap "
+                        "PDF and exfiltrated a repackaged archive via "
+                        "HTTPS to a non-corporate host."),
+                }})
+            body = r.get_json()
+            assert body.get("lab_completed") is True
+
+        with app.app_context():
+            from app.achievement.models import (
+                Achievement, UserAchievement,
+            )
+            master = Achievement.query.filter_by(
+                title="Master Investigator").first()
+            unlocked = UserAchievement.query.filter_by(
+                user_id=student_id,
+                achievement_id=master.id).first()
+            assert unlocked is not None

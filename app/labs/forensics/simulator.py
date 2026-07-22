@@ -54,6 +54,13 @@ class ForensicsSimulator(Simulator):
             opened_sources=[],
             seen_artifacts=[],
             selected_artifact=None,
+            # Advanced-lab state (YC-029.5.4) — student scratch-pad for
+            # notes, correlation links between key artifacts, and the
+            # currently selected suspect. All in-session; nothing
+            # persisted across sessions.
+            notes=[],
+            links=[],           # list of [artifact_id, artifact_id]
+            named_suspect=None,
         )
 
     def capabilities(self) -> set[str]:
@@ -124,6 +131,14 @@ class ForensicsSimulator(Simulator):
             return self._select_source(state, case, action)
         if action.type == "select_artifact":
             return self._select_artifact(state, case, action)
+        if action.type == "add_note":
+            return self._add_note(state, case, action)
+        if action.type == "link_artifacts":
+            return self._link_artifacts(state, case, action)
+        if action.type == "unlink_artifacts":
+            return self._unlink_artifacts(state, case, action)
+        if action.type == "select_suspect":
+            return self._select_suspect(state, case, action)
         if action.type == "submit":
             return self._submit(state, case, action)
 
@@ -131,6 +146,86 @@ class ForensicsSimulator(Simulator):
             output="Unknown action. Click an evidence item, flag it, "
                    "or submit findings.",
             new_state=state)
+
+    # ------------------------------------------------------------------
+    # Advanced-lab actions (YC-029.5.4)
+    # ------------------------------------------------------------------
+    def _add_note(self, state: dict[str, Any], case: dict[str, Any],
+                  action: Action) -> ActionResult:
+        text = str((action.payload or {}).get("text") or "").strip()
+        if not text:
+            return ActionResult(output="Empty note ignored.",
+                                new_state=state)
+        notes = list(state.get("notes") or [])
+        notes.append(text[:400])
+        state["notes"] = notes
+        return ActionResult(
+            output=f"[NOTE] {text[:80]}",
+            new_state=state,
+            events=[{"type": "note_added"}])
+
+    def _link_artifacts(self, state: dict[str, Any],
+                        case: dict[str, Any],
+                        action: Action) -> ActionResult:
+        try:
+            a = int((action.payload or {}).get("a"))
+            b = int((action.payload or {}).get("b"))
+        except (TypeError, ValueError):
+            return ActionResult(output="Need two artifact ids to link.",
+                                new_state=state)
+        if a == b:
+            return ActionResult(
+                output="Can't link an artifact to itself.",
+                new_state=state)
+        pair = sorted([a, b])
+        links = [list(link) for link in (state.get("links") or [])]
+        if pair not in [sorted(link) for link in links]:
+            links.append(pair)
+        state["links"] = links
+
+        events = [{"type": "artifacts_linked", "a": a, "b": b}]
+        # Fire correlation_complete once all key artifacts are joined.
+        score = engine.correlation_score(case, links)
+        if score["complete"] and score["total"] >= 2:
+            events.append({"type": "correlation_complete"})
+        return ActionResult(
+            output=f"[LINK] artifact #{a} ↔ artifact #{b}",
+            new_state=state, events=events)
+
+    def _unlink_artifacts(self, state: dict[str, Any],
+                          case: dict[str, Any],
+                          action: Action) -> ActionResult:
+        try:
+            a = int((action.payload or {}).get("a"))
+            b = int((action.payload or {}).get("b"))
+        except (TypeError, ValueError):
+            return ActionResult(output="Need two artifact ids.",
+                                new_state=state)
+        pair = sorted([a, b])
+        links = [list(link) for link in (state.get("links") or [])
+                 if sorted(link) != pair]
+        state["links"] = links
+        return ActionResult(output=f"[UNLINK] #{a} × #{b}",
+                            new_state=state)
+
+    def _select_suspect(self, state: dict[str, Any],
+                        case: dict[str, Any],
+                        action: Action) -> ActionResult:
+        slug = str((action.payload or {}).get("slug") or "").strip()
+        suspect = next(
+            (s for s in case.get("suspects") or []
+             if s.get("slug") == slug), None)
+        if suspect is None:
+            return ActionResult(
+                output=f"No suspect '{slug}'.", new_state=state)
+        state["named_suspect"] = slug
+        events = [{"type": "suspect_named", "slug": slug}]
+        if suspect.get("is_key"):
+            events.append({"type": "key_suspect_named"})
+        return ActionResult(
+            output=f"[SUSPECT] {suspect['display_name']} "
+                   f"({suspect.get('role') or 'unknown role'})",
+            new_state=state, events=events)
 
     # ------------------------------------------------------------------
     # Applied-lab actions (YC-029.5.3)
@@ -257,9 +352,10 @@ class ForensicsSimulator(Simulator):
     def _submit(self, state: dict[str, Any], case: dict[str, Any],
                 action: Action) -> ActionResult:
         payload = action.payload or {}
-        # Applied lab has 6 correlated fields; fundamentals lab has 4.
-        # Route by the case's mode discriminator.
-        if (case.get("mode") or "fundamentals") == "applied":
+        mode = case.get("mode") or "fundamentals"
+        if mode == "advanced":
+            return self._submit_advanced(state, case, payload)
+        if mode == "applied":
             return self._submit_applied(state, case, payload)
         return self._submit_fundamentals(state, case, payload)
 
@@ -335,3 +431,46 @@ class ForensicsSimulator(Simulator):
                     events.append(
                         {"type": f"applied_{key}_correct"})
         return ActionResult(output=output, new_state=state, events=events)
+
+
+# Injected onto the class below via monkey-patch to avoid a giant str_replace.
+def _submit_advanced(self, state, case, payload):
+    findings = {
+        "compromised_account": str(payload.get("compromised_account") or ""),
+        "timeline_start_time": str(payload.get("timeline_start_time") or ""),
+        "exfiltrated_file":    str(payload.get("exfiltrated_file") or ""),
+        "suspicious_ip":       str(payload.get("suspicious_ip") or ""),
+        "attack_method":       str(payload.get("attack_method") or ""),
+        "report_summary":      str(payload.get("report_summary") or ""),
+    }
+    links = list(state.get("links") or [])
+    checks = engine.evaluate_advanced_findings(case, findings, links)
+    state["findings"] = findings
+    state["checks"] = checks
+    state["findings_correct"] = bool(checks["all_correct"])
+
+    if checks["all_correct"]:
+        output = ("[INCIDENT REPORT] ✅ All findings verified.\n"
+                  "Report accepted. Case closed.")
+        events = [
+            {"type": "findings_correct"},
+            {"type": "incident_report_submitted"},
+        ]
+        for key, ok in checks.items():
+            if key not in ("all_correct", "correlation") and ok:
+                events.append({"type": f"advanced_{key}_correct"})
+    else:
+        wrong = [k for k, ok in checks.items()
+                 if k not in ("all_correct", "correlation") and not ok]
+        output = ("[INCIDENT REPORT] ✖ Report incomplete: "
+                  + ", ".join(wrong) + "\n"
+                  "Re-examine the sources, network evidence and "
+                  "correlations, then resubmit.")
+        events = [{"type": "findings_incorrect", "wrong": wrong}]
+        for key, ok in checks.items():
+            if key not in ("all_correct", "correlation") and ok:
+                events.append({"type": f"advanced_{key}_correct"})
+    return ActionResult(output=output, new_state=state, events=events)
+
+
+ForensicsSimulator._submit_advanced = _submit_advanced
