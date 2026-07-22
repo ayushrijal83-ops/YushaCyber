@@ -46,7 +46,20 @@ def load_lab_content(lab: Lab) -> dict[str, Any]:
         .order_by(LabFileSystemNode.path)
         .all()
     )
+    # ---- Forensics (YC-029.5.2): supply the case for the forensics
+    # simulator when the lab has one seeded. No-op for every other lab.
+    forensics_case = None
+    try:
+        from app.labs.forensics.engine import case_from_orm
+        from app.labs.forensics.models import ForensicsCase
+        row = ForensicsCase.query.filter_by(lab_slug=lab.slug).first()
+        if row is not None:
+            forensics_case = case_from_orm(row)
+    except Exception:
+        forensics_case = None
+
     return {
+        "case": forensics_case,
         "filesystem": [
             {
                 "path": n.path,

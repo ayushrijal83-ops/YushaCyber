@@ -295,3 +295,44 @@ def cloud_state(slug: str):
         "tree": cloud_engine.explorer_tree(state.get("deployment", {})),
         "selected": state.get("selected", ""),
     })
+
+
+# ---------------------------------------------------------------------------
+# Digital Forensics workstation surface (YC-029.5.2)
+# ---------------------------------------------------------------------------
+@labs_bp.route("/<slug>/forensics/state")
+@login_required
+def forensics_state(slug: str):
+    """Session state for the forensics workstation UI.
+
+    Read-only; returns the case view (evidence grouped by kind + the
+    timeline), the currently selected slug, the sets of inspected /
+    flagged evidence and the last submitted findings + check results.
+    Everything the client needs to render metadata, hash and findings
+    panels without a page reload.
+    """
+    lab = lab_services.get_lab(slug)
+    if lab is None or lab.simulator_key != "forensics":
+        abort(404)
+
+    from app.labs import session_manager
+    from app.labs.forensics import engine as forensics_engine
+
+    simulator = session_manager.get_simulator(lab)
+    session = session_manager.start_session(current_user, lab)
+    state = session_manager.load_state(session, simulator, lab)
+    case = state.get("case") or {}
+    view = forensics_engine.build_view(case)
+    view["metadata"] = {
+        item["slug"]:
+            forensics_engine.evidence_metadata(item).__dict__
+        for item in case.get("evidence") or []
+    }
+    return jsonify({
+        "view": view,
+        "selected": state.get("selected") or "",
+        "inspected": list(state.get("inspected") or []),
+        "flagged": list(state.get("flagged") or []),
+        "findings": state.get("findings") or {},
+        "checks": state.get("checks") or {},
+    })

@@ -1,0 +1,233 @@
+/* ===========================================================================
+   Digital Forensics workstation (YC-029.5.2).
+   Reuses the dashboard/lab-workspace tokens; adds forensics-only widgets:
+   evidence explorer, timeline, metadata card, hash viewer, findings form.
+   =========================================================================== */
+
+.fx {
+    display: grid;
+    grid-template-columns: minmax(230px, 260px) 1fr;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+/* ---------- Evidence Explorer (left) ---------- */
+.fx-explorer {
+    padding: 12px 8px;
+    max-height: 640px;
+    overflow-y: auto;
+}
+.fx-explorer__title {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--color-text-muted, #7a8794);
+    padding: 4px 8px;
+    margin-top: 8px;
+}
+.fx-explorer__title:first-child { margin-top: 0; }
+
+.fx-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .82rem;
+    color: var(--color-text, #dbe4ee);
+    border: 1px solid transparent;
+    transition: background-color .12s;
+}
+.fx-item:hover { background: rgba(0, 255, 136, .06); }
+.fx-item.is-active {
+    border-color: var(--color-primary, #00ff88);
+    background: rgba(0, 255, 136, .1);
+}
+.fx-item__icon {
+    font-size: 1.05rem;
+    width: 22px;
+    text-align: center;
+}
+.fx-item__name { flex: 1; }
+.fx-item__badge {
+    font-size: .58rem;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 180, 84, .5);
+    color: #ffb454;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.fx-item__badge--flag {
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, .5);
+}
+
+/* ---------- Workarea (right) ---------- */
+.fx-workarea {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+}
+.fx-metadata, .fx-hash, .fx-timeline, .fx-findings {
+    padding: 14px;
+}
+.fx-metadata { grid-column: 1; }
+.fx-hash { grid-column: 2; }
+.fx-timeline { grid-column: 1 / 3; }
+.fx-findings { grid-column: 1 / 3; }
+
+.fx-card__head {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+}
+.fx-card__title {
+    font-size: .74rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--color-text-muted, #7a8794);
+    margin: 0;
+}
+.fx-card__hint {
+    color: var(--color-text-muted, #7a8794);
+    font-size: .78rem;
+    margin: 0;
+}
+
+.fx-meta {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 12px;
+    font-size: .84rem;
+    font-family: "JetBrains Mono", monospace;
+}
+.fx-meta__label {
+    color: var(--color-text-muted, #7a8794);
+    text-transform: uppercase;
+    font-size: .68rem;
+    letter-spacing: .04em;
+}
+.fx-meta__value { word-break: break-all; }
+
+.fx-hash__row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 0;
+    border-top: 1px dashed var(--color-border, #1d2733);
+    font-family: "JetBrains Mono", monospace;
+    font-size: .78rem;
+}
+.fx-hash__row:first-of-type { border-top: none; padding-top: 0; }
+.fx-hash__algo {
+    color: var(--color-primary, #00ff88);
+    width: 66px; flex: 0 0 auto;
+    font-weight: 700;
+}
+.fx-hash__digest { word-break: break-all; flex: 1; }
+.fx-hash__copy {
+    background: none; border: 1px solid var(--color-border, #1d2733);
+    color: var(--color-text-muted, #7a8794);
+    border-radius: 6px; padding: 2px 8px;
+    font-size: .68rem; cursor: pointer;
+}
+.fx-hash__copy:hover {
+    color: var(--color-primary, #00ff88);
+    border-color: var(--color-primary, #00ff88);
+}
+
+/* ---------- Timeline ---------- */
+.fx-timeline__list {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 240px; overflow-y: auto;
+}
+.fx-tl {
+    display: grid;
+    grid-template-columns: 60px 26px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 6px;
+    border-bottom: 1px dashed var(--color-border, #1d2733);
+    font-size: .82rem;
+    cursor: pointer;
+    transition: background-color .12s;
+}
+.fx-tl:last-child { border-bottom: none; }
+.fx-tl:hover { background: rgba(0, 255, 136, .04); }
+.fx-tl.is-active { background: rgba(0, 255, 136, .08); }
+.fx-tl__time {
+    font-family: "JetBrains Mono", monospace;
+    color: var(--color-primary, #00ff88);
+    font-weight: 700;
+}
+.fx-tl__icon { font-size: 1rem; text-align: center; }
+.fx-tl__kind {
+    font-size: .62rem;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border, #1d2733);
+    color: var(--color-text-muted, #7a8794);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+/* ---------- Findings form ---------- */
+.fx-findings__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.fx-field { display: grid; gap: 4px; }
+.fx-field__label {
+    font-size: .68rem;
+    color: var(--color-text-muted, #7a8794);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.fx-field__input, .fx-field__select {
+    background: var(--color-bg, #0a0f14);
+    border: 1px solid var(--color-border, #1d2733);
+    border-radius: 8px;
+    color: var(--color-text, #dbe4ee);
+    padding: 8px 10px;
+    font: inherit;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .82rem;
+}
+.fx-field__input:focus, .fx-field__select:focus {
+    outline: none;
+    border-color: var(--color-primary, #00ff88);
+}
+.fx-field__mark {
+    font-size: .7rem;
+    color: var(--color-text-muted, #7a8794);
+}
+.fx-field__mark--ok  { color: var(--color-primary, #00ff88); }
+.fx-field__mark--bad { color: #ff6b6b; }
+
+.fx-flag-btn {
+    background: none;
+    border: 1px solid var(--color-border, #1d2733);
+    color: var(--color-text-muted, #7a8794);
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: .72rem;
+}
+.fx-flag-btn.is-on {
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+}
+
+.fx-empty {
+    color: var(--color-text-muted, #7a8794);
+    font-size: .82rem;
+    text-align: center;
+    padding: 24px 8px;
+}
+
+@media (max-width: 900px) {
+    .fx { grid-template-columns: 1fr; }
+    .fx-workarea { grid-template-columns: 1fr; }
+    .fx-metadata, .fx-hash, .fx-timeline, .fx-findings { grid-column: 1; }
+}

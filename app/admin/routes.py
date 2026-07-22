@@ -675,3 +675,151 @@ def cloud_scenario_delete(scenario_id: int):
     db.session.commit()
     flash(f"Scenario '{name}' deleted.", "success")
     return redirect(url_for("admin.cloud_scenarios"))
+
+
+# ---------------------------------------------------------------------------
+# Digital Forensics cases (YC-029.5.2)
+# ---------------------------------------------------------------------------
+@admin_bp.route("/forensics")
+@admin_required
+def forensics_cases():
+    from app.labs.forensics.models import ForensicsCase
+    cases = ForensicsCase.query.order_by(ForensicsCase.lab_slug).all()
+    return render_template("admin/forensics_cases.html", cases=cases)
+
+
+@admin_bp.route("/forensics/<int:case_id>", methods=["GET"])
+@admin_required
+def forensics_case_edit(case_id: int):
+    from app.labs.forensics.engine import simulated_hash
+    from app.labs.forensics.models import (
+        EVIDENCE_KINDS, TIMELINE_KINDS, ForensicsCase,
+    )
+    case = ForensicsCase.query.get_or_404(case_id)
+    evidence_hashes = {
+        e.slug: {"md5": simulated_hash(e.slug, "md5"),
+                 "sha256": simulated_hash(e.slug, "sha256")}
+        for e in case.evidence
+    }
+    from app.labs.models import Lab
+    lab = Lab.query.filter_by(slug=case.lab_slug).first()
+    return render_template(
+        "admin/forensics_case_form.html", case=case, lab=lab,
+        evidence_kinds=EVIDENCE_KINDS, timeline_kinds=TIMELINE_KINDS,
+        evidence_hashes=evidence_hashes)
+
+
+@admin_bp.route("/forensics/<int:case_id>/save", methods=["POST"])
+@admin_required
+def forensics_case_save(case_id: int):
+    """Update the case briefing/workstation plus every evidence and
+    timeline row. Rows are matched by the ``id`` hidden field for
+    updates; missing ids mean the admin removed that row. New rows
+    have no id and are inserted."""
+    from app.labs.forensics.models import (
+        ForensicsCase, ForensicsEvidence, ForensicsTimelineEvent,
+    )
+    from app.extensions import db as _db
+    case = ForensicsCase.query.get_or_404(case_id)
+
+    case.title = (request.form.get("title") or case.title).strip()[:160]
+    case.briefing = (request.form.get("briefing") or "").strip()
+    case.workstation_name = (
+        request.form.get("workstation_name") or "WORKSTATION-01").strip()[:80]
+    case.investigator = (
+        request.form.get("investigator") or "Investigator").strip()[:80]
+
+    # Evidence: indexed by row order (e.g. name="evidence-<idx>-slug").
+    idx = 0
+    new_evidence = []
+    while f"evidence-{idx}-slug" in request.form:
+        row_id = request.form.get(f"evidence-{idx}-id")
+        slug = (request.form.get(f"evidence-{idx}-slug") or "").strip().lower()
+        filename = (request.form.get(f"evidence-{idx}-filename") or "").strip()
+        if slug and filename:
+            data = {
+                "slug": slug[:80],
+                "kind": request.form.get(f"evidence-{idx}-kind") or "document",
+                "filename": filename[:160],
+                "extension": (request.form.get(f"evidence-{idx}-extension")
+                              or "").strip()[:20],
+                "owner": (request.form.get(f"evidence-{idx}-owner")
+                          or "user").strip()[:60],
+                "size_bytes": int(
+                    request.form.get(f"evidence-{idx}-size_bytes") or 0),
+                "created_at_display": (
+                    request.form.get(f"evidence-{idx}-created") or "")[:40],
+                "modified_at_display": (
+                    request.form.get(f"evidence-{idx}-modified") or "")[:40],
+                "notes": request.form.get(f"evidence-{idx}-notes") or "",
+                "is_suspicious": bool(
+                    request.form.get(f"evidence-{idx}-is_suspicious")),
+                "is_modified": bool(
+                    request.form.get(f"evidence-{idx}-is_modified")),
+                "display_order": idx + 1,
+            }
+            new_evidence.append((row_id, data))
+        idx += 1
+
+    # Wipe & re-insert (simplest correct approach — SQLite friendly).
+    ForensicsEvidence.query.filter_by(case_id=case.id).delete()
+    _db.session.flush()
+    for _row_id, data in new_evidence:
+        _db.session.add(ForensicsEvidence(case_id=case.id, **data))
+
+    # Timeline rows.
+    idx = 0
+    new_timeline = []
+    while f"timeline-{idx}-description" in request.form:
+        at_time = (request.form.get(f"timeline-{idx}-at_time") or "").strip()
+        description = (request.form.get(f"timeline-{idx}-description")
+                       or "").strip()
+        if at_time and description:
+            new_timeline.append({
+                "at_time": at_time[:8],
+                "kind": request.form.get(f"timeline-{idx}-kind") or "other",
+                "description": description[:200],
+                "evidence_slug": (
+                    request.form.get(f"timeline-{idx}-evidence_slug")
+                    or "").strip()[:80] or None,
+            })
+        idx += 1
+    ForensicsTimelineEvent.query.filter_by(case_id=case.id).delete()
+    _db.session.flush()
+    for data in new_timeline:
+        _db.session.add(ForensicsTimelineEvent(case_id=case.id, **data))
+
+    _db.session.commit()
+    flash(f"Case '{case.title}' saved — "
+          f"{len(new_evidence)} evidence items, "
+          f"{len(new_timeline)} timeline events.", "success")
+    return redirect(url_for("admin.forensics_case_edit", case_id=case.id))
+
+
+@admin_bp.route("/forensics/<int:case_id>/objectives", methods=["POST"])
+@admin_required
+def forensics_case_objectives(case_id: int):
+    """Edit the lab's objectives (title, instruction, hints, XP).
+    Validator specs stay locked — they're wired to the simulator's
+    events and would break if changed casually."""
+    from app.labs.forensics.models import ForensicsCase
+    from app.labs.models import Lab
+    from app.extensions import db as _db
+    case = ForensicsCase.query.get_or_404(case_id)
+    lab = Lab.query.filter_by(slug=case.lab_slug).first_or_404()
+
+    for objective in lab.objectives:
+        key = f"objective-{objective.id}-"
+        title = (request.form.get(key + "title") or objective.title).strip()
+        instruction = (request.form.get(key + "instruction") or "").strip()
+        xp = int(request.form.get(key + "xp") or objective.xp_reward)
+        objective.title = title[:150]
+        objective.instruction = instruction or objective.instruction
+        objective.description = instruction or objective.description
+        objective.xp_reward = max(0, xp)
+        objective.hint1 = (request.form.get(key + "hint1") or "").strip() or None
+        objective.hint2 = (request.form.get(key + "hint2") or "").strip() or None
+        objective.hint3 = (request.form.get(key + "hint3") or "").strip() or None
+    _db.session.commit()
+    flash("Objectives saved.", "success")
+    return redirect(url_for("admin.forensics_case_edit", case_id=case.id))

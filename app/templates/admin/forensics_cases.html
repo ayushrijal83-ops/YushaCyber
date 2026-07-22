@@ -1,0 +1,55 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'forensics' %}
+{% block title %}Forensics Cases{% endblock %}
+{% block heading %}Digital Forensics Cases{% endblock %}
+{% block subheading %}Author the simulated evidence, hashes and timelines students investigate. Everything here is educational data — no real files, no real tools.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("search", 18) }}</span>
+        <span class="adm-stat__value">{{ cases|length }}</span>
+        <span class="adm-stat__label">Cases</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("layers", 18) }}</span>
+        <span class="adm-stat__value">{{ cases|map(attribute='evidence')|map('length')|sum }}</span>
+        <span class="adm-stat__label">Evidence items</span>
+    </article>
+</div>
+
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("search", 16) }} Cases</h2>
+    </header>
+    {% if not cases %}
+    <p class="adm-empty">No forensics cases seeded yet — run <code>flask seed-labs</code>.</p>
+    {% else %}
+    <table class="adm-table">
+        <thead>
+            <tr>
+                <th>Lab slug</th><th>Title</th><th>Workstation</th>
+                <th class="num">Evidence</th><th class="num">Timeline</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for case in cases %}
+            <tr>
+                <td><code>{{ case.lab_slug }}</code></td>
+                <td>{{ case.title }}</td>
+                <td>{{ case.workstation_name }}</td>
+                <td class="num">{{ case.evidence|length }}</td>
+                <td class="num">{{ case.timeline|length }}</td>
+                <td class="num">
+                    <a class="btn btn--outline btn--sm"
+                       href="{{ url_for('admin.forensics_case_edit', case_id=case.id) }}">Edit</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+{% endblock %}

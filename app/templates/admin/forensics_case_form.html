@@ -1,0 +1,165 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'forensics' %}
+{% block title %}{{ case.title }}{% endblock %}
+{% block heading %}{{ case.title }}{% endblock %}
+{% block subheading %}Edit the case briefing, evidence, timeline and lab objectives. Hashes are derived from each evidence slug so they stay deterministic — changing a slug regenerates its hashes.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<a class="btn btn--outline btn--sm" href="{{ url_for('admin.forensics_cases') }}">← All cases</a>
+
+{# ============ Case metadata + evidence + timeline (one form) ============ #}
+<form method="POST" action="{{ url_for('admin.forensics_case_save', case_id=case.id) }}" class="adm-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("edit", 16) }} Case briefing</h2>
+        </header>
+        <div class="adm-form__grid">
+            <label class="adm-field">
+                <span class="adm-label">Lab slug (read-only)</span>
+                <input class="adm-input" value="{{ case.lab_slug }}" disabled>
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Title</span>
+                <input class="adm-input" name="title" value="{{ case.title }}" maxlength="160" required>
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Workstation</span>
+                <input class="adm-input" name="workstation_name" value="{{ case.workstation_name }}" maxlength="80">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Investigator</span>
+                <input class="adm-input" name="investigator" value="{{ case.investigator }}" maxlength="80">
+            </label>
+        </div>
+        <label class="adm-field">
+            <span class="adm-label">Briefing</span>
+            <textarea class="adm-textarea" name="briefing" rows="3" maxlength="2000">{{ case.briefing }}</textarea>
+        </label>
+    </section>
+
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("layers", 16) }} Evidence
+                <span class="adm-hint">Exactly one item should be marked <em>modified</em> and one <em>suspicious</em> — the validators rely on it.</span>
+            </h2>
+        </header>
+        <table class="adm-table" id="evidence-table">
+            <thead>
+                <tr>
+                    <th>Slug (drives hashes)</th>
+                    <th>Kind</th>
+                    <th>Filename</th>
+                    <th>Ext</th>
+                    <th>Owner</th>
+                    <th>Size (bytes)</th>
+                    <th>Created</th>
+                    <th>Modified</th>
+                    <th>Mod?</th>
+                    <th>Susp?</th>
+                    <th>SHA-256 (preview)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in case.evidence %}
+                <tr class="ev-row">
+                    <td>
+                        <input type="hidden" name="evidence-{{ loop.index0 }}-id" value="{{ e.id }}">
+                        <input class="adm-input" name="evidence-{{ loop.index0 }}-slug" value="{{ e.slug }}" maxlength="80" required>
+                    </td>
+                    <td>
+                        <select class="adm-input" name="evidence-{{ loop.index0 }}-kind">
+                            {% for k in evidence_kinds %}
+                            <option value="{{ k }}" {% if e.kind == k %}selected{% endif %}>{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input class="adm-input" name="evidence-{{ loop.index0 }}-filename" value="{{ e.filename }}" maxlength="160" required></td>
+                    <td><input class="adm-input" name="evidence-{{ loop.index0 }}-extension" value="{{ e.extension }}" maxlength="20" style="width:70px"></td>
+                    <td><input class="adm-input" name="evidence-{{ loop.index0 }}-owner" value="{{ e.owner }}" maxlength="60"></td>
+                    <td><input class="adm-input" type="number" min="0" name="evidence-{{ loop.index0 }}-size_bytes" value="{{ e.size_bytes }}" style="width:110px"></td>
+                    <td><input class="adm-input" name="evidence-{{ loop.index0 }}-created" value="{{ e.created_at_display }}" maxlength="40"></td>
+                    <td><input class="adm-input" name="evidence-{{ loop.index0 }}-modified" value="{{ e.modified_at_display }}" maxlength="40"></td>
+                    <td class="num"><input type="checkbox" name="evidence-{{ loop.index0 }}-is_modified" {% if e.is_modified %}checked{% endif %}></td>
+                    <td class="num"><input type="checkbox" name="evidence-{{ loop.index0 }}-is_suspicious" {% if e.is_suspicious %}checked{% endif %}></td>
+                    <td style="font-family:monospace;font-size:.7rem;color:var(--color-text-muted,#7a8794)">{{ evidence_hashes.get(e.slug, {}).get('sha256', '')[:16] }}…</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="adm-hint" style="margin-top:8px">Editing a slug regenerates its hashes. Rows here rely on ordering — deleting rows from the DOM removes them on save.</p>
+    </section>
+
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("target", 16) }} Timeline</h2>
+        </header>
+        <table class="adm-table" id="timeline-table">
+            <thead>
+                <tr><th>Time (HH:MM)</th><th>Kind</th><th>Description</th><th>Evidence slug</th></tr>
+            </thead>
+            <tbody>
+                {% for t in case.timeline %}
+                <tr>
+                    <td><input class="adm-input" name="timeline-{{ loop.index0 }}-at_time" value="{{ t.at_time }}" maxlength="8" style="width:80px" required></td>
+                    <td>
+                        <select class="adm-input" name="timeline-{{ loop.index0 }}-kind">
+                            {% for k in timeline_kinds %}
+                            <option value="{{ k }}" {% if t.kind == k %}selected{% endif %}>{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input class="adm-input" name="timeline-{{ loop.index0 }}-description" value="{{ t.description }}" maxlength="200" required></td>
+                    <td><input class="adm-input" name="timeline-{{ loop.index0 }}-evidence_slug" value="{{ t.evidence_slug or '' }}" maxlength="80"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <button class="btn btn--primary" type="submit">Save case</button>
+</form>
+
+{# ============ Objectives (separate form) ============ #}
+{% if lab %}
+<form method="POST" action="{{ url_for('admin.forensics_case_objectives', case_id=case.id) }}" class="adm-form" style="margin-top:24px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("target", 16) }} Objectives
+                <span class="adm-hint">Validators stay locked — they're wired to simulator events. Edit copy, hints and XP freely.</span>
+            </h2>
+        </header>
+        {% for o in lab.objectives %}
+        <fieldset class="adm-fieldset">
+            <legend>Objective {{ loop.index }}</legend>
+            <div class="adm-form__grid">
+                <label class="adm-field">
+                    <span class="adm-label">Title</span>
+                    <input class="adm-input" name="objective-{{ o.id }}-title" value="{{ o.title }}" maxlength="150">
+                </label>
+                <label class="adm-field">
+                    <span class="adm-label">XP reward</span>
+                    <input class="adm-input" type="number" min="0" name="objective-{{ o.id }}-xp" value="{{ o.xp_reward }}" style="width:100px">
+                </label>
+            </div>
+            <label class="adm-field">
+                <span class="adm-label">Instruction</span>
+                <textarea class="adm-textarea" name="objective-{{ o.id }}-instruction" rows="2">{{ o.instruction or '' }}</textarea>
+            </label>
+            <div class="adm-form__grid">
+                <label class="adm-field"><span class="adm-label">Hint 1</span><input class="adm-input" name="objective-{{ o.id }}-hint1" value="{{ o.hint1 or '' }}"></label>
+                <label class="adm-field"><span class="adm-label">Hint 2</span><input class="adm-input" name="objective-{{ o.id }}-hint2" value="{{ o.hint2 or '' }}"></label>
+                <label class="adm-field"><span class="adm-label">Hint 3</span><input class="adm-input" name="objective-{{ o.id }}-hint3" value="{{ o.hint3 or '' }}"></label>
+            </div>
+            <p class="adm-hint">Validator: <code>{{ o.validator_type }}</code> · locked</p>
+        </fieldset>
+        {% endfor %}
+    </section>
+    <button class="btn btn--primary" type="submit">Save objectives</button>
+</form>
+{% endif %}
+{% endblock %}

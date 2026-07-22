@@ -201,6 +201,7 @@ def _user_progress_metrics(user: User) -> dict[str, int]:
         "networking_labs_completed": _labs_completed_in_category("networking"),
         "ad_labs_completed": _labs_completed_in_category("active-directory"),
         "cloud_labs_completed": _labs_completed_in_category("cloud-security"),
+        "forensics_labs_completed": _labs_completed_in_category("digital-forensics"),
         "quizzes_passed": quiz_stats.get("quizzes_passed", 0),
         "level_reached": user.level or 1,
         "xp_earned": user.xp or 0,
@@ -232,6 +233,8 @@ _CONDITION_METRIC = {
     "ad_lab_completed": "ad_labs_completed",
     "cloud_labs_completed": "cloud_labs_completed",
     "cloud_lab_completed": "cloud_labs_completed",
+    "forensics_labs_completed": "forensics_labs_completed",
+    "forensics_lab_completed": "forensics_labs_completed",
 }
 
 

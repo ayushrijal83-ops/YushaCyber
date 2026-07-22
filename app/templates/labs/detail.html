@@ -132,6 +132,62 @@
                         <div class="cldx__hint">Click any resource to inspect it — the console below shows its details. Tree updates live after every command.</div>
                     </div>
                     {% endif %}
+                    {% if ui and ui.forensics %}
+                    <link rel="stylesheet" href="{{ url_for('static', filename='css/forensics.css') }}">
+                    <div class="fx" aria-label="Forensic workstation">
+                        <aside class="ui-card fx-explorer" id="fx-explorer" aria-label="Evidence explorer">
+                            <div class="fx-empty">Loading evidence…</div>
+                        </aside>
+                        <section class="fx-workarea">
+                            <article class="ui-card fx-metadata" id="fx-metadata">
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Metadata</h3>
+                                </header>
+                                <p class="fx-card__hint">Select an evidence item on the left to inspect its metadata.</p>
+                            </article>
+                            <article class="ui-card fx-hash" id="fx-hash">
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Hash Viewer</h3>
+                                </header>
+                                <p class="fx-card__hint">MD5 and SHA-256 appear here once an item is selected.</p>
+                            </article>
+                            <article class="ui-card fx-timeline" id="fx-timeline">
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Workstation Timeline</h3>
+                                </header>
+                                <ul class="fx-timeline__list"></ul>
+                            </article>
+                            <article class="ui-card fx-findings" id="fx-findings">
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Findings Report</h3>
+                                </header>
+                                <div class="fx-findings__grid">
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Modified file</span>
+                                        <select class="fx-field__select" id="fx-modified-slug"></select>
+                                        <span class="fx-field__mark" id="fx-mark-slug"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">SHA-256 of modified file</span>
+                                        <input class="fx-field__input" id="fx-modified-hash" placeholder="Paste from Hash Viewer">
+                                        <span class="fx-field__mark" id="fx-mark-hash"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Modification time (HH:MM)</span>
+                                        <input class="fx-field__input" id="fx-modified-time" placeholder="e.g. 08:35">
+                                        <span class="fx-field__mark" id="fx-mark-time"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Suspicious evidence</span>
+                                        <select class="fx-field__select" id="fx-suspicious-slug"></select>
+                                        <span class="fx-field__mark" id="fx-mark-susp"></span>
+                                    </label>
+                                </div>
+                                <button type="button" class="btn btn--primary btn--sm" id="fx-submit">Submit findings</button>
+                            </article>
+                        </section>
+                    </div>
+                    {% endif %}
                     {% if ui and ui.topology %}
                     <div class="lw-topo" id="lw-topo" aria-label="Network topology — click a device to switch to it">
                         <div class="lw-topo__hint">Click a device to switch to its terminal.</div>
@@ -148,6 +204,7 @@
                     </div>
                     {% endif %}
 
+                    {% if not (ui and ui.forensics) %}
                     <section class="lw-term" aria-label="Simulated terminal">
                     <div class="lw-term__bar">
                         <span class="lw-term__dots"><i></i><i></i><i></i></span>
@@ -172,6 +229,7 @@
                         <span class="lw-cursor" aria-hidden="true"></span>
                     </div>
                     </section>
+                    {% endif %}
                 </section>
             </div>
 
@@ -221,7 +279,8 @@
                   objectives: {{ objectives|tojson }},
                   topology:  {{ (ui.topology if ui and ui.topology else none)|tojson }},
                   adStateUrl: {{ (url_for('labs.ad_state', slug=lab.slug) if ui and ui.ad else none)|tojson }},
-                  cloudStateUrl: {{ (url_for('labs.cloud_state', slug=lab.slug) if ui and ui.cloud else none)|tojson }}
+                  cloudStateUrl: {{ (url_for('labs.cloud_state', slug=lab.slug) if ui and ui.cloud else none)|tojson }},
+                  forensicsStateUrl: {{ (url_for('labs.forensics_state', slug=lab.slug) if ui and ui.forensics else none)|tojson }}
               };
             </script>
             <script src="{{ url_for('static', filename='js/lab_terminal.js') }}"></script>
@@ -231,6 +290,9 @@
             {% endif %}
             {% if ui and ui.cloud %}
             <script src="{{ url_for('static', filename='js/cloud_console.js') }}"></script>
+            {% endif %}
+            {% if ui and ui.forensics %}
+            <script src="{{ url_for('static', filename='js/forensics.js') }}"></script>
             {% endif %}
 
             {% else %}

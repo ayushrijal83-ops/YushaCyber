@@ -27,7 +27,12 @@
     var doneEl   = document.getElementById("lw-done");
     var modal    = document.getElementById("lw-modal");
     var modalXp  = document.getElementById("lw-modal-xp");
-    if (!screen || !input) return;
+    /* Terminal DOM is optional (YC-029.5.2: forensics labs are pure
+       inspector — no terminal is rendered). When absent we still export
+       LabWorkspace so panel-only simulators can dispatch actions and
+       subscribe to result hooks — but skip everything that reads/writes
+       the screen and input elements. */
+    var hasTerminal = !!(screen && input);
 
     var history = [];       // command history (↑ / ↓)
     var histIdx = -1;
@@ -242,7 +247,7 @@
     });
 
     /* ---------- input: typing, Enter, history ---------- */
-    input.addEventListener("keydown", function (e) {
+    if (hasTerminal) input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
             e.preventDefault();
             if (busy) return;
@@ -293,7 +298,7 @@
     }
 
     /* clicking anywhere in the terminal focuses the input (real-terminal feel) */
-    [screen, inputRow].forEach(function (el) {
+    if (hasTerminal) [screen, inputRow].forEach(function (el) {
         if (el) el.addEventListener("click", function () { input.focus(); });
     });
 
@@ -302,7 +307,7 @@
         if (!inputRow) return;
         inputRow.classList.toggle("is-typing", input.value.length > 0);
     }
-    input.addEventListener("input", syncCursor);
+    if (hasTerminal) input.addEventListener("input", syncCursor);
 
     /* ---------- copy output (YC-026.2) ---------- */
     var copyBtn = document.getElementById("lw-copy");
@@ -478,7 +483,7 @@
 
     /* ---------- boot ---------- */
     refresh(cfg.objectives || []);       /* real objective data from the server */
-    input.focus();                       /* focus terminal on page load */
+    if (hasTerminal) input.focus();      /* focus terminal on page load */
 
     /* ---------- workspace API (YC-031.0, additive) ----------
        Companion scripts (e.g. the AD object explorer) drive the SAME
