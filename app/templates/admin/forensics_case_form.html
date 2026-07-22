@@ -123,6 +123,51 @@
     <button class="btn btn--primary" type="submit">Save case</button>
 </form>
 
+{# ============ Artifact sources (applied lab) ============ #}
+{% if case.mode == 'applied' %}
+<form method="POST" action="{{ url_for('admin.forensics_case_artifacts', case_id=case.id) }}" class="adm-form" style="margin-top:24px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <section class="adm-card">
+        <header class="adm-card__head">
+            <h2 class="adm-card__title">{{ icon("layers", 16) }} Evidence source artifacts
+                <span class="adm-hint">Mark exactly one row per key source (browser history / downloads / USB / login) as <em>is_key</em> — the validators expect it.</span>
+            </h2>
+        </header>
+        {% for source_type in artifact_sources %}
+        {% set rows = artifacts_by_source.get(source_type, []) %}
+        {% set schema = artifact_schema.get(source_type, []) %}
+        {% if schema %}
+        <fieldset class="adm-fieldset">
+            <legend>{{ source_label.get(source_type, source_type) }} <span class="adm-hint">({{ rows|length }} rows)</span></legend>
+            <table class="adm-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        {% for field in schema %}<th>{{ field.replace('_', ' ') }}</th>{% endfor %}
+                        <th>Key?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td><input class="adm-input" name="artifact-{{ source_type }}-{{ loop.index0 }}-at_time" value="{{ row.at_time }}" style="width:100px"></td>
+                        {% for field in schema %}
+                        <td><input class="adm-input" name="artifact-{{ source_type }}-{{ loop.index0 }}-{{ field }}" value="{{ row.get_data().get(field, '') }}"></td>
+                        {% endfor %}
+                        <td class="num"><input type="checkbox" name="artifact-{{ source_type }}-{{ loop.index0 }}-is_key" {% if row.is_key %}checked{% endif %}></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </fieldset>
+        {% endif %}
+        {% endfor %}
+        <p class="adm-hint" style="margin-top:8px">Rows preserve their order on save. Blank <code>at_time</code> deletes the row.</p>
+    </section>
+    <button class="btn btn--primary" type="submit">Save artifacts</button>
+</form>
+{% endif %}
+
 {# ============ Objectives (separate form) ============ #}
 {% if lab %}
 <form method="POST" action="{{ url_for('admin.forensics_case_objectives', case_id=case.id) }}" class="adm-form" style="margin-top:24px">

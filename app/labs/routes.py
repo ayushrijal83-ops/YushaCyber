@@ -328,6 +328,17 @@ def forensics_state(slug: str):
             forensics_engine.evidence_metadata(item).__dict__
         for item in case.get("evidence") or []
     }
+    view["mode"] = case.get("mode") or "fundamentals"
+    # Applied-lab extras — cheap to compute, harmless in fundamentals mode.
+    view["sources"] = forensics_engine.all_sources(case)
+    view["unified_timeline"] = forensics_engine.unified_timeline(case)
+    view["artifacts_by_source"] = {
+        source["source_type"]:
+            forensics_engine.artifacts_by_source(case,
+                                                  source["source_type"])
+        for source in view["sources"]
+    }
+    view["schema"] = forensics_engine.ARTIFACT_SCHEMA
     return jsonify({
         "view": view,
         "selected": state.get("selected") or "",
@@ -335,4 +346,7 @@ def forensics_state(slug: str):
         "flagged": list(state.get("flagged") or []),
         "findings": state.get("findings") or {},
         "checks": state.get("checks") or {},
+        "active_source": state.get("active_source") or "",
+        "opened_sources": list(state.get("opened_sources") or []),
+        "seen_artifacts": list(state.get("seen_artifacts") or []),
     })

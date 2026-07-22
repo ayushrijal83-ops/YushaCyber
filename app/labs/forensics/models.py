@@ -12,6 +12,8 @@ simulated values produced by ``engine.simulated_hash``.
 
 from __future__ import annotations
 
+import json as _json
+
 from app.extensions import db
 from app.models.base import BaseModel
 
@@ -41,6 +43,12 @@ class ForensicsCase(BaseModel):
                                  default="WORKSTATION-01")
     investigator = db.Column(db.String(80), nullable=False,
                              default="Investigator Ayush")
+    #: "fundamentals" (YC-029.5.2) or "applied" (YC-029.5.3). Drives
+    #: which panel set the workspace renders and which validator shape
+    #: `evaluate_findings` uses.
+    mode = db.Column(db.String(20), nullable=False,
+                     default="fundamentals",
+                     server_default="fundamentals")
 
     evidence = db.relationship(
         "ForensicsEvidence", back_populates="case",
@@ -106,3 +114,58 @@ class ForensicsTimelineEvent(BaseModel):
     evidence_slug = db.Column(db.String(80), nullable=True)
 
     case = db.relationship("ForensicsCase", back_populates="timeline")
+
+
+# ===========================================================================
+# Applied lab (YC-029.5.3): generic artifact source table.
+#
+# One row per artifact (browser visit, downloaded file, event log entry,
+# USB connection, login session, recent document). ``source_type`` is
+# the discriminator; ``data`` is a JSON blob with source-specific
+# fields so future SOC / threat hunting / incident response labs add
+# new source types by seeding rows — no migration required.
+# ===========================================================================
+#: The source types this ticket ships. Future labs may add more.
+ARTIFACT_SOURCES = (
+    "browser_history", "downloads", "event_log",
+    "usb_history", "login_history", "recent_docs",
+)
+
+
+class ForensicsArtifact(BaseModel):
+    """One row from a simulated evidence source (browser, logs, USB…)."""
+
+    __tablename__ = "forensics_artifacts"
+
+    case_id = db.Column(
+        db.Integer, db.ForeignKey("forensics_cases.id",
+                                  ondelete="CASCADE"),
+        nullable=False, index=True)
+    source_type = db.Column(db.String(30), nullable=False, index=True)
+    #: Sortable timestamp — "HH:MM" for same-day events or ISO-ish
+    #: strings for older sessions. Sort is lexicographic, so "08:12"
+    #: precedes "10:05". Cross-day timelines can use "2026-04-17 08:12".
+    at_time = db.Column(db.String(40), nullable=False, index=True)
+    #: JSON blob of source-specific fields (see engine.ARTIFACT_SCHEMA).
+    data_json = db.Column(db.Text, nullable=False, default="{}")
+    #: Optional flag — if true, the applied validator expects the
+    #: student to identify this row (e.g. the suspicious website).
+    is_key = db.Column(db.Boolean, nullable=False, default=False)
+    sort_order = db.Column(db.Integer, nullable=False, default=0,
+                           index=True)
+
+    case = db.relationship("ForensicsCase",
+                           backref=db.backref("artifacts",
+                                              cascade="all, delete-orphan",
+                                              lazy="selectin",
+                                              order_by="ForensicsArtifact.at_time"))
+
+    def get_data(self) -> dict:
+        try:
+            return _json.loads(self.data_json or "{}")
+        except (TypeError, ValueError):
+            return {}
+
+    def set_data(self, data: dict) -> None:
+        self.data_json = _json.dumps(data or {})
+

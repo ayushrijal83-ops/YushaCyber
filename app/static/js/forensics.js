@@ -24,11 +24,24 @@
     var metadata = document.getElementById("fx-metadata");
     var hashBox = document.getElementById("fx-hash");
     var timeline = document.getElementById("fx-timeline");
+    var findings = document.getElementById("fx-findings");
     var modifiedSlug = document.getElementById("fx-modified-slug");
     var modifiedHash = document.getElementById("fx-modified-hash");
     var modifiedTime = document.getElementById("fx-modified-time");
     var suspiciousSlug = document.getElementById("fx-suspicious-slug");
     var submitBtn = document.getElementById("fx-submit");
+    /* Applied-lab (YC-029.5.3) DOM. */
+    var sourcesCard = document.getElementById("fx-sources");
+    var sourceTabs = document.getElementById("fx-source-tabs");
+    var sourceViewer = document.getElementById("fx-source-viewer");
+    var reportCard = document.getElementById("fx-report");
+    var reportFirstLogin = document.getElementById("fx-first-login");
+    var reportUsbSerial = document.getElementById("fx-usb-serial");
+    var reportDownload = document.getElementById("fx-download");
+    var reportSuspiciousUrl = document.getElementById("fx-suspicious-url");
+    var reportTimelineFirst = document.getElementById("fx-timeline-first");
+    var reportSummary = document.getElementById("fx-report-summary");
+    var submitReport = document.getElementById("fx-submit-report");
     if (!explorer || !metadata || !submitBtn) return;
 
     var KIND_ICON = {
@@ -47,6 +60,8 @@
     var currentSelected = "";
     var currentFlagged = [];
     var currentChecks = {};
+    var currentActiveSource = "";
+    var currentOpenedSources = [];
 
     function el(tag, cls, text) {
         var node = document.createElement(tag);
@@ -270,12 +285,213 @@
             currentSelected = data.selected || "";
             currentFlagged = data.flagged || [];
             currentChecks = data.checks || {};
+            currentActiveSource = data.active_source || "";
+            currentOpenedSources = data.opened_sources || [];
+            var applied = (currentView.mode === "applied");
+            toggleMode(applied);
             renderExplorer();
-            renderMetadata();
-            renderTimeline();
-            populateSelects();
-            renderChecks();
+            if (applied) {
+                renderSourceTabs();
+                renderSourceViewer();
+                renderUnifiedTimeline();
+                populateReportSelects();
+                renderReportChecks();
+            } else {
+                renderMetadata();
+                renderTimeline();
+                populateSelects();
+                renderChecks();
+            }
         }).catch(function () { /* keep the UI as-is on transient errors */ });
+    }
+
+    function toggleMode(applied) {
+        /* Fundamentals panels visible only in fundamentals mode. */
+        [metadata, hashBox, findings].forEach(function (n) {
+            if (n) n.hidden = applied;
+        });
+        /* Applied panels visible only in applied mode. */
+        [sourcesCard, reportCard].forEach(function (n) {
+            if (n) n.hidden = !applied;
+        });
+    }
+
+    /* ---------------------------------------------------------------------
+       Applied-lab renderers.
+       ------------------------------------------------------------------ */
+    var SOURCE_TAB_ICON = {
+        browser_history: "🌐", downloads: "⬇", event_log: "📋",
+        usb_history: "🔌", login_history: "🔑", recent_docs: "📄"
+    };
+
+    function renderSourceTabs() {
+        if (!sourceTabs) return;
+        sourceTabs.innerHTML = "";
+        var sources = currentView.sources || [];
+        if (!sources.length) {
+            sourceTabs.appendChild(el("div", "fx-empty",
+                "No source data seeded for this case."));
+            return;
+        }
+        sources.forEach(function (source) {
+            var opened = currentOpenedSources.indexOf(source.source_type) >= 0;
+            var tab = el("button", "fx-source-tab");
+            if (source.source_type === currentActiveSource) {
+                tab.classList.add("is-active");
+            }
+            if (opened) tab.classList.add("is-opened");
+            tab.appendChild(el("span", "fx-source-tab__icon",
+                SOURCE_TAB_ICON[source.source_type] || "•"));
+            tab.appendChild(el("span", "fx-source-tab__label",
+                source.label));
+            tab.appendChild(el("span", "fx-source-tab__count",
+                "(" + source.count + ")"));
+            tab.addEventListener("click", function () {
+                sendSelectSource(source.source_type);
+            });
+            sourceTabs.appendChild(tab);
+        });
+    }
+
+    function renderSourceViewer() {
+        if (!sourceViewer) return;
+        var active = currentActiveSource;
+        if (!active) {
+            sourceViewer.innerHTML =
+                '<p class="fx-card__hint">Pick a source tab above to open its viewer.</p>';
+            return;
+        }
+        var schema = (currentView.schema && currentView.schema[active]) || [];
+        var rows = (currentView.artifacts_by_source
+            && currentView.artifacts_by_source[active]) || [];
+        var table = el("table", "fx-source-table");
+        var thead = el("thead", "");
+        var tr = el("tr", "");
+        tr.appendChild(el("th", "", "Time"));
+        schema.forEach(function (field) {
+            tr.appendChild(el("th", "", field.replace(/_/g, " ")));
+        });
+        thead.appendChild(tr);
+        table.appendChild(thead);
+        var tbody = el("tbody", "");
+        rows.forEach(function (artifact) {
+            var row = el("tr", "fx-source-row");
+            row.setAttribute("data-id", artifact.id);
+            if (artifact.is_key) row.classList.add("is-key");
+            row.appendChild(el("td", "fx-source-row__time",
+                artifact.at_time));
+            schema.forEach(function (field) {
+                var value = (artifact.data || {})[field];
+                var td = el("td", "");
+                if (typeof value === "number"
+                    && field.indexOf("size") >= 0) {
+                    td.textContent = formatSize(value);
+                } else {
+                    td.textContent = value == null ? "" : String(value);
+                }
+                row.appendChild(td);
+            });
+            row.addEventListener("click", function () {
+                window.LabWorkspace.sendAction({
+                    type: "select_artifact",
+                    payload: { artifact_id: artifact.id }
+                }).then(refresh);
+            });
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        sourceViewer.innerHTML = "";
+        sourceViewer.appendChild(el("h4", "fx-source-viewer__title",
+            (SOURCE_TAB_ICON[active] || "") + " "
+            + ((currentView.sources || []).find(function (s) {
+                return s.source_type === active;
+            }) || { label: active }).label));
+        sourceViewer.appendChild(table);
+    }
+
+    function formatSize(n) {
+        if (n < 1024) return n + " B";
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+        return (n / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function renderUnifiedTimeline() {
+        var list = timeline.querySelector(".fx-timeline__list");
+        if (!list) return;
+        list.innerHTML = "";
+        (currentView.unified_timeline || []).forEach(function (event) {
+            var row = el("li", "fx-tl");
+            row.appendChild(el("span", "fx-tl__time", event.at_time));
+            row.appendChild(el("span", "fx-tl__icon",
+                SOURCE_TAB_ICON[event.source] || "•"));
+            row.appendChild(el("span", "", event.description));
+            row.appendChild(el("span", "fx-tl__kind",
+                (event.source || "other").replace("_", " ")));
+            list.appendChild(row);
+        });
+    }
+
+    function populateReportSelects() {
+        if (!reportTimelineFirst) return;
+        var current = reportTimelineFirst.value;
+        reportTimelineFirst.innerHTML = "";
+        reportTimelineFirst.appendChild(new Option("— pick one —", ""));
+        (currentView.sources || []).forEach(function (source) {
+            reportTimelineFirst.appendChild(
+                new Option(source.label, source.source_type));
+        });
+        if (current) reportTimelineFirst.value = current;
+    }
+
+    function renderReportChecks() {
+        function mark(node, ok) {
+            if (!node) return;
+            if (ok == null) {
+                node.textContent = ""; node.className = "fx-field__mark";
+            } else {
+                node.textContent = ok ? "✓ correct" : "✖ try again";
+                node.className = "fx-field__mark fx-field__mark--"
+                    + (ok ? "ok" : "bad");
+            }
+        }
+        mark(document.getElementById("fx-mark-first-login"),
+             pick(currentChecks, "first_login"));
+        mark(document.getElementById("fx-mark-usb"),
+             pick(currentChecks, "usb_serial"));
+        mark(document.getElementById("fx-mark-download"),
+             pick(currentChecks, "download"));
+        mark(document.getElementById("fx-mark-website"),
+             pick(currentChecks, "website"));
+        mark(document.getElementById("fx-mark-timeline"),
+             pick(currentChecks, "timeline"));
+        mark(document.getElementById("fx-mark-report"),
+             pick(currentChecks, "report"));
+    }
+
+    function sendSelectSource(sourceType) {
+        window.LabWorkspace.sendAction({
+            type: "select_source",
+            payload: { source_type: sourceType }
+        }).then(refresh);
+    }
+
+    if (submitReport) {
+        submitReport.addEventListener("click", function () {
+            window.LabWorkspace.sendAction({
+                type: "submit", payload: {
+                    first_login_time: (reportFirstLogin.value || "").trim(),
+                    usb_serial: (reportUsbSerial.value || "").trim(),
+                    downloaded_filename:
+                        (reportDownload.value || "").trim(),
+                    suspicious_url:
+                        (reportSuspiciousUrl.value || "").trim(),
+                    timeline_first_kind:
+                        reportTimelineFirst.value || "",
+                    report_summary:
+                        (reportSummary.value || "").trim()
+                }
+            }).then(refresh);
+        });
     }
 
     function escapeHtml(text) {

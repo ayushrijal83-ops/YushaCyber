@@ -134,11 +134,12 @@
                     {% endif %}
                     {% if ui and ui.forensics %}
                     <link rel="stylesheet" href="{{ url_for('static', filename='css/forensics.css') }}">
-                    <div class="fx" aria-label="Forensic workstation">
+                    <div class="fx" id="fx-root" aria-label="Forensic workstation">
                         <aside class="ui-card fx-explorer" id="fx-explorer" aria-label="Evidence explorer">
                             <div class="fx-empty">Loading evidence…</div>
                         </aside>
                         <section class="fx-workarea">
+                            {# ---- Fundamentals panels (hidden in applied mode) ---- #}
                             <article class="ui-card fx-metadata" id="fx-metadata">
                                 <header class="fx-card__head">
                                     <h3 class="fx-card__title">Metadata</h3>
@@ -151,12 +152,25 @@
                                 </header>
                                 <p class="fx-card__hint">MD5 and SHA-256 appear here once an item is selected.</p>
                             </article>
+
+                            {# ---- Applied-lab panels (hidden in fundamentals mode) ---- #}
+                            <article class="ui-card fx-sources" id="fx-sources" hidden>
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Evidence Sources</h3>
+                                </header>
+                                <nav class="fx-source-tabs" id="fx-source-tabs" aria-label="Evidence source"></nav>
+                                <div class="fx-source-viewer" id="fx-source-viewer">
+                                    <p class="fx-card__hint">Pick a source tab to open its viewer.</p>
+                                </div>
+                            </article>
+
                             <article class="ui-card fx-timeline" id="fx-timeline">
                                 <header class="fx-card__head">
                                     <h3 class="fx-card__title">Workstation Timeline</h3>
                                 </header>
                                 <ul class="fx-timeline__list"></ul>
                             </article>
+
                             <article class="ui-card fx-findings" id="fx-findings">
                                 <header class="fx-card__head">
                                     <h3 class="fx-card__title">Findings Report</h3>
@@ -184,6 +198,46 @@
                                     </label>
                                 </div>
                                 <button type="button" class="btn btn--primary btn--sm" id="fx-submit">Submit findings</button>
+                            </article>
+
+                            <article class="ui-card fx-report" id="fx-report" hidden>
+                                <header class="fx-card__head">
+                                    <h3 class="fx-card__title">Investigation Report</h3>
+                                </header>
+                                <p class="fx-card__hint">Sections: <em>Incident Summary · Timeline · Evidence Used · Suspicious Findings · Recommendations</em>. Fill each row from the source viewers above.</p>
+                                <div class="fx-findings__grid">
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">First login (HH:MM)</span>
+                                        <input class="fx-field__input" id="fx-first-login" placeholder="e.g. 08:07">
+                                        <span class="fx-field__mark" id="fx-mark-first-login"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Rogue USB serial</span>
+                                        <input class="fx-field__input" id="fx-usb-serial" placeholder="Serial from the USB viewer">
+                                        <span class="fx-field__mark" id="fx-mark-usb"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Exfil download filename</span>
+                                        <input class="fx-field__input" id="fx-download" placeholder="From Downloads viewer">
+                                        <span class="fx-field__mark" id="fx-mark-download"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Suspicious website URL</span>
+                                        <input class="fx-field__input" id="fx-suspicious-url" placeholder="From Browser History viewer">
+                                        <span class="fx-field__mark" id="fx-mark-website"></span>
+                                    </label>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">First timeline event source</span>
+                                        <select class="fx-field__select" id="fx-timeline-first"></select>
+                                        <span class="fx-field__mark" id="fx-mark-timeline"></span>
+                                    </label>
+                                </div>
+                                <label class="fx-field" style="margin-top:10px">
+                                    <span class="fx-field__label">Report summary (Recommendations)</span>
+                                    <textarea class="fx-field__input" id="fx-report-summary" rows="3" placeholder="Describe the incident and recommend controls (40+ characters)."></textarea>
+                                    <span class="fx-field__mark" id="fx-mark-report"></span>
+                                </label>
+                                <button type="button" class="btn btn--primary btn--sm" id="fx-submit-report" style="margin-top:10px">Submit report</button>
                             </article>
                         </section>
                     </div>

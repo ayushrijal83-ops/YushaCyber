@@ -701,12 +701,22 @@ def forensics_case_edit(case_id: int):
                  "sha256": simulated_hash(e.slug, "sha256")}
         for e in case.evidence
     }
+    from app.labs.forensics.engine import ARTIFACT_SCHEMA, SOURCE_LABEL
+    from app.labs.forensics.models import ARTIFACT_SOURCES
     from app.labs.models import Lab
     lab = Lab.query.filter_by(slug=case.lab_slug).first()
+    # Group artifacts by source for the applied editor.
+    artifacts_by_source = {}
+    for artifact in case.artifacts:
+        artifacts_by_source.setdefault(
+            artifact.source_type, []).append(artifact)
     return render_template(
         "admin/forensics_case_form.html", case=case, lab=lab,
         evidence_kinds=EVIDENCE_KINDS, timeline_kinds=TIMELINE_KINDS,
-        evidence_hashes=evidence_hashes)
+        evidence_hashes=evidence_hashes,
+        artifact_sources=ARTIFACT_SOURCES,
+        source_label=SOURCE_LABEL, artifact_schema=ARTIFACT_SCHEMA,
+        artifacts_by_source=artifacts_by_source)
 
 
 @admin_bp.route("/forensics/<int:case_id>/save", methods=["POST"])
@@ -822,4 +832,63 @@ def forensics_case_objectives(case_id: int):
         objective.hint3 = (request.form.get(key + "hint3") or "").strip() or None
     _db.session.commit()
     flash("Objectives saved.", "success")
+    return redirect(url_for("admin.forensics_case_edit", case_id=case.id))
+
+
+@admin_bp.route("/forensics/<int:case_id>/artifacts", methods=["POST"])
+@admin_required
+def forensics_case_artifacts(case_id: int):
+    """Replace all artifacts for a case with the submitted rows.
+
+    Artifact rows come indexed by (source_type, row idx). Each row has
+    an at_time, an is_key flag, and a JSON blob of source-specific
+    fields — a simple textarea in the admin UI because these are
+    open-ended source rows.
+    """
+    from app.extensions import db as _db
+    from app.labs.forensics.engine import ARTIFACT_SCHEMA
+    from app.labs.forensics.models import (
+        ARTIFACT_SOURCES, ForensicsArtifact, ForensicsCase,
+    )
+    case = ForensicsCase.query.get_or_404(case_id)
+
+    kept = []
+    order = 0
+    for source_type in ARTIFACT_SOURCES:
+        if source_type not in ARTIFACT_SCHEMA:
+            continue
+        idx = 0
+        while f"artifact-{source_type}-{idx}-at_time" in request.form:
+            at_time = (request.form.get(
+                f"artifact-{source_type}-{idx}-at_time") or "").strip()
+            if at_time:
+                data = {}
+                for field in ARTIFACT_SCHEMA[source_type]:
+                    key = f"artifact-{source_type}-{idx}-{field}"
+                    value = request.form.get(key)
+                    if field.endswith("_bytes") or field == "visit_count":
+                        try:
+                            data[field] = int(value or 0)
+                        except (TypeError, ValueError):
+                            data[field] = 0
+                    else:
+                        data[field] = (value or "").strip()
+                is_key = bool(request.form.get(
+                    f"artifact-{source_type}-{idx}-is_key"))
+                order += 1
+                kept.append((source_type, at_time[:40], data,
+                             is_key, order))
+            idx += 1
+
+    ForensicsArtifact.query.filter_by(case_id=case.id).delete()
+    _db.session.flush()
+    for source_type, at_time, data, is_key, order_ in kept:
+        artifact = ForensicsArtifact(
+            case_id=case.id, source_type=source_type,
+            at_time=at_time, is_key=is_key, sort_order=order_)
+        artifact.set_data(data)
+        _db.session.add(artifact)
+    _db.session.commit()
+    flash(f"Saved {len(kept)} artifact rows across "
+          f"{len({s for s, *_ in kept})} sources.", "success")
     return redirect(url_for("admin.forensics_case_edit", case_id=case.id))

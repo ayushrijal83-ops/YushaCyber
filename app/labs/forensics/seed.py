@@ -227,7 +227,11 @@ def _upsert_achievement() -> None:
 
 def seed_forensics_labs() -> dict[str, int]:
     """Seed the Forensics category, engine row, case, lab + objectives
-    and the First Investigator achievement. Idempotent by slug/title."""
+    and the First Investigator achievement. Idempotent by slug/title.
+
+    Also seeds the Applied lab (YC-029.5.3) so the whole Digital
+    Forensics track ships in one call.
+    """
     result = {"case": 0, "labs": 0, "objectives": 0, "achievements": 0}
 
     category = LabCategory.query.filter_by(
@@ -262,5 +266,14 @@ def seed_forensics_labs() -> dict[str, int]:
     result["objectives"] = len(OBJECTIVES)
     _upsert_achievement()
     result["achievements"] = 1
+
+    # YC-029.5.3 — layer the applied lab on top.
+    from app.labs.forensics.applied_seed import seed_forensics_applied_lab
+    applied = seed_forensics_applied_lab()
+    result["labs"] += applied.get("labs", 0)
+    result["objectives"] += applied.get("objectives", 0)
+    result["achievements"] += applied.get("achievements", 0)
+    result["applied_artifacts"] = applied.get("artifacts", 0)
+
     db.session.commit()
     return result
