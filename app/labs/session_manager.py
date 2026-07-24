@@ -58,8 +58,11 @@ def load_lab_content(lab: Lab) -> dict[str, Any]:
     except Exception:
         forensics_case = None
 
+    soc_default_alert = "ALERT-2026-0007"         if lab.slug == "soc-analyst-fundamentals" else None
+
     return {
         "case": forensics_case,
+        "default_alert_code": soc_default_alert,
         "filesystem": [
             {
                 "path": n.path,

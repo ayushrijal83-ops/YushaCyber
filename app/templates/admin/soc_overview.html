@@ -1,0 +1,182 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'soc' %}
+{% block title %}SOC Analyst{% endblock %}
+{% block heading %}SOC Analyst Simulator{% endblock %}
+{% block subheading %}Author alerts, tune playbooks and shape the incident data students triage. All fully simulated.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--red">{{ icon("alert", 18) }}</span>
+        <span class="adm-stat__value">{{ alerts|length }}</span>
+        <span class="adm-stat__label">Alerts</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">{{ icon("book", 18) }}</span>
+        <span class="adm-stat__value">{{ playbooks|length }}</span>
+        <span class="adm-stat__label">Playbooks</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">{{ icon("check", 18) }}</span>
+        <span class="adm-stat__value">{{ alerts|selectattr('status', 'equalto', 'open')|list|length }}</span>
+        <span class="adm-stat__label">Open queue</span>
+    </article>
+</div>
+
+{# ============ Alerts ============ #}
+<section class="adm-card">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("alert", 16) }} Alerts</h2>
+    </header>
+    {% if alerts %}
+    <table class="adm-table">
+        <thead>
+            <tr>
+                <th>Code</th><th>Title</th><th>Type</th>
+                <th>Severity</th><th>Status</th><th>Time</th>
+                <th>Case</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in alerts %}
+            <tr>
+                <form method="POST" action="{{ url_for('admin.soc_alert_edit', alert_id=alert.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <td><code>{{ alert.alert_code }}</code></td>
+                    <td><input class="adm-input" name="title" value="{{ alert.title }}" style="min-width:200px"></td>
+                    <td>
+                        <select class="adm-input" name="alert_type">
+                            {% for t in alert_types %}
+                            <option value="{{ t }}" {% if alert.alert_type == t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="adm-input" name="severity">
+                            {% for s in severities %}
+                            <option value="{{ s }}" {% if alert.severity == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="adm-input" name="status">
+                            {% for s in statuses %}
+                            <option value="{{ s }}" {% if alert.status == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input class="adm-input" name="at_time" value="{{ alert.at_time }}" style="width:90px"></td>
+                    <td><input class="adm-input" type="number" name="case_id" value="{{ alert.case_id or '' }}" style="width:70px"></td>
+                    <td class="num">
+                        <button class="btn btn--outline btn--sm" type="submit">Save</button>
+                </form>
+                        <form method="POST" action="{{ url_for('admin.soc_alert_delete', alert_id=alert.id) }}" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn--outline btn--sm" type="submit" onclick="return confirm('Delete alert {{ alert.alert_code }}?')">Delete</button>
+                        </form>
+                    </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="adm-empty">No alerts seeded — run <code>flask seed-labs</code>.</p>
+    {% endif %}
+</section>
+
+{# ============ New alert ============ #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("plus", 16) }} New alert</h2>
+    </header>
+    <form method="POST" action="{{ url_for('admin.soc_alert_create') }}" class="adm-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="adm-form__grid">
+            <label class="adm-field">
+                <span class="adm-label">Alert code</span>
+                <input class="adm-input" name="alert_code" placeholder="ALERT-2026-0099" required>
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Title</span>
+                <input class="adm-input" name="title" required>
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Type</span>
+                <select class="adm-input" name="alert_type">
+                    {% for t in alert_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Severity</span>
+                <select class="adm-input" name="severity">
+                    {% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Source</span>
+                <input class="adm-input" name="source" value="EDR">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Time</span>
+                <input class="adm-input" name="at_time" placeholder="22:14">
+            </label>
+            <label class="adm-field">
+                <span class="adm-label">Case ID (optional)</span>
+                <input class="adm-input" type="number" name="case_id" placeholder="e.g. 3">
+            </label>
+        </div>
+        <label class="adm-field">
+            <span class="adm-label">Description</span>
+            <textarea class="adm-textarea" name="description" rows="2"></textarea>
+        </label>
+        <button class="btn btn--primary" type="submit">Create alert</button>
+    </form>
+</section>
+
+{# ============ Playbooks ============ #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title">{{ icon("book", 16) }} Playbooks</h2>
+    </header>
+    {% for pb in playbooks %}
+    <details class="adm-fieldset" {% if loop.first %}open{% endif %}>
+        <summary><strong>{{ pb.title }}</strong> <code>{{ pb.key }}</code> · alert_type: <code>{{ pb.alert_type or '—' }}</code></summary>
+        <form method="POST" action="{{ url_for('admin.soc_playbook_edit', playbook_id=pb.id) }}" class="adm-form" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="adm-form__grid">
+                <label class="adm-field">
+                    <span class="adm-label">Title</span>
+                    <input class="adm-input" name="title" value="{{ pb.title }}">
+                </label>
+                <label class="adm-field">
+                    <span class="adm-label">Alert type</span>
+                    <select class="adm-input" name="alert_type">
+                        <option value="">(any)</option>
+                        {% for t in alert_types %}<option value="{{ t }}" {% if pb.alert_type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+                    </select>
+                </label>
+            </div>
+            <label class="adm-field">
+                <span class="adm-label">Description</span>
+                <textarea class="adm-textarea" name="description" rows="2">{{ pb.description }}</textarea>
+            </label>
+            <table class="adm-table">
+                <thead><tr><th>Phase</th><th>Step title</th><th>Body</th></tr></thead>
+                <tbody>
+                    {% for step in pb.steps %}
+                    <tr>
+                        <td><code>{{ step.phase }}</code></td>
+                        <td><input class="adm-input" name="step-{{ step.id }}-title" value="{{ step.title }}"></td>
+                        <td><input class="adm-input" name="step-{{ step.id }}-body" value="{{ step.body }}"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button class="btn btn--primary btn--sm" type="submit">Save playbook</button>
+        </form>
+    </details>
+    {% endfor %}
+</section>
+{% endblock %}

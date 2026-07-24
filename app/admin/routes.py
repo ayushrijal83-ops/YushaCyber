@@ -930,3 +930,133 @@ def forensics_case_suspects(case_id: int):
     flash(f"Saved {order} suspect profiles.", "success")
     return redirect(url_for("admin.forensics_case_edit",
                             case_id=case.id))
+
+
+# ---------------------------------------------------------------------------
+# SOC Analyst Simulator (YC-030.1)
+# ---------------------------------------------------------------------------
+@admin_bp.route("/soc")
+@admin_required
+def soc_overview():
+    from app.simulators.soc.models import (
+        SocAlert, SocPlaybook, SEVERITIES, STATUSES, ALERT_TYPES,
+    )
+    alerts = (SocAlert.query
+              .order_by(SocAlert.status, SocAlert.severity,
+                        SocAlert.at_time).all())
+    playbooks = (SocPlaybook.query
+                 .order_by(SocPlaybook.title).all())
+    return render_template(
+        "admin/soc_overview.html", alerts=alerts, playbooks=playbooks,
+        severities=SEVERITIES, statuses=STATUSES,
+        alert_types=ALERT_TYPES)
+
+
+@admin_bp.route("/soc/alerts/new", methods=["POST"])
+@admin_required
+def soc_alert_create():
+    from app.extensions import db as _db
+    from app.labs.forensics.models import ForensicsCase
+    from app.simulators.soc.models import SocAlert
+    alert_code = (request.form.get("alert_code") or "").strip()
+    if not alert_code:
+        flash("Alert code is required.", "error")
+        return redirect(url_for("admin.soc_overview"))
+    if SocAlert.query.filter_by(alert_code=alert_code).first():
+        flash(f"Alert code {alert_code} already exists.", "error")
+        return redirect(url_for("admin.soc_overview"))
+    case_id = request.form.get("case_id") or None
+    if case_id:
+        try:
+            case_id = int(case_id)
+            if not ForensicsCase.query.get(case_id):
+                case_id = None
+        except (TypeError, ValueError):
+            case_id = None
+    alert = SocAlert(
+        alert_code=alert_code[:60],
+        title=(request.form.get("title") or "Untitled")[:160],
+        alert_type=(request.form.get("alert_type")
+                    or "suspicious_http_traffic")[:60],
+        severity=(request.form.get("severity") or "medium")[:20],
+        status=(request.form.get("status") or "open")[:20],
+        source=(request.form.get("source") or "EDR")[:80],
+        at_time=(request.form.get("at_time") or "")[:40],
+        assigned_analyst=(request.form.get("assigned_analyst")
+                          or "")[:80],
+        description=request.form.get("description") or "",
+        case_id=case_id)
+    _db.session.add(alert)
+    _db.session.commit()
+    flash(f"Created alert {alert_code}.", "success")
+    return redirect(url_for("admin.soc_overview"))
+
+
+@admin_bp.route("/soc/alerts/<int:alert_id>/edit", methods=["POST"])
+@admin_required
+def soc_alert_edit(alert_id: int):
+    from app.extensions import db as _db
+    from app.labs.forensics.models import ForensicsCase
+    from app.simulators.soc.models import SocAlert
+    alert = SocAlert.query.get_or_404(alert_id)
+    alert.title = (request.form.get("title") or alert.title)[:160]
+    alert.alert_type = (request.form.get("alert_type")
+                        or alert.alert_type)[:60]
+    alert.severity = (request.form.get("severity")
+                      or alert.severity)[:20]
+    alert.status = (request.form.get("status") or alert.status)[:20]
+    alert.source = (request.form.get("source") or alert.source)[:80]
+    alert.at_time = (request.form.get("at_time") or alert.at_time)[:40]
+    alert.assigned_analyst = (request.form.get("assigned_analyst")
+                              or "")[:80]
+    alert.description = request.form.get("description") or ""
+    case_id = request.form.get("case_id") or ""
+    if case_id:
+        try:
+            new_case_id = int(case_id)
+            if ForensicsCase.query.get(new_case_id):
+                alert.case_id = new_case_id
+        except (TypeError, ValueError):
+            pass
+    else:
+        alert.case_id = None
+    _db.session.commit()
+    flash(f"Saved alert {alert.alert_code}.", "success")
+    return redirect(url_for("admin.soc_overview"))
+
+
+@admin_bp.route("/soc/alerts/<int:alert_id>/delete", methods=["POST"])
+@admin_required
+def soc_alert_delete(alert_id: int):
+    from app.extensions import db as _db
+    from app.simulators.soc.models import SocAlert
+    alert = SocAlert.query.get_or_404(alert_id)
+    code = alert.alert_code
+    _db.session.delete(alert)
+    _db.session.commit()
+    flash(f"Deleted alert {code}.", "success")
+    return redirect(url_for("admin.soc_overview"))
+
+
+@admin_bp.route("/soc/playbooks/<int:playbook_id>/edit", methods=["POST"])
+@admin_required
+def soc_playbook_edit(playbook_id: int):
+    """Edit a playbook's title/description/alert_type and each step's
+    title/body. Full replace of the step set is out of scope — this
+    is targeted per-field editing."""
+    from app.extensions import db as _db
+    from app.simulators.soc.models import SocPlaybook
+    playbook = SocPlaybook.query.get_or_404(playbook_id)
+    playbook.title = (request.form.get("title")
+                      or playbook.title)[:120]
+    playbook.description = request.form.get("description") or ""
+    playbook.alert_type = (request.form.get("alert_type")
+                           or playbook.alert_type)
+    for step in playbook.steps:
+        key = f"step-{step.id}-"
+        step.title = (request.form.get(key + "title")
+                      or step.title)[:160]
+        step.body = request.form.get(key + "body") or ""
+    _db.session.commit()
+    flash(f"Saved playbook {playbook.key}.", "success")
+    return redirect(url_for("admin.soc_overview"))

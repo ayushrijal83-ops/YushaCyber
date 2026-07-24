@@ -71,6 +71,10 @@
                class="adm-tab{% if active == 'forensics' %} is-active{% endif %}">
                 {{ icon("search", 14) }} Forensics
             </a>
+            <a href="{{ url_for('admin.soc_overview') }}"
+               class="adm-tab{% if active == 'soc' %} is-active{% endif %}">
+                {{ icon("alert", 14) }} SOC
+            </a>
             <a href="{{ url_for('analytics.overview') }}"
                class="adm-tab{% if active == 'analytics' %} is-active{% endif %}">
                 {{ icon("trending", 14) }} Analytics

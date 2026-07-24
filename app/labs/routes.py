@@ -358,3 +358,101 @@ def forensics_state(slug: str):
         "named_suspect": state.get("named_suspect") or "",
         "correlation": correlation,
     })
+
+
+# ---------------------------------------------------------------------------
+# SOC Analyst workspace (YC-030.1)
+# ---------------------------------------------------------------------------
+@labs_bp.route("/<slug>/soc/state")
+@login_required
+def soc_state(slug: str):
+    """Session state for the SOC analyst workspace.
+
+    Returns the dashboard stats, alert queues, playbook, checklist and
+    the underlying forensics view — everything the panel JS needs to
+    render without a page reload.
+    """
+    lab = lab_services.get_lab(slug)
+    if lab is None or lab.simulator_key != "soc":
+        abort(404)
+
+    from app.labs import session_manager
+    from app.labs.forensics import engine as forensics_engine
+
+    simulator = session_manager.get_simulator(lab)
+    session = session_manager.start_session(current_user, lab)
+    state = session_manager.load_state(session, simulator, lab)
+
+    workspace = state.get("workspace") or {}
+    forensics_state = state.get("forensics") or {}
+    case = forensics_state.get("case") or {}
+
+    # Build the same forensics view the forensics lab renders — the
+    # SOC workspace embeds it inside the alert investigation panel.
+    view = forensics_engine.build_view(case)
+    view["mode"] = case.get("mode") or "fundamentals"
+    view["sources"] = forensics_engine.all_sources(case)
+    view["unified_timeline"] = forensics_engine.unified_timeline(case)
+    view["artifacts_by_source"] = {
+        source["source_type"]:
+            forensics_engine.artifacts_by_source(
+                case, source["source_type"])
+        for source in view["sources"]
+    }
+    view["schema"] = forensics_engine.ARTIFACT_SCHEMA
+    view["metadata"] = {
+        item["slug"]:
+            forensics_engine.evidence_metadata(item).__dict__
+        for item in case.get("evidence") or []
+    }
+    view["suspects"] = case.get("suspects") or []
+    view["network_summary"] = forensics_engine.network_summary(case)
+
+    correlation = forensics_engine.correlation_score(
+        case, forensics_state.get("links") or [])
+
+    from app.simulators.soc import services as soc_services
+
+    # If the student picked a playbook, render THAT one rather than
+    # the one auto-suggested for the alert type, so the panel updates
+    # live to their choice. Playbooks are keyed by ``alert_type``.
+    selected_key = state.get("selected_playbook") or ""
+    playbook_view = workspace.get("playbook") or {"phases": []}
+    if selected_key:
+        from app.simulators.soc.models import SocPlaybook
+        picked = SocPlaybook.query.filter_by(
+            alert_type=selected_key).first()
+        if picked is not None:
+            from app.simulators.soc.playbooks import (
+                playbook_view as build_pb_view,
+            )
+            playbook_view = build_pb_view(picked)
+
+    return jsonify({
+        "stats": workspace.get("stats") or {},
+        "open_queue": workspace.get("open_queue") or [],
+        "resolved_queue": workspace.get("resolved_queue") or [],
+        "recent_activity": workspace.get("recent_activity") or [],
+        "active_alert": workspace.get("active_alert"),
+        "playbook": playbook_view,
+        "playbook_options": soc_services.all_playbook_options(),
+        "checklist": workspace.get("checklist") or [],
+        "view": view,
+        "selected": forensics_state.get("selected") or "",
+        "active_source": forensics_state.get("active_source") or "",
+        "opened_sources": list(
+            forensics_state.get("opened_sources") or []),
+        "seen_artifacts": list(
+            forensics_state.get("seen_artifacts") or []),
+        "flagged": list(forensics_state.get("flagged") or []),
+        "links": list(forensics_state.get("links") or []),
+        "named_suspect": forensics_state.get("named_suspect") or "",
+        "correlation": correlation,
+        # SOC-specific
+        "ticked": list(state.get("ticked") or []),
+        "selected_playbook": state.get("selected_playbook") or "",
+        "root_cause": state.get("root_cause") or "",
+        "report": state.get("report") or "",
+        "closure_checks": state.get("closure_checks") or {},
+        "incident_closed": bool(state.get("incident_closed")),
+    })

@@ -132,6 +132,81 @@
                         <div class="cldx__hint">Click any resource to inspect it — the console below shows its details. Tree updates live after every command.</div>
                     </div>
                     {% endif %}
+                    {% if ui and ui.soc %}
+                    <link rel="stylesheet" href="{{ url_for('static', filename='css/soc.css') }}">
+                    <div class="soc" id="soc-root" aria-label="SOC analyst workspace">
+
+                        {# ---- Dashboard header ---- #}
+                        <section class="soc-dashboard" aria-label="SOC dashboard">
+                            <article class="soc-stat soc-stat--total"><span class="soc-stat__value" id="soc-stat-open">0</span><span class="soc-stat__label">Open</span></article>
+                            <article class="soc-stat soc-stat--crit"><span class="soc-stat__value" id="soc-stat-crit">0</span><span class="soc-stat__label">Critical</span></article>
+                            <article class="soc-stat soc-stat--high"><span class="soc-stat__value" id="soc-stat-high">0</span><span class="soc-stat__label">High</span></article>
+                            <article class="soc-stat soc-stat--med"><span class="soc-stat__value" id="soc-stat-med">0</span><span class="soc-stat__label">Medium</span></article>
+                            <article class="soc-stat soc-stat--resolved"><span class="soc-stat__value" id="soc-stat-resolved">0</span><span class="soc-stat__label">Resolved</span></article>
+                        </section>
+
+                        <div class="soc-workspace">
+                            {# ---- Left column: alert queue ---- #}
+                            <aside class="ui-card soc-queue" aria-label="Alert queue">
+                                <header class="soc-card__head">
+                                    <h3 class="soc-card__title">Alert Queue</h3>
+                                </header>
+                                <div class="soc-queue__group" id="soc-open-queue">
+                                    <div class="soc-queue__title">Open</div>
+                                    <ul class="soc-alert__list" id="soc-open-list"></ul>
+                                </div>
+                                <div class="soc-queue__group">
+                                    <div class="soc-queue__title">Resolved</div>
+                                    <ul class="soc-alert__list" id="soc-resolved-list"></ul>
+                                </div>
+                            </aside>
+
+                            {# ---- Main column: alert details + investigation ---- #}
+                            <section class="soc-main">
+                                <article class="ui-card soc-alert-detail" id="soc-alert-detail">
+                                    <p class="soc-hint">Pick an alert on the left to open its investigation workspace.</p>
+                                </article>
+
+                                <article class="ui-card soc-playbook" id="soc-playbook" hidden>
+                                    <header class="soc-card__head">
+                                        <h3 class="soc-card__title">Response Playbook</h3>
+                                        <select class="soc-select" id="soc-playbook-select"></select>
+                                    </header>
+                                    <div class="soc-playbook__body" id="soc-playbook-body">
+                                        <p class="soc-hint">Pick the playbook that matches the alert type.</p>
+                                    </div>
+                                </article>
+
+                                <article class="ui-card soc-checklist" id="soc-checklist-card" hidden>
+                                    <header class="soc-card__head">
+                                        <h3 class="soc-card__title">Investigation Checklist</h3>
+                                    </header>
+                                    <ul class="soc-checklist__list" id="soc-checklist"></ul>
+                                </article>
+
+                                <article class="ui-card soc-closure" id="soc-closure" hidden>
+                                    <header class="soc-card__head">
+                                        <h3 class="soc-card__title">Close Incident</h3>
+                                    </header>
+                                    <p class="soc-hint">Sections: <em>Incident Summary · Severity · Timeline · Evidence · Root Cause · Actions Taken · Recommendations</em>. The playbook, checklist and root cause must all be right before you close.</p>
+                                    <label class="fx-field">
+                                        <span class="fx-field__label">Root cause</span>
+                                        <input class="fx-field__input" id="soc-root-cause" placeholder="e.g. Insider credential misuse — HTTPS exfil">
+                                        <span class="fx-field__mark" id="soc-mark-root"></span>
+                                    </label>
+                                    <label class="fx-field" style="margin-top:10px">
+                                        <span class="fx-field__label">Final report (120+ characters, touch at least three sections)</span>
+                                        <textarea class="fx-field__input" id="soc-report" rows="5" placeholder="Incident summary… Severity… Timeline… Evidence… Root cause… Actions taken… Recommendations…"></textarea>
+                                        <span class="fx-field__mark" id="soc-mark-report"></span>
+                                    </label>
+                                    <div class="soc-closure__checks" id="soc-closure-checks"></div>
+                                    <button type="button" class="btn btn--primary btn--sm" id="soc-close-btn" style="margin-top:10px">Close incident</button>
+                                </article>
+                            </section>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {% if ui and ui.forensics %}
                     <link rel="stylesheet" href="{{ url_for('static', filename='css/forensics.css') }}">
                     <div class="fx" id="fx-root" aria-label="Forensic workstation">
@@ -332,7 +407,7 @@
                     </div>
                     {% endif %}
 
-                    {% if not (ui and ui.forensics) %}
+                    {% if not (ui and (ui.forensics or ui.soc)) %}
                     <section class="lw-term" aria-label="Simulated terminal">
                     <div class="lw-term__bar">
                         <span class="lw-term__dots"><i></i><i></i><i></i></span>
@@ -408,7 +483,8 @@
                   topology:  {{ (ui.topology if ui and ui.topology else none)|tojson }},
                   adStateUrl: {{ (url_for('labs.ad_state', slug=lab.slug) if ui and ui.ad else none)|tojson }},
                   cloudStateUrl: {{ (url_for('labs.cloud_state', slug=lab.slug) if ui and ui.cloud else none)|tojson }},
-                  forensicsStateUrl: {{ (url_for('labs.forensics_state', slug=lab.slug) if ui and ui.forensics else none)|tojson }}
+                  forensicsStateUrl: {{ (url_for('labs.forensics_state', slug=lab.slug) if ui and ui.forensics else none)|tojson }},
+                  socStateUrl: {{ (url_for('labs.soc_state', slug=lab.slug) if ui and ui.soc else none)|tojson }}
               };
             </script>
             <script src="{{ url_for('static', filename='js/lab_terminal.js') }}"></script>
@@ -421,6 +497,9 @@
             {% endif %}
             {% if ui and ui.forensics %}
             <script src="{{ url_for('static', filename='js/forensics.js') }}"></script>
+            {% endif %}
+            {% if ui and ui.soc %}
+            <script src="{{ url_for('static', filename='js/soc.js') }}"></script>
             {% endif %}
 
             {% else %}

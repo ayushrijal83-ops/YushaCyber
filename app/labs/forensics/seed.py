@@ -284,5 +284,14 @@ def seed_forensics_labs() -> dict[str, int]:
     result["advanced_artifacts"] = advanced.get("artifacts", 0)
     result["advanced_suspects"] = advanced.get("suspects", 0)
 
+    # YC-030.1 — SOC Analyst Simulator (reuses forensics engines).
+    from app.simulators.soc.seed import seed_soc_simulator
+    soc = seed_soc_simulator()
+    result["labs"] += soc.get("labs", 0)
+    result["objectives"] += soc.get("objectives", 0)
+    result["achievements"] += soc.get("achievements", 0)
+    result["soc_alerts"] = soc.get("alerts", 0)
+    result["soc_playbooks"] = soc.get("playbooks", 0)
+
     db.session.commit()
     return result
