@@ -70,6 +70,11 @@ class SOCSimulator(Simulator):
             report="",                # student's final report
             closure_checks={},        # last evaluation result
             incident_closed=False,
+            # YC-030.2 investigation state — tracks per-alert decisions.
+            classifications={},       # alert_code → "false_positive"|"suspicious"|"confirmed"
+            severity_assignments={},  # alert_code → severity string
+            escalated=[],             # alert_codes escalated
+            investigation_checks={},  # last triage-validation result
         )
 
     def capabilities(self) -> set[str]:
@@ -132,6 +137,15 @@ class SOCSimulator(Simulator):
             return self._set_root_cause(state, action)
         if action.type == "close_incident":
             return self._close_incident(state, action)
+        # YC-030.2: alert-triage actions.
+        if action.type == "classify_alert":
+            return self._classify_alert(state, action)
+        if action.type == "assign_severity":
+            return self._assign_severity(state, action)
+        if action.type == "escalate_alert":
+            return self._escalate_alert(state, action)
+        if action.type == "mark_false_positive":
+            return self._mark_false_positive(state, action)
 
         # Everything else is a forensics action forwarded through.
         forensics_state = state.get("forensics") or {}
@@ -296,3 +310,138 @@ class SOCSimulator(Simulator):
             events = [{"type": "closure_incomplete", "wrong": wrong}]
         return ActionResult(output=output, new_state=state,
                             events=events)
+
+
+    # ------------------------------------------------------------------
+    # YC-030.2 — Alert Investigation actions
+    # ------------------------------------------------------------------
+
+
+VALID_CLASSIFICATIONS = ("false_positive", "suspicious", "confirmed")
+
+def _classify_alert(self, state: dict[str, Any],
+                    action: Action) -> ActionResult:
+    alert_code = str(
+        (action.payload or {}).get("alert_code") or "").strip()
+    classification = str(
+        (action.payload or {}).get("classification") or "").strip()
+    if not alert_code or classification not in VALID_CLASSIFICATIONS:
+        return ActionResult(
+            output=f"Invalid classification '{classification}'.",
+            new_state=state)
+    classifications = dict(state.get("classifications") or {})
+    classifications[alert_code] = classification
+    state["classifications"] = classifications
+
+    events = [{
+        "type": "alert_classified",
+        "alert_code": alert_code,
+        "classification": classification,
+    }]
+    # Check if the classification matches the expected one from the
+    # alert's metadata (seeded in the alert's description JSON or
+    # inferred from severity).
+    workspace = state.get("workspace") or {}
+    active = workspace.get("active_alert") or {}
+    if (alert_code == active.get("alert_code")
+            and _expected_classification(active) == classification):
+        events.append({"type": "correct_classification",
+                       "alert_code": alert_code})
+    return ActionResult(
+        output=f"[TRIAGE] {alert_code} → {classification}",
+        new_state=state, events=events)
+
+def _assign_severity(self, state: dict[str, Any],
+                     action: Action) -> ActionResult:
+    from app.simulators.soc.models import SEVERITIES
+    alert_code = str(
+        (action.payload or {}).get("alert_code") or "").strip()
+    severity = str(
+        (action.payload or {}).get("severity") or "").strip()
+    if not alert_code or severity not in SEVERITIES:
+        return ActionResult(
+            output=f"Invalid severity '{severity}'.",
+            new_state=state)
+    assignments = dict(state.get("severity_assignments") or {})
+    assignments[alert_code] = severity
+    state["severity_assignments"] = assignments
+    events = [{"type": "severity_assigned",
+               "alert_code": alert_code, "severity": severity}]
+    # Check match.
+    workspace = state.get("workspace") or {}
+    active = workspace.get("active_alert") or {}
+    if (alert_code == active.get("alert_code")
+            and active.get("severity") == severity):
+        events.append({"type": "correct_severity_assigned",
+                       "alert_code": alert_code})
+    return ActionResult(
+        output=f"[SEVERITY] {alert_code} → {severity}",
+        new_state=state, events=events)
+
+def _escalate_alert(self, state: dict[str, Any],
+                    action: Action) -> ActionResult:
+    alert_code = str(
+        (action.payload or {}).get("alert_code") or "").strip()
+    if not alert_code:
+        return ActionResult(output="Missing alert_code.",
+                            new_state=state)
+    escalated = list(state.get("escalated") or [])
+    if alert_code not in escalated:
+        escalated.append(alert_code)
+    state["escalated"] = escalated
+    return ActionResult(
+        output=f"[ESCALATE] {alert_code} escalated to Tier 2.",
+        new_state=state,
+        events=[{"type": "alert_escalated",
+                 "alert_code": alert_code}])
+
+def _mark_false_positive(self, state: dict[str, Any],
+                         action: Action) -> ActionResult:
+    """Convenience shortcut — classify as false_positive + close."""
+    alert_code = str(
+        (action.payload or {}).get("alert_code") or "").strip()
+    if not alert_code:
+        return ActionResult(output="Missing alert_code.",
+                            new_state=state)
+    classifications = dict(state.get("classifications") or {})
+    classifications[alert_code] = "false_positive"
+    state["classifications"] = classifications
+    events = [
+        {"type": "alert_classified", "alert_code": alert_code,
+         "classification": "false_positive"},
+        {"type": "alert_marked_false_positive",
+         "alert_code": alert_code},
+    ]
+    workspace = state.get("workspace") or {}
+    active = workspace.get("active_alert") or {}
+    if (alert_code == active.get("alert_code")
+            and _expected_classification(active) == "false_positive"):
+        events.append({"type": "correct_classification",
+                       "alert_code": alert_code})
+    return ActionResult(
+        output=f"[FALSE POSITIVE] {alert_code} closed.",
+        new_state=state, events=events)
+
+
+def _expected_classification(alert: dict[str, Any]) -> str:
+    """Derive the expected classification from the alert metadata.
+
+    Convention: ``expected_classification`` in the alert dict (set
+    by the seed); falls back to severity-based heuristic.
+    """
+    explicit = (alert.get("expected_classification") or "").strip()
+    if explicit in ("false_positive", "suspicious", "confirmed"):
+        return explicit
+    sev = (alert.get("severity") or "").lower()
+    if sev in ("critical", "high"):
+        return "confirmed"
+    if sev == "medium":
+        return "suspicious"
+    return "false_positive"
+
+
+# Patch new methods onto the class (appended to avoid large str_replace).
+SOCSimulator._classify_alert = _classify_alert
+SOCSimulator._assign_severity = _assign_severity
+SOCSimulator._escalate_alert = _escalate_alert
+SOCSimulator._mark_false_positive = _mark_false_positive

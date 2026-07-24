@@ -293,5 +293,15 @@ def seed_forensics_labs() -> dict[str, int]:
     result["soc_alerts"] = soc.get("alerts", 0)
     result["soc_playbooks"] = soc.get("playbooks", 0)
 
+    # YC-030.2 — SOC Alert Investigation.
+    from app.simulators.soc.investigation_seed import (
+        seed_soc_investigation_lab,
+    )
+    inv = seed_soc_investigation_lab()
+    result["labs"] += inv.get("labs", 0)
+    result["objectives"] += inv.get("objectives", 0)
+    result["achievements"] += inv.get("achievements", 0)
+    result["soc_alerts"] += inv.get("alerts", 0)
+
     db.session.commit()
     return result

@@ -23,7 +23,7 @@ from typing import Any, Optional
 from app.extensions import db
 from app.labs.models import Lab, LabFileSystemNode, UserLabSession
 from app.labs.registry import SimulatorRegistry
-from app.labs.simulator_base import Simulator, SimulatorError
+from app.labs.simulator_base import Simulator
 
 
 def _utcnow() -> datetime:
@@ -58,7 +58,11 @@ def load_lab_content(lab: Lab) -> dict[str, Any]:
     except Exception:
         forensics_case = None
 
-    soc_default_alert = "ALERT-2026-0007"         if lab.slug == "soc-analyst-fundamentals" else None
+    soc_default_alerts = {
+        "soc-analyst-fundamentals": "ALERT-2026-0007",
+        "soc-alert-investigation": "ALERT-INV-0003",
+    }
+    soc_default_alert = soc_default_alerts.get(lab.slug)
 
     return {
         "case": forensics_case,

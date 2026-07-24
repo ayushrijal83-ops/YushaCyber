@@ -30,6 +30,10 @@ def alert_to_dict(alert: SocAlert) -> dict[str, Any]:
         "assigned_analyst": alert.assigned_analyst or "unassigned",
         "description": alert.description,
         "case_id": alert.case_id,
+        "expected_classification":
+            getattr(alert, "expected_classification", None) or "",
+        "expected_root_cause":
+            getattr(alert, "expected_root_cause", None) or "",
     }
 
 

@@ -61,6 +61,11 @@ class SocAlert(BaseModel):
     #: ISO-ish string shown in the queue and dashboard.
     at_time = db.Column(db.String(30), nullable=False, default="")
     description = db.Column(db.Text, nullable=False, default="")
+    #: Expected student answer — which classification is correct.
+    expected_classification = db.Column(
+        db.String(20), nullable=True)
+    #: Expected root-cause keywords for validation.
+    expected_root_cause = db.Column(db.String(200), nullable=True)
     #: When set, the alert links to a ForensicsCase — investigating
     #: the alert means walking the case's evidence and closing it.
     case_id = db.Column(

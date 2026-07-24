@@ -627,3 +627,125 @@ class TestSOCFullPlaythrough:
                 user_id=student_id,
                 achievement_id=rookie.id).first()
             assert unlocked is not None
+
+
+# ===========================================================================
+# YC-030.2 — SOC Alert Investigation
+# ===========================================================================
+class TestInvestigationActions:
+    """Test classify / severity / escalate / mark_false_positive."""
+
+    def _sim_state(self, app):
+        from app.simulators.soc.simulator import SOCSimulator
+        from app.simulators.soc import services
+        sim = SOCSimulator()
+        with app.app_context():
+            workspace = services.workspace_context("ALERT-INV-0003")
+            from app.labs.forensics.simulator import ForensicsSimulator
+            forensics_state = ForensicsSimulator().bootstrap(
+                None, {"case": workspace.get("active_case") or {}})
+            state = sim.new_state_envelope(
+                forensics=forensics_state,
+                workspace=workspace,
+                active_alert_code="ALERT-INV-0003",
+                ticked=[], selected_playbook=None,
+                root_cause="", report="",
+                closure_checks={}, incident_closed=False,
+                classifications={}, severity_assignments={},
+                escalated=[], investigation_checks={})
+        return sim, state
+
+    def test_classify_correct(self, app):
+        sim, state = self._sim_state(app)
+        from app.labs.simulator_base import Action
+        r = sim.handle(state, Action("classify_alert", {
+            "alert_code": "ALERT-INV-0003",
+            "classification": "confirmed"}))
+        assert r.new_state["classifications"]["ALERT-INV-0003"] \
+            == "confirmed"
+        assert any(e["type"] == "correct_classification"
+                   for e in r.events)
+
+    def test_classify_wrong(self, app):
+        sim, state = self._sim_state(app)
+        from app.labs.simulator_base import Action
+        r = sim.handle(state, Action("classify_alert", {
+            "alert_code": "ALERT-INV-0003",
+            "classification": "false_positive"}))
+        assert not any(e["type"] == "correct_classification"
+                       for e in r.events)
+
+    def test_assign_severity(self, app):
+        sim, state = self._sim_state(app)
+        from app.labs.simulator_base import Action
+        r = sim.handle(state, Action("assign_severity", {
+            "alert_code": "ALERT-INV-0003",
+            "severity": "critical"}))
+        assert r.new_state["severity_assignments"]["ALERT-INV-0003"] \
+            == "critical"
+        assert any(e["type"] == "correct_severity_assigned"
+                   for e in r.events)
+
+    def test_escalate(self, app):
+        sim, state = self._sim_state(app)
+        from app.labs.simulator_base import Action
+        r = sim.handle(state, Action("escalate_alert", {
+            "alert_code": "ALERT-INV-0003"}))
+        assert "ALERT-INV-0003" in r.new_state["escalated"]
+
+    def test_mark_false_positive(self, app):
+        sim, state = self._sim_state(app)
+        from app.labs.simulator_base import Action
+        r = sim.handle(state, Action("mark_false_positive", {
+            "alert_code": "ALERT-INV-0003"}))
+        assert r.new_state["classifications"]["ALERT-INV-0003"] \
+            == "false_positive"
+        assert any(e["type"] == "alert_marked_false_positive"
+                   for e in r.events)
+
+
+class TestInvestigationSeed:
+    def test_investigation_alerts_seeded(self, app):
+        with app.app_context():
+            from app.simulators.soc.models import SocAlert
+            inv = SocAlert.query.filter(
+                SocAlert.alert_code.like("ALERT-INV-%")).all()
+            assert len(inv) == 5
+            confirmed = [a for a in inv
+                         if a.expected_classification == "confirmed"]
+            assert len(confirmed) == 2
+            fp = [a for a in inv
+                  if a.expected_classification == "false_positive"]
+            assert len(fp) == 2
+
+    def test_investigation_lab_shape(self, app):
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(
+                slug="soc-alert-investigation").first()
+            assert lab is not None
+            assert lab.xp_reward == 150
+            assert lab.difficulty == "Medium"
+            assert len(lab.objectives) == 6
+
+    def test_alert_hunter_achievement(self, app):
+        with app.app_context():
+            from app.achievement.models import Achievement
+            a = Achievement.query.filter_by(
+                title="Alert Hunter").first()
+            assert a is not None
+            assert a.bonus_xp == 50
+            assert a.condition_value == 2
+
+    def test_investigation_state_endpoint(self, app, student):
+        with app.test_client() as client:
+            _login(client, student)
+            client.get("/labs/soc-alert-investigation")
+            r = client.get(
+                "/labs/soc-alert-investigation/soc/state")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["active_alert"] is not None
+            assert data["active_alert"]["alert_code"] == "ALERT-INV-0003"
+            assert "classifications" in data
+            assert "severity_assignments" in data

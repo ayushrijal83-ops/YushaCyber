@@ -455,4 +455,9 @@ def soc_state(slug: str):
         "report": state.get("report") or "",
         "closure_checks": state.get("closure_checks") or {},
         "incident_closed": bool(state.get("incident_closed")),
+        # YC-030.2 investigation state.
+        "classifications": state.get("classifications") or {},
+        "severity_assignments": state.get("severity_assignments") or {},
+        "escalated": list(state.get("escalated") or []),
+        "investigation_checks": state.get("investigation_checks") or {},
     })
