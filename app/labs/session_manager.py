@@ -61,6 +61,7 @@ def load_lab_content(lab: Lab) -> dict[str, Any]:
     soc_default_alerts = {
         "soc-analyst-fundamentals": "ALERT-2026-0007",
         "soc-alert-investigation": "ALERT-INV-0003",
+        "soc-incident-response": "ALERT-IR-0001",
     }
     soc_default_alert = soc_default_alerts.get(lab.slug)
 

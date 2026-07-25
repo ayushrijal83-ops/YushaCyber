@@ -75,6 +75,10 @@ class SOCSimulator(Simulator):
             severity_assignments={},  # alert_code → severity string
             escalated=[],             # alert_codes escalated
             investigation_checks={},  # last triage-validation result
+            # YC-030.3 Incident Response state.
+            ir_decisions=[],          # list of graded decision dicts
+            ir_completed_phases=[],   # phase slugs completed
+            ir_score=None,            # final score dict (on submit)
         )
 
     def capabilities(self) -> set[str]:
@@ -146,6 +150,26 @@ class SOCSimulator(Simulator):
             return self._escalate_alert(state, action)
         if action.type == "mark_false_positive":
             return self._mark_false_positive(state, action)
+        # YC-030.3: Incident Response workflow actions.
+        if action.type == "take_action":
+            return self._take_action(state, action)
+        if action.type == "complete_phase":
+            return self._complete_phase(state, action)
+        if action.type == "submit_ir_report":
+            return self._submit_ir_report(state, action)
+        # YC-030.3.5: Case Management actions.
+        if action.type == "open_case":
+            return self._open_case(state, action)
+        if action.type == "assign_case":
+            return self._assign_case(state, action)
+        if action.type == "add_case_note":
+            return self._add_case_note(state, action)
+        if action.type == "link_case_evidence":
+            return self._link_case_evidence(state, action)
+        if action.type == "escalate_case":
+            return self._escalate_case(state, action)
+        if action.type == "close_case":
+            return self._close_case(state, action)
 
         # Everything else is a forensics action forwarded through.
         forensics_state = state.get("forensics") or {}
@@ -445,3 +469,221 @@ SOCSimulator._classify_alert = _classify_alert
 SOCSimulator._assign_severity = _assign_severity
 SOCSimulator._escalate_alert = _escalate_alert
 SOCSimulator._mark_false_positive = _mark_false_positive
+
+
+# ------------------------------------------------------------------
+# YC-030.3 — Incident Response action handlers
+# ------------------------------------------------------------------
+def _take_action(self, state, action):
+    """Student picks an IR action (disconnect_host, block_ip, etc.)."""
+    from app.simulators.soc import decision_engine, incident_engine
+    act = str((action.payload or {}).get("action") or "").strip()
+    if not act:
+        return ActionResult(output="Missing action.", new_state=state)
+    phase = incident_engine.current_phase(
+        state.get("ir_completed_phases") or [])
+    if phase is None:
+        return ActionResult(
+            output="All phases complete — submit your report.",
+            new_state=state)
+
+    # Get correct/wrong actions for the current phase from the
+    # workspace's incident scenario data.
+    scenario = ((state.get("workspace") or {})
+                .get("incident_scenario") or {})
+    phase_actions = (scenario.get("phases") or {}).get(phase) or {}
+    correct = phase_actions.get("correct_actions") or []
+    wrong = phase_actions.get("wrong_actions") or []
+
+    grade = decision_engine.grade_decision(act, correct, wrong)
+    decisions = list(state.get("ir_decisions") or [])
+    decisions.append(grade)
+    state["ir_decisions"] = decisions
+
+    events = [{"type": "ir_action_taken", "action": act,
+               "phase": phase, "correct": grade["correct"],
+               "points": grade["points"]}]
+    if grade["correct"]:
+        events.append({"type": "ir_correct_action"})
+    return ActionResult(
+        output=grade["feedback"], new_state=state, events=events)
+
+
+def _complete_phase(self, state, action):
+    """Student signals they've finished the current IR phase."""
+    from app.simulators.soc import incident_engine
+    completed = list(state.get("ir_completed_phases") or [])
+    cur = incident_engine.current_phase(completed)
+    if cur is None:
+        return ActionResult(
+            output="All phases already complete.", new_state=state)
+    completed.append(cur)
+    state["ir_completed_phases"] = completed
+    events = [{"type": "ir_phase_completed", "phase": cur}]
+    if incident_engine.all_phases_complete(completed):
+        events.append({"type": "ir_all_phases_complete"})
+    nxt = incident_engine.current_phase(completed)
+    label = incident_engine.PHASE_LABELS.get(
+        nxt, "Report") if nxt else "Submit Report"
+    return ActionResult(
+        output=f"[PHASE] {incident_engine.PHASE_LABELS.get(cur, cur)} "
+               f"✓ complete → next: {label}",
+        new_state=state, events=events)
+
+
+def _submit_ir_report(self, state, action):
+    """Student submits the final IR report."""
+    from app.simulators.soc import score_engine
+    report = str((action.payload or {}).get("report") or "").strip()
+    if len(report) < 50:
+        return ActionResult(
+            output="Report too short (minimum 150 characters).",
+            new_state=state)
+    completed = state.get("ir_completed_phases") or []
+    decisions = state.get("ir_decisions") or []
+    score = score_engine.compute_final_score(
+        decisions, report, len(completed))
+    state["ir_score"] = score
+    state["report"] = report
+
+    events = [{"type": "ir_report_submitted",
+               "rating": score["rating"]}]
+    if score["rating"] in ("Excellent", "Good"):
+        events.append({"type": "findings_correct"})
+        events.append({"type": "incident_closed"})
+        state["incident_closed"] = True
+    return ActionResult(
+        output=(f"[SCORE] {score['rating']} — "
+                f"{score['total']}/{score['max']} points "
+                f"({score['ratio']:.0%})"),
+        new_state=state, events=events)
+
+
+SOCSimulator._take_action = _take_action
+SOCSimulator._complete_phase = _complete_phase
+SOCSimulator._submit_ir_report = _submit_ir_report
+
+
+# ------------------------------------------------------------------
+# YC-030.3.5 — Case Management action handlers
+# ------------------------------------------------------------------
+def _open_case(self, state, action):
+    from app.simulators.soc import case_manager
+    code = str((action.payload or {}).get("case_code") or "").strip()
+    title = str((action.payload or {}).get("title") or "").strip()
+    severity = str((action.payload or {}).get("severity") or "medium")
+    if not code or not title:
+        return ActionResult(output="Missing case_code or title.",
+                            new_state=state)
+    alert_code = state.get("active_alert_code") or ""
+    linked = [alert_code] if alert_code else []
+    case_manager.create_case(code, title, severity, linked)
+    state["active_case_code"] = code
+    return ActionResult(
+        output=f"[CASE] {code} opened: {title}",
+        new_state=state,
+        events=[{"type": "case_opened", "case_code": code}])
+
+
+def _assign_case(self, state, action):
+    from app.simulators.soc import case_manager
+    code = str((action.payload or {}).get("case_code") or
+               state.get("active_case_code") or "").strip()
+    analyst = str((action.payload or {}).get("analyst") or "").strip()
+    if not code or not analyst:
+        return ActionResult(output="Missing case_code or analyst.",
+                            new_state=state)
+    case = case_manager.find_by_code(code)
+    if case is None:
+        return ActionResult(output=f"No case {code}.",
+                            new_state=state)
+    case_manager.assign_case(case, analyst)
+    return ActionResult(
+        output=f"[CASE] {code} assigned to {analyst}.",
+        new_state=state,
+        events=[{"type": "case_assigned", "case_code": code,
+                 "analyst": analyst}])
+
+
+def _add_case_note(self, state, action):
+    from app.simulators.soc import case_manager
+    code = str((action.payload or {}).get("case_code") or
+               state.get("active_case_code") or "").strip()
+    text = str((action.payload or {}).get("text") or "").strip()
+    author = str((action.payload or {}).get("author") or "analyst")
+    if not code or not text:
+        return ActionResult(output="Missing case_code or text.",
+                            new_state=state)
+    case = case_manager.find_by_code(code)
+    if case is None:
+        return ActionResult(output=f"No case {code}.",
+                            new_state=state)
+    case_manager.add_note(case, author, text[:400])
+    return ActionResult(
+        output=f"[CASE NOTE] {text[:80]}",
+        new_state=state,
+        events=[{"type": "case_note_added", "case_code": code}])
+
+
+def _link_case_evidence(self, state, action):
+    from app.simulators.soc import case_manager
+    code = str((action.payload or {}).get("case_code") or
+               state.get("active_case_code") or "").strip()
+    ref = str((action.payload or {}).get("evidence_ref") or "").strip()
+    if not code or not ref:
+        return ActionResult(output="Missing case_code or evidence_ref.",
+                            new_state=state)
+    case = case_manager.find_by_code(code)
+    if case is None:
+        return ActionResult(output=f"No case {code}.",
+                            new_state=state)
+    case_manager.link_evidence(case, ref)
+    return ActionResult(
+        output=f"[CASE] Evidence '{ref}' linked to {code}.",
+        new_state=state,
+        events=[{"type": "case_evidence_linked", "case_code": code,
+                 "evidence_ref": ref}])
+
+
+def _escalate_case(self, state, action):
+    from app.simulators.soc import case_manager
+    code = str((action.payload or {}).get("case_code") or
+               state.get("active_case_code") or "").strip()
+    if not code:
+        return ActionResult(output="Missing case_code.",
+                            new_state=state)
+    case = case_manager.find_by_code(code)
+    if case is None:
+        return ActionResult(output=f"No case {code}.",
+                            new_state=state)
+    case_manager.escalate_case(case)
+    return ActionResult(
+        output=f"[CASE] {code} escalated.",
+        new_state=state,
+        events=[{"type": "case_escalated", "case_code": code}])
+
+
+def _close_case(self, state, action):
+    from app.simulators.soc import case_manager
+    code = str((action.payload or {}).get("case_code") or
+               state.get("active_case_code") or "").strip()
+    if not code:
+        return ActionResult(output="Missing case_code.",
+                            new_state=state)
+    case = case_manager.find_by_code(code)
+    if case is None:
+        return ActionResult(output=f"No case {code}.",
+                            new_state=state)
+    case_manager.close_case(case)
+    return ActionResult(
+        output=f"[CASE] {code} closed.",
+        new_state=state,
+        events=[{"type": "case_closed", "case_code": code}])
+
+
+SOCSimulator._open_case = _open_case
+SOCSimulator._assign_case = _assign_case
+SOCSimulator._add_case_note = _add_case_note
+SOCSimulator._link_case_evidence = _link_case_evidence
+SOCSimulator._escalate_case = _escalate_case
+SOCSimulator._close_case = _close_case

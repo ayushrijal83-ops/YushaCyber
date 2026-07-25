@@ -131,3 +131,80 @@ class SocChecklistItem(BaseModel):
         db.UniqueConstraint("case_id", "slug",
                             name="uq_soc_checklist_slug"),
     )
+
+
+# ===========================================================================
+# Case Management (YC-030.3.5)
+# ===========================================================================
+CASE_STATUSES = ("new", "in_progress", "escalated", "resolved", "closed")
+
+
+class SocCase(BaseModel):
+    """A reusable SOC case that aggregates alerts, notes and evidence
+    links. Every future SOC investigation scenario creates/manages
+    cases through this model."""
+
+    __tablename__ = "soc_cases"
+
+    case_code = db.Column(db.String(60), nullable=False, unique=True,
+                          index=True)
+    title = db.Column(db.String(200), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="new",
+                       index=True)
+    severity = db.Column(db.String(20), nullable=False, default="medium",
+                         index=True)
+    assigned_analyst = db.Column(db.String(80), nullable=True)
+    closed_at = db.Column(db.String(40), nullable=True)
+
+    #: JSON-serialised list of linked alert codes.
+    linked_alert_codes_json = db.Column(db.Text, nullable=False,
+                                        default="[]")
+    #: JSON-serialised list of linked evidence slugs / artifact ids.
+    linked_evidence_json = db.Column(db.Text, nullable=False,
+                                     default="[]")
+    #: Free-form investigation-progress percentage (0–100).
+    progress = db.Column(db.Integer, nullable=False, default=0)
+
+    def is_open(self) -> bool:
+        return self.status in ("new", "in_progress", "escalated")
+
+    # ---- JSON helpers ----
+    def get_linked_alerts(self) -> list[str]:
+        import json as _json
+        try:
+            return _json.loads(self.linked_alert_codes_json or "[]")
+        except (TypeError, ValueError):
+            return []
+
+    def set_linked_alerts(self, codes: list[str]) -> None:
+        import json as _json
+        self.linked_alert_codes_json = _json.dumps(codes or [])
+
+    def get_linked_evidence(self) -> list:
+        import json as _json
+        try:
+            return _json.loads(self.linked_evidence_json or "[]")
+        except (TypeError, ValueError):
+            return []
+
+    def set_linked_evidence(self, items: list) -> None:
+        import json as _json
+        self.linked_evidence_json = _json.dumps(items or [])
+
+
+class SocCaseNote(BaseModel):
+    """One note attached to a SOC case."""
+
+    __tablename__ = "soc_case_notes"
+
+    soc_case_id = db.Column(
+        db.Integer, db.ForeignKey("soc_cases.id", ondelete="CASCADE"),
+        nullable=False, index=True)
+    author = db.Column(db.String(80), nullable=False, default="analyst")
+    text = db.Column(db.Text, nullable=False)
+
+    case = db.relationship(
+        "SocCase",
+        backref=db.backref("notes", cascade="all, delete-orphan",
+                           lazy="selectin",
+                           order_by="SocCaseNote.created_at"))

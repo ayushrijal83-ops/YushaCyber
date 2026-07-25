@@ -363,6 +363,28 @@ def forensics_state(slug: str):
 # ---------------------------------------------------------------------------
 # SOC Analyst workspace (YC-030.1)
 # ---------------------------------------------------------------------------
+def _case_dashboard():
+    """Case management dashboard stats."""
+    try:
+        from app.simulators.soc import case_manager
+        return {
+            "stats": case_manager.dashboard_stats(),
+            "open_cases": case_manager.open_cases(),
+            "recently_closed": case_manager.recently_closed(5),
+        }
+    except (ImportError, Exception):
+        return {"stats": {}, "open_cases": [], "recently_closed": []}
+
+
+def _ir_phase_status(state):
+    """Build IR phase progress for the UI."""
+    try:
+        from app.simulators.soc.incident_engine import phase_status
+        return phase_status(state.get("ir_completed_phases") or [])
+    except ImportError:
+        return []
+
+
 @labs_bp.route("/<slug>/soc/state")
 @login_required
 def soc_state(slug: str):
@@ -460,4 +482,13 @@ def soc_state(slug: str):
         "severity_assignments": state.get("severity_assignments") or {},
         "escalated": list(state.get("escalated") or []),
         "investigation_checks": state.get("investigation_checks") or {},
+        # YC-030.3 Incident Response.
+        "ir_decisions": list(state.get("ir_decisions") or []),
+        "ir_completed_phases": list(
+            state.get("ir_completed_phases") or []),
+        "ir_score": state.get("ir_score"),
+        "ir_phase_status": _ir_phase_status(state),
+        # YC-030.3.5 Case Management.
+        "case_dashboard": _case_dashboard(),
+        "active_case_code": state.get("active_case_code") or "",
     })
