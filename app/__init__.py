@@ -163,6 +163,8 @@ def _register_models() -> None:
     from app.labs.cloud import models as cloud_models  # noqa: F401
     from app.labs.forensics import models as forensics_models  # noqa: F401
     from app.simulators.soc import models as soc_models  # noqa: F401
+    # YC-031.0 — register universal engine validators.
+    from app.engines import validation_engine  # noqa: F401
     from app.analytics import models as analytics_models  # noqa: F401
     from app.community import models as community_models  # noqa: F401
     from app.resources import models as resources_models  # noqa: F401
