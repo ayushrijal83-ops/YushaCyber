@@ -36,7 +36,8 @@ def compute_final_score(
         decisions: list[dict[str, Any]],
         report: str,
         phases_completed: int,
-        total_phases: int = 5) -> dict[str, Any]:
+        total_phases: int = 5,
+        hints_used: int = 0) -> dict[str, Any]:
     """Aggregate everything into a single grade.
 
     Returns ``{total, max, ratio, rating, breakdown}``.
@@ -45,13 +46,15 @@ def compute_final_score(
     rpt = report_quality(report)
 
     phase_score = int((phases_completed / max(1, total_phases)) * 30)
-    total = max(0, dec["total_points"] + rpt["report_score"] + phase_score)
+    hint_penalty = hints_used * 5
+    total = max(0, dec["total_points"] + rpt["report_score"]
+                + phase_score - hint_penalty)
     max_score = (len(decisions) * 10) + 30 + 30  # decisions + report + phases
     ratio = total / max(1, max_score)
 
-    if ratio >= 0.8:
+    if ratio >= 0.9:
         rating = "Excellent"
-    elif ratio >= 0.5:
+    elif ratio >= 0.75:
         rating = "Good"
     else:
         rating = "Needs Improvement"
@@ -67,5 +70,7 @@ def compute_final_score(
             "phases": {"completed": phases_completed,
                        "total": total_phases,
                        "score": phase_score},
+            "hints": {"used": hints_used,
+                      "penalty": hint_penalty},
         },
     }

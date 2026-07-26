@@ -98,6 +98,10 @@ def workspace_context(active_alert_code: str | None) -> dict[str, Any]:
     ctx["active_alert"] = alert_to_dict(alert)
     ctx["playbook"] = playbook_for(alert.alert_type)
     ctx["checklist"] = checklist_for(alert.case_id)
+    # Inject the IR scenario config if one is registered.
+    from app.simulators.soc import scenario_registry
+    ctx["incident_scenario"] = scenario_registry.get(
+        active_alert_code)
     if alert.case_id is not None:
         case = ForensicsCase.query.get(alert.case_id)
         if case is not None:

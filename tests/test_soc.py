@@ -749,3 +749,129 @@ class TestInvestigationSeed:
             assert data["active_alert"]["alert_code"] == "ALERT-INV-0003"
             assert "classifications" in data
             assert "severity_assignments" in data
+
+
+# ===========================================================================
+# YC-030.4 — Advanced SOC Scenarios
+# ===========================================================================
+class TestAdvancedScenariosSeed:
+    def test_five_scenarios_seeded(self, app):
+        with app.app_context():
+            from app.labs.models import Lab
+            slugs = [
+                "soc-scenario-ransomware",
+                "soc-scenario-phishing",
+                "soc-scenario-insider",
+                "soc-scenario-dns-tunnel",
+                "soc-scenario-malware-beacon",
+            ]
+            for slug in slugs:
+                lab = Lab.query.filter_by(slug=slug).first()
+                assert lab is not None, f"Missing lab {slug}"
+                assert lab.xp_reward == 200
+                assert lab.difficulty == "Hard"
+                assert len(lab.objectives) == 6
+
+    def test_scenario_alerts_seeded(self, app):
+        with app.app_context():
+            from app.simulators.soc.models import SocAlert
+            for code in ("ALERT-ADV-0001", "ALERT-ADV-0002",
+                         "ALERT-ADV-0003", "ALERT-ADV-0004",
+                         "ALERT-ADV-0005"):
+                alert = SocAlert.query.filter_by(
+                    alert_code=code).first()
+                assert alert is not None
+                assert alert.expected_classification == "confirmed"
+                assert alert.case_id is not None
+
+    def test_threat_hunter_achievement(self, app):
+        with app.app_context():
+            from app.achievement.models import Achievement
+            a = Achievement.query.filter_by(
+                title="Threat Hunter").first()
+            assert a is not None
+            assert a.bonus_xp == 150
+            assert a.condition_value == 8
+
+    def test_reseed_idempotent(self, app):
+        with app.app_context():
+            from app.labs.models import Lab
+            from app.simulators.soc.models import SocAlert
+            before_labs = Lab.query.filter(
+                Lab.slug.like("soc-scenario-%")).count()
+            before_alerts = SocAlert.query.filter(
+                SocAlert.alert_code.like("ALERT-ADV-%")).count()
+            from app.simulators.soc.advanced_scenarios_seed import (
+                seed_advanced_soc_scenarios,
+            )
+            seed_advanced_soc_scenarios()
+            assert Lab.query.filter(
+                Lab.slug.like("soc-scenario-%")).count() == before_labs
+            assert SocAlert.query.filter(
+                SocAlert.alert_code.like("ALERT-ADV-%")).count() \
+                == before_alerts
+
+
+class TestHintSystem:
+    def test_hint_increments_and_events(self, app):
+        from app.labs.simulator_base import Action
+        from app.simulators.soc import services
+        from app.simulators.soc.simulator import SOCSimulator
+        with app.app_context():
+            sim = SOCSimulator()
+            ws = services.workspace_context("ALERT-2026-0007")
+            from app.labs.forensics.simulator import ForensicsSimulator
+            fs = ForensicsSimulator().bootstrap(
+                None, {"case": ws.get("active_case") or {}})
+            state = sim.new_state_envelope(
+                forensics=fs, workspace=ws,
+                active_alert_code="ALERT-2026-0007",
+                ticked=[], selected_playbook=None,
+                root_cause="", report="",
+                closure_checks={}, incident_closed=False,
+                classifications={}, severity_assignments={},
+                escalated=[], investigation_checks={},
+                ir_decisions=[], ir_completed_phases=[],
+                ir_score=None, hints_used=0,
+                active_case_code="")
+            r = sim.handle(state, Action("use_hint", {}))
+            assert r.new_state["hints_used"] == 1
+            assert any(e["type"] == "hint_used" for e in r.events)
+            r2 = sim.handle(r.new_state, Action("use_hint", {}))
+            assert r2.new_state["hints_used"] == 2
+
+    def test_hints_reduce_score(self):
+        from app.simulators.soc.score_engine import compute_final_score
+        from app.simulators.soc.decision_engine import CORRECT_POINTS
+        decisions = [{"action": "x", "correct": True,
+                      "points": CORRECT_POINTS, "feedback": ""}] * 5
+        report = ("Executive summary of the incident. "
+                  "Incident timeline shows the attack chain. "
+                  "Evidence collected from all sources. "
+                  "Root cause identified. "
+                  "Recommendations to prevent recurrence.")
+        no_hints = compute_final_score(decisions, report, 5,
+                                        hints_used=0)
+        with_hints = compute_final_score(decisions, report, 5,
+                                          hints_used=4)
+        assert with_hints["total"] < no_hints["total"]
+        assert with_hints["breakdown"]["hints"]["penalty"] == 20
+
+
+class TestScoreThresholds:
+    def test_excellent_requires_90_percent(self):
+        from app.simulators.soc.score_engine import compute_final_score
+        from app.simulators.soc.decision_engine import CORRECT_POINTS
+        decisions = [{"action": "x", "correct": True,
+                      "points": CORRECT_POINTS, "feedback": ""}] * 5
+        report = ("Executive summary. Incident timeline. Evidence. "
+                  "Root cause. Containment. Recovery. Recommendations.")
+        score = compute_final_score(decisions, report, 5)
+        assert score["rating"] == "Excellent"
+
+    def test_needs_improvement_below_75(self):
+        from app.simulators.soc.score_engine import compute_final_score
+        decisions = [{"action": "x", "correct": False,
+                      "points": -5, "feedback": ""}] * 5
+        score = compute_final_score(decisions, "short", 1)
+        assert score["rating"] == "Needs Improvement"

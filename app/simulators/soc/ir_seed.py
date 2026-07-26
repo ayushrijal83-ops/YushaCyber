@@ -337,5 +337,9 @@ def seed_soc_incident_response() -> dict[str, int]:
     result["objectives"] = len(IR_OBJECTIVES)
     _upsert_responder_achievement()
     result["achievements"] = 1
+    # Register the scenario decisions in the runtime registry.
+    from app.simulators.soc import scenario_registry
+    scenario_registry.register(ALERT_CODE, IR_SCENARIO)
+
     db.session.commit()
     return result

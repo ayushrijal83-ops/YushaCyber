@@ -488,6 +488,7 @@ def soc_state(slug: str):
             state.get("ir_completed_phases") or []),
         "ir_score": state.get("ir_score"),
         "ir_phase_status": _ir_phase_status(state),
+        "hints_used": int(state.get("hints_used") or 0),
         # YC-030.3.5 Case Management.
         "case_dashboard": _case_dashboard(),
         "active_case_code": state.get("active_case_code") or "",

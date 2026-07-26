@@ -311,5 +311,14 @@ def seed_forensics_labs() -> dict[str, int]:
     result["achievements"] += ir.get("achievements", 0)
     result["soc_alerts"] += ir.get("alerts", 0)
 
+    # YC-030.4 — Advanced SOC Scenarios.
+    from app.simulators.soc.advanced_scenarios_seed import (
+        seed_advanced_soc_scenarios,
+    )
+    adv = seed_advanced_soc_scenarios()
+    result["labs"] += adv.get("labs", 0)
+    result["objectives"] += adv.get("objectives", 0)
+    result["achievements"] += adv.get("achievements", 0)
+
     db.session.commit()
     return result

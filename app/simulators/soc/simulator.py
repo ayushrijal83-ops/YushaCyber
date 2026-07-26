@@ -79,6 +79,8 @@ class SOCSimulator(Simulator):
             ir_decisions=[],          # list of graded decision dicts
             ir_completed_phases=[],   # phase slugs completed
             ir_score=None,            # final score dict (on submit)
+            # YC-030.4 hint tracking.
+            hints_used=0,
         )
 
     def capabilities(self) -> set[str]:
@@ -157,6 +159,9 @@ class SOCSimulator(Simulator):
             return self._complete_phase(state, action)
         if action.type == "submit_ir_report":
             return self._submit_ir_report(state, action)
+        # YC-030.4: Hint system.
+        if action.type == "use_hint":
+            return self._use_hint(state, action)
         # YC-030.3.5: Case Management actions.
         if action.type == "open_case":
             return self._open_case(state, action)
@@ -488,9 +493,14 @@ def _take_action(self, state, action):
             new_state=state)
 
     # Get correct/wrong actions for the current phase from the
-    # workspace's incident scenario data.
-    scenario = ((state.get("workspace") or {})
-                .get("incident_scenario") or {})
+    # scenario registry (keyed by alert code).
+    from app.simulators.soc import scenario_registry
+    alert_code = state.get("active_alert_code") or ""
+    scenario = scenario_registry.get(alert_code)
+    if not scenario:
+        # Fallback: check workspace (backward compat with IR seed).
+        scenario = ((state.get("workspace") or {})
+                    .get("incident_scenario") or {})
     phase_actions = (scenario.get("phases") or {}).get(phase) or {}
     correct = phase_actions.get("correct_actions") or []
     wrong = phase_actions.get("wrong_actions") or []
@@ -541,8 +551,9 @@ def _submit_ir_report(self, state, action):
             new_state=state)
     completed = state.get("ir_completed_phases") or []
     decisions = state.get("ir_decisions") or []
+    hints_used = int(state.get("hints_used") or 0)
     score = score_engine.compute_final_score(
-        decisions, report, len(completed))
+        decisions, report, len(completed), hints_used=hints_used)
     state["ir_score"] = score
     state["report"] = report
 
@@ -687,3 +698,21 @@ SOCSimulator._add_case_note = _add_case_note
 SOCSimulator._link_case_evidence = _link_case_evidence
 SOCSimulator._escalate_case = _escalate_case
 SOCSimulator._close_case = _close_case
+
+
+# ------------------------------------------------------------------
+# YC-030.4 — Hint system
+# ------------------------------------------------------------------
+HINT_PENALTY = 5  # points deducted per hint used
+
+def _use_hint(self, state, action):
+    """Student requests a hint — tracked for scoring."""
+    hints_used = int(state.get("hints_used") or 0) + 1
+    state["hints_used"] = hints_used
+    return ActionResult(
+        output=f"[HINT] Hint #{hints_used} used — "
+               f"{HINT_PENALTY} points will be deducted from final score.",
+        new_state=state,
+        events=[{"type": "hint_used", "count": hints_used}])
+
+SOCSimulator._use_hint = _use_hint

@@ -62,6 +62,11 @@ def load_lab_content(lab: Lab) -> dict[str, Any]:
         "soc-analyst-fundamentals": "ALERT-2026-0007",
         "soc-alert-investigation": "ALERT-INV-0003",
         "soc-incident-response": "ALERT-IR-0001",
+        "soc-scenario-ransomware": "ALERT-ADV-0001",
+        "soc-scenario-phishing": "ALERT-ADV-0002",
+        "soc-scenario-insider": "ALERT-ADV-0003",
+        "soc-scenario-dns-tunnel": "ALERT-ADV-0004",
+        "soc-scenario-malware-beacon": "ALERT-ADV-0005",
     }
     soc_default_alert = soc_default_alerts.get(lab.slug)
 
