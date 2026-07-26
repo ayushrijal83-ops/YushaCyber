@@ -363,6 +363,15 @@ def forensics_state(slug: str):
 # ---------------------------------------------------------------------------
 # SOC Analyst workspace (YC-030.1)
 # ---------------------------------------------------------------------------
+def _hunt_mitre_summary(state):
+    try:
+        from app.simulators.soc import hunt_engine
+        alert_code = state.get("active_alert_code") or ""
+        return hunt_engine.mitre_summary(alert_code)
+    except (ImportError, Exception):
+        return []
+
+
 def _case_dashboard():
     """Case management dashboard stats."""
     try:
@@ -492,4 +501,11 @@ def soc_state(slug: str):
         # YC-030.3.5 Case Management.
         "case_dashboard": _case_dashboard(),
         "active_case_code": state.get("active_case_code") or "",
+        # YC-030.6 Threat Hunting.
+        "hunt_bookmarks": list(state.get("hunt_bookmarks") or []),
+        "hunt_notes": list(state.get("hunt_notes") or []),
+        "hunt_searches": list(state.get("hunt_searches") or []),
+        "hunt_mitre_mapped": list(state.get("hunt_mitre_mapped") or []),
+        "hunt_report": state.get("hunt_report"),
+        "hunt_mitre_summary": _hunt_mitre_summary(state),
     })

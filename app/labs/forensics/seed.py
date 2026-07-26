@@ -320,5 +320,19 @@ def seed_forensics_labs() -> dict[str, int]:
     result["objectives"] += adv.get("objectives", 0)
     result["achievements"] += adv.get("achievements", 0)
 
+    # YC-030.5 — SOC Capstone: Operation Black Phoenix.
+    from app.simulators.soc.capstone_seed import seed_soc_capstone
+    cap = seed_soc_capstone()
+    result["labs"] += cap.get("labs", 0)
+    result["objectives"] += cap.get("objectives", 0)
+    result["achievements"] += cap.get("achievements", 0)
+
+    # YC-030.6 — Threat Hunting Dashboard.
+    from app.simulators.soc.hunt_seed import seed_threat_hunting
+    hunt = seed_threat_hunting()
+    result["labs"] += hunt.get("labs", 0)
+    result["objectives"] += hunt.get("objectives", 0)
+    result["achievements"] += hunt.get("achievements", 0)
+
     db.session.commit()
     return result

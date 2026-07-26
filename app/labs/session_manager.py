@@ -67,6 +67,13 @@ def load_lab_content(lab: Lab) -> dict[str, Any]:
         "soc-scenario-insider": "ALERT-ADV-0003",
         "soc-scenario-dns-tunnel": "ALERT-ADV-0004",
         "soc-scenario-malware-beacon": "ALERT-ADV-0005",
+        "soc-capstone-black-phoenix": "ALERT-PHOENIX-001",
+        "soc-hunt-powershell": "HUNT-001",
+        "soc-hunt-dns": "HUNT-002",
+        "soc-hunt-creds": "HUNT-003",
+        "soc-hunt-lateral": "HUNT-004",
+        "soc-hunt-schtask": "HUNT-005",
+        "soc-hunt-beacon": "HUNT-006",
     }
     soc_default_alert = soc_default_alerts.get(lab.slug)
 

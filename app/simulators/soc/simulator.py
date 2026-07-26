@@ -81,6 +81,12 @@ class SOCSimulator(Simulator):
             ir_score=None,            # final score dict (on submit)
             # YC-030.4 hint tracking.
             hints_used=0,
+            # YC-030.6 Threat Hunting state.
+            hunt_bookmarks=[],
+            hunt_notes=[],
+            hunt_searches=[],
+            hunt_mitre_mapped=[],
+            hunt_report=None,
         )
 
     def capabilities(self) -> set[str]:
@@ -175,6 +181,19 @@ class SOCSimulator(Simulator):
             return self._escalate_case(state, action)
         if action.type == "close_case":
             return self._close_case(state, action)
+        # YC-030.6: Threat Hunting actions.
+        if action.type == "search_telemetry":
+            return self._search_telemetry(state, action)
+        if action.type == "bookmark":
+            return self._bookmark(state, action)
+        if action.type == "unbookmark":
+            return self._unbookmark(state, action)
+        if action.type == "add_hunt_note":
+            return self._add_hunt_note(state, action)
+        if action.type == "map_mitre":
+            return self._map_mitre(state, action)
+        if action.type == "submit_hunt_report":
+            return self._submit_hunt_report(state, action)
 
         # Everything else is a forensics action forwarded through.
         forensics_state = state.get("forensics") or {}
@@ -716,3 +735,126 @@ def _use_hint(self, state, action):
         events=[{"type": "hint_used", "count": hints_used}])
 
 SOCSimulator._use_hint = _use_hint
+
+
+# ------------------------------------------------------------------
+# YC-030.6 — Threat Hunting action handlers
+# ------------------------------------------------------------------
+def _search_telemetry(self, state, action):
+    from app.simulators.soc import hunt_engine
+    query = str((action.payload or {}).get("query") or "").strip()
+    field = (action.payload or {}).get("field") or None
+    if not query:
+        return ActionResult(output="Empty search query.",
+                            new_state=state)
+    case = (state.get("forensics") or {}).get("case") or {}
+    artifacts = case.get("artifacts") or []
+    results = hunt_engine.search_telemetry(artifacts, query, field)
+    searches = list(state.get("hunt_searches") or [])
+    searches.append({"query": query, "field": field,
+                     "results": len(results)})
+    state["hunt_searches"] = searches
+    events = [{"type": "telemetry_searched", "query": query,
+               "results": len(results)}]
+    if results:
+        events.append({"type": "hunt_evidence_found"})
+    return ActionResult(
+        output=f"[SEARCH] '{query}' → {len(results)} result(s).",
+        new_state=state, events=events)
+
+
+def _bookmark(self, state, action):
+    from app.simulators.soc import hunt_engine
+    ref = str((action.payload or {}).get("ref") or "").strip()
+    label = str((action.payload or {}).get("label") or ref)[:200]
+    if not ref:
+        return ActionResult(output="Missing bookmark ref.",
+                            new_state=state)
+    state = hunt_engine.add_bookmark(state, ref, label)
+    return ActionResult(
+        output=f"[BOOKMARK] {label[:60]}",
+        new_state=state,
+        events=[{"type": "evidence_bookmarked", "ref": ref}])
+
+
+def _unbookmark(self, state, action):
+    from app.simulators.soc import hunt_engine
+    ref = str((action.payload or {}).get("ref") or "").strip()
+    if not ref:
+        return ActionResult(output="Missing ref.", new_state=state)
+    state = hunt_engine.remove_bookmark(state, ref)
+    return ActionResult(output=f"[UNBOOKMARK] {ref}",
+                        new_state=state)
+
+
+def _add_hunt_note(self, state, action):
+    from app.simulators.soc import hunt_engine
+    note = (action.payload or {})
+    if not note.get("title") and not note.get("observation"):
+        return ActionResult(output="Empty note.", new_state=state)
+    state = hunt_engine.add_hunt_note(state, note)
+    return ActionResult(
+        output=f"[NOTE] {(note.get('title') or '')[:60]}",
+        new_state=state,
+        events=[{"type": "hunt_note_added"}])
+
+
+def _map_mitre(self, state, action):
+    technique_id = str(
+        (action.payload or {}).get("technique_id") or "").strip()
+    if not technique_id:
+        return ActionResult(output="Missing technique_id.",
+                            new_state=state)
+    mapped = list(state.get("hunt_mitre_mapped") or [])
+    if technique_id not in mapped:
+        mapped.append(technique_id)
+    state["hunt_mitre_mapped"] = mapped
+    events = [{"type": "mitre_technique_mapped",
+               "technique_id": technique_id}]
+    # Check if all expected techniques are mapped.
+    alert_code = state.get("active_alert_code") or ""
+    from app.simulators.soc import hunt_engine as he
+    expected = he.get_mitre(alert_code)
+    expected_ids = {m.get("technique_id") for m in expected}
+    if expected_ids and expected_ids.issubset(set(mapped)):
+        events.append({"type": "all_mitre_mapped"})
+    return ActionResult(
+        output=f"[MITRE] {technique_id} mapped.",
+        new_state=state, events=events)
+
+
+def _submit_hunt_report(self, state, action):
+    from app.simulators.soc import hunt_engine
+    report = str((action.payload or {}).get("report") or "").strip()
+    if len(report) < 50:
+        return ActionResult(
+            output="Report too short (minimum 150 characters).",
+            new_state=state)
+    iocs_found = len([s for s in (state.get("hunt_searches") or [])
+                      if s.get("results", 0) > 0])
+    mitre_mapped = len(state.get("hunt_mitre_mapped") or [])
+    bookmarks = len(state.get("hunt_bookmarks") or [])
+    hints_used = int(state.get("hints_used") or 0)
+    score = hunt_engine.score_hunt_report(
+        report, iocs_found, mitre_mapped, bookmarks, hints_used)
+    state["hunt_report"] = score
+    state["report"] = report
+    events = [{"type": "hunt_report_submitted",
+               "rating": score["rating"]}]
+    if score["rating"] in ("Excellent", "Good", "Pass"):
+        events.append({"type": "findings_correct"})
+        events.append({"type": "incident_closed"})
+        state["incident_closed"] = True
+    return ActionResult(
+        output=(f"[HUNT SCORE] {score['rating']} — "
+                f"{score['total']}/{score['max']} points "
+                f"({score['ratio']:.0%})"),
+        new_state=state, events=events)
+
+
+SOCSimulator._search_telemetry = _search_telemetry
+SOCSimulator._bookmark = _bookmark
+SOCSimulator._unbookmark = _unbookmark
+SOCSimulator._add_hunt_note = _add_hunt_note
+SOCSimulator._map_mitre = _map_mitre
+SOCSimulator._submit_hunt_report = _submit_hunt_report

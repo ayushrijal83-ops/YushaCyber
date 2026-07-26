@@ -208,3 +208,54 @@ class SocCaseNote(BaseModel):
         backref=db.backref("notes", cascade="all, delete-orphan",
                            lazy="selectin",
                            order_by="SocCaseNote.created_at"))
+
+
+# ===========================================================================
+# Threat Hunting (YC-030.6)
+# ===========================================================================
+class SocHunt(BaseModel):
+    """A threat hunt scenario — students search telemetry proactively."""
+
+    __tablename__ = "soc_hunts"
+
+    slug = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    hypothesis = db.Column(db.Text, nullable=False, default="")
+    description = db.Column(db.Text, nullable=False, default="")
+    difficulty = db.Column(db.String(20), nullable=False, default="Expert")
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    #: Link to a ForensicsCase that holds the telemetry artifacts.
+    case_id = db.Column(
+        db.Integer, db.ForeignKey("forensics_cases.id", ondelete="SET NULL"),
+        nullable=True, index=True)
+    case = db.relationship("ForensicsCase", lazy="joined")
+
+
+class SocIOC(BaseModel):
+    """An Indicator of Compromise seeded into a hunt."""
+
+    __tablename__ = "soc_iocs"
+
+    hunt_id = db.Column(
+        db.Integer, db.ForeignKey("soc_hunts.id", ondelete="CASCADE"),
+        nullable=False, index=True)
+    ioc_type = db.Column(db.String(30), nullable=False, index=True)
+    value = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text, nullable=False, default="")
+    is_malicious = db.Column(db.Boolean, nullable=False, default=False)
+    #: MITRE ATT&CK technique ID (e.g. "T1059.001").
+    mitre_technique = db.Column(db.String(20), nullable=True)
+    display_order = db.Column(db.Integer, nullable=False, default=0)
+
+    hunt = db.relationship(
+        "SocHunt",
+        backref=db.backref("iocs", cascade="all, delete-orphan",
+                           lazy="selectin",
+                           order_by="SocIOC.display_order"))
+
+
+IOC_TYPES = (
+    "ip", "domain", "sha256", "filename", "url",
+    "registry_key", "scheduled_task", "service",
+    "process", "command_line", "dns_query",
+)
