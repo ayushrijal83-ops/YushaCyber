@@ -508,4 +508,6 @@ def soc_state(slug: str):
         "hunt_mitre_mapped": list(state.get("hunt_mitre_mapped") or []),
         "hunt_report": state.get("hunt_report"),
         "hunt_mitre_summary": _hunt_mitre_summary(state),
+        # YC-030.7 Assessment.
+        "assessment_score": state.get("assessment_score"),
     })

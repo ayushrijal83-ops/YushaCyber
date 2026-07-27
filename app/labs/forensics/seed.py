@@ -334,5 +334,12 @@ def seed_forensics_labs() -> dict[str, int]:
     result["objectives"] += hunt.get("objectives", 0)
     result["achievements"] += hunt.get("achievements", 0)
 
+    # YC-030.7 — Blue Team Assessment.
+    from app.simulators.soc.assessment_seed import seed_blue_team_assessment
+    assess = seed_blue_team_assessment()
+    result["labs"] += assess.get("labs", 0)
+    result["objectives"] += assess.get("objectives", 0)
+    result["achievements"] += assess.get("achievements", 0)
+
     db.session.commit()
     return result

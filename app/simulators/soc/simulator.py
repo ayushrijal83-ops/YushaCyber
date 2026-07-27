@@ -194,6 +194,9 @@ class SOCSimulator(Simulator):
             return self._map_mitre(state, action)
         if action.type == "submit_hunt_report":
             return self._submit_hunt_report(state, action)
+        # YC-030.7: Blue Team Assessment.
+        if action.type == "submit_assessment":
+            return self._submit_assessment(state, action)
 
         # Everything else is a forensics action forwarded through.
         forensics_state = state.get("forensics") or {}
@@ -858,3 +861,36 @@ SOCSimulator._unbookmark = _unbookmark
 SOCSimulator._add_hunt_note = _add_hunt_note
 SOCSimulator._map_mitre = _map_mitre
 SOCSimulator._submit_hunt_report = _submit_hunt_report
+
+
+# ------------------------------------------------------------------
+# YC-030.7 — Blue Team Assessment
+# ------------------------------------------------------------------
+def _submit_assessment(self, state, action):
+    """Final assessment submission — scores everything + records result."""
+    from app.simulators.soc import assessment_engine, scenario_registry
+    report = str((action.payload or {}).get("report") or "").strip()
+    if len(report) < 100:
+        return ActionResult(
+            output="Assessment report too short (minimum 200 characters).",
+            new_state=state)
+    state["report"] = report
+    alert_code = state.get("active_alert_code") or ""
+    expected = scenario_registry.get(alert_code)
+    score = assessment_engine.score_assessment(state, expected)
+    state["assessment_score"] = score
+    events = [{"type": "assessment_submitted",
+               "grade": score["grade"],
+               "score": score["total"]}]
+    if score["grade"] in ("Excellent", "Pass"):
+        events.append({"type": "findings_correct"})
+        events.append({"type": "incident_closed"})
+        state["incident_closed"] = True
+    return ActionResult(
+        output=(f"[ASSESSMENT] {score['grade']} — "
+                f"{score['total']}/{score['max']} "
+                f"({score['ratio']:.0%})"),
+        new_state=state, events=events)
+
+
+SOCSimulator._submit_assessment = _submit_assessment

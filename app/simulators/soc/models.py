@@ -259,3 +259,26 @@ IOC_TYPES = (
     "registry_key", "scheduled_task", "service",
     "process", "command_line", "dns_query",
 )
+
+
+# ===========================================================================
+# Blue Team Assessment (YC-030.7)
+# ===========================================================================
+class AssessmentResult(BaseModel):
+    """Records a student's final assessment score for the leaderboard."""
+
+    __tablename__ = "soc_assessment_results"
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id",
+                        ondelete="CASCADE"), nullable=False, index=True)
+    assessment_slug = db.Column(db.String(80), nullable=False, index=True)
+    score = db.Column(db.Integer, nullable=False, default=0)
+    max_score = db.Column(db.Integer, nullable=False, default=100)
+    grade = db.Column(db.String(30), nullable=False, default="")
+    completion_seconds = db.Column(db.Integer, nullable=True)
+    certificate_id_str = db.Column(db.String(40), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "assessment_slug",
+                            name="uq_assessment_result"),
+    )

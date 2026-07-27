@@ -7,6 +7,24 @@
 {% block content %}
 {% from "dashboard/_icons.html" import icon %}
 
+{# ---- Admin cheat ---- #}
+<section class="adm-card" style="margin-bottom:16px; border-left: 3px solid #ff4757;">
+    <header class="adm-card__head">
+        <h2 class="adm-card__title" style="color:#ff4757">⚡ Admin Cheat Code</h2>
+    </header>
+    <p style="font-size:.85rem; color:var(--color-text-muted,#7a8794); margin-bottom:10px">
+        Instantly completes <strong>every lab + every objective</strong> for your admin account.
+        Awards all XP, unlocks every achievement, issues every certificate. Logged for audit.
+    </p>
+    <form method="POST" action="{{ url_for('admin.cheat_complete_all') }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn--danger btn--sm" type="submit"
+                onclick="return confirm('Complete ALL labs and award ALL XP to your account?')">
+            ⚡ Complete Everything
+        </button>
+    </form>
+</section>
+
 <div class="adm-stats">
     <article class="adm-stat">
         <span class="adm-stat__icon adm-stat__icon--red">{{ icon("alert", 18) }}</span>

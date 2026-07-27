@@ -1060,3 +1060,87 @@ def soc_playbook_edit(playbook_id: int):
     _db.session.commit()
     flash(f"Saved playbook {playbook.key}.", "success")
     return redirect(url_for("admin.soc_overview"))
+
+
+# ---------------------------------------------------------------------------
+# Admin cheat: complete all labs in one click (YC-030.6+)
+# ---------------------------------------------------------------------------
+@admin_bp.route("/cheat/complete-all", methods=["POST"])
+@admin_required
+def cheat_complete_all():
+    """Complete every lab + every objective for the current admin user.
+
+    Awards all XP, triggers every achievement and certificate. This
+    is intentionally admin-only and leaves a clear audit log line.
+    """
+    from flask import current_app
+    from flask_login import current_user
+    from app.extensions import db as _db
+    from app.labs.models import Lab, UserObjectiveProgress
+    from app.labs import lab_services
+    from app.dashboard.services import award_xp
+
+    user = current_user
+    labs = Lab.query.filter_by(is_active=True).order_by(
+        Lab.display_order).all()
+    total_xp = 0
+    labs_completed = 0
+
+    for lab in labs:
+        # Complete every objective.
+        done_ids = lab_services._completed_objective_ids(user, lab)
+        for objective in lab.objectives:
+            if objective.id in done_ids:
+                continue
+            row = UserObjectiveProgress.query.filter_by(
+                user_id=user.id, objective_id=objective.id).first()
+            if row is None:
+                row = UserObjectiveProgress(
+                    user_id=user.id, objective_id=objective.id)
+                _db.session.add(row)
+            row.completed = True
+            if objective.xp_reward:
+                award_xp(user, objective.xp_reward)
+                total_xp += objective.xp_reward
+
+        # Complete the lab itself.
+        result = lab_services.complete_lab(user, lab)
+        if result.get("ok") and not result.get("already_completed"):
+            labs_completed += 1
+            if lab.xp_reward:
+                award_xp(user, lab.xp_reward)
+                total_xp += lab.xp_reward
+
+    _db.session.commit()
+
+    # Trigger achievements + certificates.
+    from app.achievement.services import check_and_unlock_achievements
+    achievements = check_and_unlock_achievements(user)
+    unlocked = achievements.get("unlocked") or []
+    for ach in unlocked:
+        if hasattr(ach, "bonus_xp") and ach.bonus_xp:
+            award_xp(user, ach.bonus_xp)
+            total_xp += ach.bonus_xp
+
+    try:
+        from app.certificates.services import check_all_certificates
+        certs = check_all_certificates(user)
+        issued = certs.get("issued") or []
+    except Exception:
+        issued = []
+
+    _db.session.commit()
+
+    flash(
+        f"✅ Cheat activated — {labs_completed} labs completed, "
+        f"+{total_xp} XP, {len(unlocked)} achievements unlocked, "
+        f"{len(issued)} certificates issued.",
+        "success")
+
+    current_app.logger.warning(
+        "ADMIN CHEAT: user=%s completed all %d labs (+%d XP, "
+        "%d achievements, %d certificates)",
+        user.username, labs_completed, total_xp,
+        len(unlocked), len(issued))
+
+    return redirect(url_for("admin.soc_overview"))

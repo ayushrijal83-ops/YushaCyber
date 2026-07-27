@@ -74,6 +74,7 @@ def load_lab_content(lab: Lab) -> dict[str, Any]:
         "soc-hunt-lateral": "HUNT-004",
         "soc-hunt-schtask": "HUNT-005",
         "soc-hunt-beacon": "HUNT-006",
+        "soc-blue-team-assessment": "ASSESS-001",
     }
     soc_default_alert = soc_default_alerts.get(lab.slug)
 
