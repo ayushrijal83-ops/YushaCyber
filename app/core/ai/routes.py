@@ -57,3 +57,17 @@ def context_endpoint():
     from app.core.ai.context_engine import get_context_dict, filter_for_ai
     ctx = get_context_dict(current_user)
     return jsonify(filter_for_ai(ctx))
+
+
+@ai_bp.route("/hint", methods=["POST"])
+@login_required
+def hint_endpoint():
+    """POST /api/ai/hint — request a smart hint."""
+    from app.core.ai.hints import get_hint
+    data = request.get_json(silent=True) or {}
+    objective_id = int(data.get("objective_id") or 0)
+    if objective_id <= 0:
+        return jsonify({"error": "Missing objective_id."}), 400
+    is_admin = getattr(current_user, "is_admin", False)
+    response = get_hint(current_user.id, objective_id, is_admin)
+    return jsonify(response.to_dict())
