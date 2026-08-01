@@ -112,6 +112,10 @@ def _register_blueprints(app: Flask) -> None:
     from app.community import community_bp
     app.register_blueprint(community_bp)  # /teams, /classrooms, /notifications
 
+    # YC-032.1 — CyberMentor AI.
+    from app.core.ai.routes import ai_bp
+    app.register_blueprint(ai_bp)  # /api/ai/chat, /api/ai/health, /api/ai/models
+
 
 def _register_routes(app: Flask) -> None:
     """Application-level routes (homepage stays exactly as before)."""
