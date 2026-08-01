@@ -54,7 +54,8 @@ def detail(slug: str):
         context = lab_services.get_workspace_context(current_user, lab)
 
     return render_template(
-        "labs/detail.html", user=current_user, lab=lab, **context
+        "labs/detail.html", user=current_user, lab=lab,
+        current_lab=lab.slug, **context
     )
 
 

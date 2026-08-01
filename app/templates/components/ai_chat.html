@@ -1,0 +1,12 @@
+{# CyberMentor chat component — include in any authenticated page.
+   Usage: {% include "components/ai_chat.html" %}
+   The JS reads data-mentor-* attributes to auto-inject the panel. #}
+{% if current_user is defined and current_user.is_authenticated %}
+<div data-mentor-user="{{ current_user.username }}"
+     data-mentor-level="{{ current_user.level | default(1) }}"
+     data-mentor-xp="{{ current_user.xp | default(0) }}"
+     data-mentor-lab="{{ current_lab | default('') }}"
+     style="display:none"></div>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mentor.css') }}">
+<script src="{{ url_for('static', filename='js/mentor.js') }}" defer></script>
+{% endif %}
