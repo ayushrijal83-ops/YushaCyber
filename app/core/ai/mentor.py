@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.ai import memory
-from app.core.ai.context import build_context
 from app.core.ai.manager import get_manager
 from app.core.ai.prompts import build_system_message
 from app.core.ai.types import ChatResponse, MentorContext, Message
@@ -20,7 +19,21 @@ def ask(user, question: str,
         current_scenario: str = "",
         **kwargs: Any) -> ChatResponse:
     """Ask CyberMentor a question with full student context."""
-    ctx = build_context(user, current_lab, current_scenario)
+    # Use the intelligent context engine (YC-032.2).
+    from app.core.ai.context_engine import get_context
+    full_ctx = get_context(user, current_lab, current_scenario)
+    # Convert to MentorContext for backward compat.
+    ctx = MentorContext(
+        username=full_ctx.user.username,
+        level=full_ctx.progress.level,
+        xp=full_ctx.progress.xp,
+        completed_labs=[],
+        current_lab=full_ctx.learning.current_lab,
+        current_scenario=full_ctx.learning.current_scenario,
+        current_difficulty=full_ctx.learning.difficulty,
+        achievements=[a for a in full_ctx.achievements.recent_achievements],
+        certificates=full_ctx.achievements.certificates,
+    )
     return ask_with_context(ctx, user.id, question, **kwargs)
 
 

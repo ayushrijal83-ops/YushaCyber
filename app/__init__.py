@@ -113,8 +113,9 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(community_bp)  # /teams, /classrooms, /notifications
 
     # YC-032.1 — CyberMentor AI.
-    from app.core.ai.routes import ai_bp
+    from app.core.ai.routes import ai_bp, _register_csrf_exempt
     app.register_blueprint(ai_bp)  # /api/ai/chat, /api/ai/health, /api/ai/models
+    _register_csrf_exempt(app)
 
 
 def _register_routes(app: Flask) -> None:

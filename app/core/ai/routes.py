@@ -8,6 +8,15 @@ from flask_login import current_user, login_required
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
 
 
+def _register_csrf_exempt(app):
+    """Call after app.register_blueprint to exempt API from CSRF."""
+    try:
+        from app.extensions import csrf
+        csrf.exempt(ai_bp)
+    except Exception:
+        pass
+
+
 @ai_bp.route("/chat", methods=["POST"])
 @login_required
 def chat_endpoint():
@@ -37,3 +46,14 @@ def models_endpoint():
     """GET /api/ai/models — list available models."""
     from app.core.ai.services import models
     return jsonify({"models": models()})
+
+
+@ai_bp.route("/context")
+@login_required
+def context_endpoint():
+    """GET /api/ai/context — debug: show current context (admin only)."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Admin only."}), 403
+    from app.core.ai.context_engine import get_context_dict, filter_for_ai
+    ctx = get_context_dict(current_user)
+    return jsonify(filter_for_ai(ctx))
