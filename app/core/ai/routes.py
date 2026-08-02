@@ -71,3 +71,20 @@ def hint_endpoint():
     is_admin = getattr(current_user, "is_admin", False)
     response = get_hint(current_user.id, objective_id, is_admin)
     return jsonify(response.to_dict())
+
+
+@ai_bp.route("/recommendations")
+@login_required
+def recommendations_endpoint():
+    """GET /api/ai/recommendations — personalized learning recs."""
+    from app.core.ai.recommendations import get_recommendations
+    recs = get_recommendations(current_user, limit=5)
+    return jsonify({"recommendations": [r.to_dict() for r in recs]})
+
+
+@ai_bp.route("/skill-profile")
+@login_required
+def skill_profile_endpoint():
+    """GET /api/ai/skill-profile — student skill analysis."""
+    from app.core.ai.recommendations import get_skill_profile
+    return jsonify(get_skill_profile(current_user).to_dict())
