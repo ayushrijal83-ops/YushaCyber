@@ -229,3 +229,71 @@ def LiveClass_query_by_instructor(instructor_id: int):
 def LiveClass_query_get(class_id: int):
     from app.live.models import LiveClass
     return LiveClass.query.get(class_id)
+
+
+# ── Classroom experience ──
+@live_bp.route("/classroom/<slug>")
+@login_required
+def classroom(slug: str):
+    lc = services.get_by_slug(slug)
+    if lc is None:
+        flash("Class not found.", "error")
+        return redirect(url_for("live.class_list"))
+    enrolled = services.is_enrolled(current_user.id, lc.id)
+    if not enrolled and lc.status == "live":
+        flash("You must register first.", "error")
+        return redirect(url_for("live.class_detail", slug=slug))
+    show_url = enrolled and lc.status == "live"
+    meeting_url = lc.meeting_url if show_url else ""
+    # Build participant list.
+    participants = []
+    for e in (lc.enrollments or []):
+        if e.user:
+            icon = "🟢" if e.attendance_status == "present" else "⚪"
+            participants.append({
+                "username": e.user.username,
+                "status_icon": icon,
+            })
+    return render_template("live/classroom.html",
+                           lc=services.class_to_dict(lc, show_url),
+                           lc_obj=lc, enrolled=enrolled,
+                           meeting_url=meeting_url,
+                           participants=participants,
+                           user=current_user)
+
+
+@live_bp.route("/instructor/classroom/<slug>")
+@login_required
+def instructor_classroom(slug: str):
+    """Instructor view — same template with extra controls."""
+    lc = services.get_by_slug(slug)
+    if lc is None or not lc.is_instructor(current_user):
+        flash("Not authorized.", "error")
+        return redirect(url_for("live.instructor_dashboard"))
+    meeting_url = lc.meeting_url or ""
+    participants = []
+    for e in (lc.enrollments or []):
+        if e.user:
+            icon = "🟢" if e.attendance_status == "present" else "⚪"
+            participants.append({
+                "username": e.user.username,
+                "status_icon": icon,
+            })
+    return render_template("live/classroom.html",
+                           lc=services.class_to_dict(lc, True),
+                           lc_obj=lc, enrolled=True,
+                           meeting_url=meeting_url,
+                           participants=participants,
+                           user=current_user)
+
+
+@live_bp.route("/classes/<slug>/leave", methods=["GET", "POST"])
+@login_required
+def leave_class(slug: str):
+    lc = services.get_by_slug(slug)
+    if lc:
+        services.mark_left(current_user.id, lc.id)
+        from app.extensions import db
+        db.session.commit()
+    flash("You left the class. Attendance recorded.", "success")
+    return redirect(url_for("live.my_classes"))
