@@ -1144,3 +1144,17 @@ def cheat_complete_all():
         len(unlocked), len(issued))
 
     return redirect(url_for("admin.soc_overview"))
+
+
+# ---------------------------------------------------------------------------
+# AI Analytics Dashboard (YC-032.5)
+# ---------------------------------------------------------------------------
+@admin_bp.route("/ai")
+@admin_required
+def ai_dashboard():
+    """AI Analytics & Instructor Dashboard."""
+    from app.core.ai.analytics import dashboard_dict, get_charts
+    data = dashboard_dict()
+    charts = get_charts()
+    return render_template("admin/ai_dashboard.html",
+                           data=data, charts=charts)

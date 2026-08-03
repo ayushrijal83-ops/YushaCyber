@@ -88,3 +88,53 @@ def skill_profile_endpoint():
     """GET /api/ai/skill-profile — student skill analysis."""
     from app.core.ai.recommendations import get_skill_profile
     return jsonify(get_skill_profile(current_user).to_dict())
+
+
+# ------------------------------------------------------------------
+# AI Analytics API (admin only)
+# ------------------------------------------------------------------
+@ai_bp.route("/admin/analytics")
+@login_required
+def analytics_endpoint():
+    """GET /api/ai/admin/analytics — dashboard metrics (admin only)."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Admin only."}), 403
+    from app.core.ai.analytics import dashboard_dict
+    return jsonify(dashboard_dict())
+
+
+@ai_bp.route("/admin/report")
+@login_required
+def report_endpoint():
+    """GET /api/ai/admin/report?period=daily — generate report."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Admin only."}), 403
+    period = request.args.get("period", "daily")
+    from app.core.ai.analytics import get_report
+    return jsonify(get_report(period))
+
+
+@ai_bp.route("/admin/export")
+@login_required
+def export_endpoint():
+    """GET /api/ai/admin/export?dataset=all&format=json."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Admin only."}), 403
+    dataset = request.args.get("dataset", "all")
+    fmt = request.args.get("format", "json")
+    from app.core.ai.analytics import export_data
+    data = export_data(dataset, fmt)
+    if fmt == "csv":
+        return data, 200, {"Content-Type": "text/csv",
+                            "Content-Disposition": f"attachment; filename={dataset}.csv"}
+    return data, 200, {"Content-Type": "application/json"}
+
+
+@ai_bp.route("/admin/charts")
+@login_required
+def charts_endpoint():
+    """GET /api/ai/admin/charts — chart data series."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Admin only."}), 403
+    from app.core.ai.analytics import get_charts
+    return jsonify({"charts": get_charts()})

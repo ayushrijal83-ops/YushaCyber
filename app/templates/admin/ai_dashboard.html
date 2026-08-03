@@ -1,0 +1,111 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'ai' %}
+{% block title %}AI Analytics{% endblock %}
+{% block heading %}CyberMentor Analytics{% endblock %}
+{% block subheading %}AI usage, student learning, hint patterns, recommendations, and platform health.{% endblock %}
+
+{% block content %}
+{% from "dashboard/_icons.html" import icon %}
+
+{# ── AI Usage ── #}
+<div class="adm-stats">
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--blue">🤖</span>
+        <span class="adm-stat__value">{{ data.ai_usage.total_conversations }}</span>
+        <span class="adm-stat__label">Total Conversations</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--green">📨</span>
+        <span class="adm-stat__value">{{ data.ai_usage.messages_today }}</span>
+        <span class="adm-stat__label">Messages Today</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--amber">📊</span>
+        <span class="adm-stat__value">{{ data.ai_usage.messages_week }}</span>
+        <span class="adm-stat__label">This Week</span>
+    </article>
+    <article class="adm-stat">
+        <span class="adm-stat__icon adm-stat__icon--red">📈</span>
+        <span class="adm-stat__value">{{ data.ai_usage.messages_month }}</span>
+        <span class="adm-stat__label">This Month</span>
+    </article>
+</div>
+
+{# ── Student Learning ── #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head"><h2 class="adm-card__title">Student Learning</h2></header>
+    <div class="adm-stats" style="padding:12px">
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.students.total_active }}</span><span class="adm-stat__label">Active Learners</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ "%.0f"|format(data.students.avg_xp) }}</span><span class="adm-stat__label">Avg XP</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ "%.1f"|format(data.students.avg_level) }}</span><span class="adm-stat__label">Avg Level</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ "%.0f"|format(data.students.completion_rate * 100) }}%</span><span class="adm-stat__label">Completion Rate</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.students.labs_completed }}</span><span class="adm-stat__label">Labs Completed</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.students.students_needing_help }}</span><span class="adm-stat__label">Need Help</span></article>
+    </div>
+</section>
+
+{# ── Hint Analytics ── #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head"><h2 class="adm-card__title">Hint Analytics</h2></header>
+    <div class="adm-stats" style="padding:12px">
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.hints.total_requested }}</span><span class="adm-stat__label">Total Hints</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ "%.0f"|format(data.hints.hint_success_rate * 100) }}%</span><span class="adm-stat__label">Success Rate</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.hints.xp_lost }}</span><span class="adm-stat__label">XP Lost</span></article>
+    </div>
+</section>
+
+{# ── Recommendations ── #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head"><h2 class="adm-card__title">Recommendation Analytics</h2></header>
+    <div class="adm-stats" style="padding:12px">
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.recommendations.total_generated }}</span><span class="adm-stat__label">Generated</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.recommendations.accepted }}</span><span class="adm-stat__label">Accepted</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ "%.0f"|format(data.recommendations.completion_rate * 100) }}%</span><span class="adm-stat__label">Completion</span></article>
+    </div>
+    {% if data.recommendations.weakest_topics %}
+    <p style="padding:0 16px 12px;font-size:.8rem;color:var(--color-text-muted,#7a8794)">
+        <strong>Weakest:</strong> {{ data.recommendations.weakest_topics|join(', ') }}
+        {% if data.recommendations.strongest_topics %}
+        &nbsp;|&nbsp;<strong>Strongest:</strong> {{ data.recommendations.strongest_topics|join(', ') }}
+        {% endif %}
+    </p>
+    {% endif %}
+</section>
+
+{# ── Lab Analytics ── #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head"><h2 class="adm-card__title">Lab Analytics</h2></header>
+    <div class="adm-stats" style="padding:12px">
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.labs.total_labs }}</span><span class="adm-stat__label">Total Labs</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ "%.0f"|format(data.labs.completion_rate * 100) }}%</span><span class="adm-stat__label">Completion</span></article>
+    </div>
+</section>
+
+{# ── AI Health ── #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head"><h2 class="adm-card__title">AI Health</h2></header>
+    <div class="adm-stats" style="padding:12px">
+        <article class="adm-stat">
+            <span class="adm-stat__value" style="color:{% if data.health.status == 'ok' %}#22c55e{% elif data.health.status == 'disabled' %}#f59e0b{% else %}#ef4444{% endif %}">{{ data.health.status|upper }}</span>
+            <span class="adm-stat__label">Status</span>
+        </article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.health.provider }}</span><span class="adm-stat__label">Provider</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ data.health.model }}</span><span class="adm-stat__label">Model</span></article>
+        <article class="adm-stat"><span class="adm-stat__value">{{ "%.1f"|format(data.health.error_rate * 100) }}%</span><span class="adm-stat__label">Error Rate</span></article>
+    </div>
+</section>
+
+{# ── Export ── #}
+<section class="adm-card" style="margin-top:16px">
+    <header class="adm-card__head"><h2 class="adm-card__title">Export & Reports</h2></header>
+    <div style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px">
+        <a href="/api/ai/admin/report?period=daily" class="btn btn--sm btn--outline">Daily Report</a>
+        <a href="/api/ai/admin/report?period=weekly" class="btn btn--sm btn--outline">Weekly Report</a>
+        <a href="/api/ai/admin/report?period=monthly" class="btn btn--sm btn--outline">Monthly Report</a>
+        <a href="/api/ai/admin/export?dataset=all&format=json" class="btn btn--sm btn--outline">Export JSON</a>
+        <a href="/api/ai/admin/export?dataset=students&format=csv" class="btn btn--sm btn--outline">Students CSV</a>
+        <a href="/api/ai/admin/export?dataset=hints&format=csv" class="btn btn--sm btn--outline">Hints CSV</a>
+    </div>
+</section>
+
+{% endblock %}
