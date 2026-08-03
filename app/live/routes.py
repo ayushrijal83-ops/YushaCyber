@@ -297,3 +297,116 @@ def leave_class(slug: str):
         db.session.commit()
     flash("You left the class. Attendance recorded.", "success")
     return redirect(url_for("live.my_classes"))
+
+
+# ── Real-time API (YC-033.2) — polling fallback for no-SocketIO ──
+@live_bp.route("/api/classroom/<slug>/join", methods=["POST"])
+@login_required
+def api_join(slug: str):
+    from app.live.realtime.services import join_classroom
+    result = join_classroom(slug, current_user.id,
+                            current_user.username)
+    return jsonify(result)
+
+
+@live_bp.route("/api/classroom/<slug>/leave", methods=["POST"])
+@login_required
+def api_leave(slug: str):
+    from app.live.realtime.services import leave_classroom
+    result = leave_classroom(slug, current_user.id)
+    return jsonify(result)
+
+
+@live_bp.route("/api/classroom/<slug>/chat", methods=["POST"])
+@login_required
+def api_chat_send(slug: str):
+    data = request.get_json(silent=True) or {}
+    from app.live.realtime.services import send_chat
+    msg = send_chat(slug, current_user.id,
+                    current_user.username,
+                    str(data.get("message", "")))
+    return jsonify(msg)
+
+
+@live_bp.route("/api/classroom/<slug>/chat")
+@login_required
+def api_chat_history(slug: str):
+    from app.live.realtime.services import chat_history
+    return jsonify(chat_history(slug))
+
+
+@live_bp.route("/api/classroom/<slug>/presence")
+@login_required
+def api_presence(slug: str):
+    from app.live.realtime.services import get_presence
+    return jsonify(get_presence(slug))
+
+
+@live_bp.route("/api/classroom/<slug>/heartbeat", methods=["POST"])
+@login_required
+def api_heartbeat(slug: str):
+    from app.live.realtime.services import heartbeat_ping
+    heartbeat_ping(slug, current_user.id)
+    return jsonify({"ok": True})
+
+
+@live_bp.route("/api/classroom/<slug>/hand", methods=["POST"])
+@login_required
+def api_hand(slug: str):
+    data = request.get_json(silent=True) or {}
+    action = data.get("action", "raise")
+    from app.live.realtime.services import raise_hand, lower_hand
+    if action == "lower":
+        lower_hand(slug, current_user.id)
+    else:
+        raise_hand(slug, current_user.id, current_user.username)
+    return jsonify({"ok": True})
+
+
+@live_bp.route("/api/classroom/<slug>/hand")
+@login_required
+def api_hand_queue(slug: str):
+    from app.live.realtime.services import hand_queue
+    return jsonify(hand_queue(slug))
+
+
+@live_bp.route("/api/classroom/<slug>/poll", methods=["POST"])
+@login_required
+def api_poll_create(slug: str):
+    data = request.get_json(silent=True) or {}
+    from app.live.realtime.services import create_poll
+    poll = create_poll(slug, data.get("question", ""),
+                       data.get("options", []),
+                       data.get("type", "multiple_choice"))
+    return jsonify(poll)
+
+
+@live_bp.route("/api/classroom/<slug>/poll/vote", methods=["POST"])
+@login_required
+def api_poll_vote(slug: str):
+    data = request.get_json(silent=True) or {}
+    from app.live.realtime.services import vote_poll
+    ok = vote_poll(slug, data.get("poll_id", ""),
+                   current_user.id, data.get("choice", ""))
+    return jsonify({"ok": ok})
+
+
+@live_bp.route("/api/classroom/<slug>/announcements")
+@login_required
+def api_announcements(slug: str):
+    from app.live.realtime.services import get_announcements
+    return jsonify(get_announcements(slug))
+
+
+@live_bp.route("/api/classroom/<slug>/timeline")
+@login_required
+def api_timeline(slug: str):
+    from app.live.realtime.services import timeline
+    return jsonify(timeline(slug))
+
+
+@live_bp.route("/api/classroom/<slug>/state")
+@login_required
+def api_state(slug: str):
+    from app.live.realtime.services import classroom_state
+    return jsonify(classroom_state(slug))
