@@ -117,6 +117,11 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(ai_bp)  # /api/ai/chat, /api/ai/health, /api/ai/models
     _register_csrf_exempt(app)
 
+    # YC-033.0 — Live Classroom.
+    from app.live.routes import live_bp, _register_live_csrf_exempt
+    app.register_blueprint(live_bp)
+    _register_live_csrf_exempt(app)
+
 
 def _register_routes(app: Flask) -> None:
     """Application-level routes (homepage stays exactly as before)."""
@@ -170,6 +175,8 @@ def _register_models() -> None:
     from app.simulators.soc import models as soc_models  # noqa: F401
     # YC-031.0 — register universal engine validators.
     from app.engines import validation_engine  # noqa: F401
+    # YC-033.0 — Live Classroom models.
+    from app.live import models as live_models  # noqa: F401
     from app.analytics import models as analytics_models  # noqa: F401
     from app.community import models as community_models  # noqa: F401
     from app.resources import models as resources_models  # noqa: F401
