@@ -122,6 +122,11 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(live_bp)
     _register_live_csrf_exempt(app)
 
+    # YC-034.0 — Interactive Cyber Labs.
+    from app.lab_engine.routes import lab_engine_bp, _register_csrf_exempt as _lab_csrf
+    app.register_blueprint(lab_engine_bp)
+    _lab_csrf(app)
+
 
 def _register_routes(app: Flask) -> None:
     """Application-level routes (homepage stays exactly as before)."""
