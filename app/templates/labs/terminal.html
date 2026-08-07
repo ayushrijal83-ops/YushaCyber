@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linux Terminal — YushaCyber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='labs/terminal.css') }}">
+</head>
+<body class="tm-body">
+<div class="tm-layout" data-lab-slug="{{ lab_slug }}">
+
+    {# ── Sidebar: Objectives ── #}
+    <aside class="tm-side">
+        {% if mission %}
+        <div class="tm-side__head">🐧 {{ mission.mission.title }}</div>
+        <div style="font-size:.72rem;color:#484f58;margin-bottom:12px;padding:0 2px">{{ mission.mission.description }}</div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;font-size:.65rem">
+            <span style="background:rgba(34,197,94,.1);color:#22c55e;padding:2px 8px;border-radius:6px">{{ mission.mission.difficulty }}</span>
+            <span style="color:#6366f1">+{{ mission.mission.xp_total }} XP</span>
+        </div>
+        <div data-mission-objectives>
+        {% for obj in mission.mission.objectives %}
+        <div class="tm-obj{% if obj.completed %} tm-obj--done{% endif %}" data-obj-id="{{ obj.id }}">
+            <div class="tm-obj__title">{% if obj.completed %}<span class="tm-obj__check">✓</span>{% else %}{{ loop.index }}.{% endif %} {{ obj.title }}</div>
+            <div class="tm-obj__desc">{{ obj.description }}</div>
+            <div class="tm-obj__xp">+{{ obj.xp }} XP</div>
+        </div>
+        {% endfor %}
+        </div>
+        {% else %}
+        <div class="tm-side__head">🐧 Linux Terminal</div>
+        <div style="font-size:.78rem;color:#484f58;padding:8px 0">Free terminal — type any command.</div>
+        {% endif %}
+
+        <div class="tm-progress">
+            <div class="tm-progress__bar"><div class="tm-progress__fill" data-progress-bar style="width:{{ mission.progress.pct if mission else 0 }}%"></div></div>
+            <div class="tm-progress__text" data-progress-text>{{ mission.progress.pct if mission else 0 }}% complete</div>
+        </div>
+    </aside>
+
+    {# ── Terminal ── #}
+    <div class="tm-term">
+        <div class="tm-toolbar">
+            <div class="tm-toolbar__dots">
+                <span class="tm-toolbar__dot tm-toolbar__dot--red"></span>
+                <span class="tm-toolbar__dot tm-toolbar__dot--yellow"></span>
+                <span class="tm-toolbar__dot tm-toolbar__dot--green"></span>
+            </div>
+            <span class="tm-toolbar__title">student@yushacyber-lab: ~</span>
+            <button class="tm-toolbar__btn" data-tm-clear>Clear</button>
+            <button class="tm-toolbar__btn" data-tm-reset>Reset Lab</button>
+            <button class="tm-toolbar__btn" data-tm-full>⛶ Fullscreen</button>
+            <a href="/dashboard/" class="tm-toolbar__btn" style="text-decoration:none">← Back</a>
+        </div>
+        <div class="tm-output" data-tm-output tabindex="0" role="log" aria-label="Terminal output"></div>
+        <div class="tm-input">
+            <span class="tm-input__prompt" data-tm-prompt>student@lab:~$ </span>
+            <input class="tm-input__field" data-tm-input type="text"
+                   placeholder="Type a command..." autocomplete="off"
+                   aria-label="Terminal input" autofocus>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='labs/terminal.js') }}"></script>
+{% include "components/ai_chat.html" %}
+</body>
+</html>

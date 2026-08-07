@@ -1,64 +1,55 @@
-# Interactive Cyber Labs — Browser Lab Engine
+# Interactive Cyber Lab Engine
 
 ## Architecture
 
 ```
-app/lab_engine/
-├── filesystem.py  ← VirtualFS — in-memory file tree (no real OS access)
-├── terminal.py    ← Terminal — command parser for Linux + Windows
-├── objectives.py  ← LabDefinition + Objective dataclasses
-├── validator.py   ← Validates commands/answers/files against objectives
-├── progress.py    ← LabProgress — completion tracking
-├── simulator.py   ← LabSimulator — orchestrates session
-├── state.py       ← Save/load/reset session state
-├── models.py      ← Built-in sample labs (linux-basics, log-analysis, windows-basics)
-├── services.py    ← Public API: start_lab, execute_command, submit_answer, reset_lab
-└── routes.py      ← REST API under /api/lab-engine/
+app/core/lab_engine/
+├── types.py      ← LabDef, LabObjectiveDef, Workspace, LabType (13),
+│                    ObjectiveKind (9), EventKind (8)
+├── registry.py   ← register_lab(), register_workspace(), get_lab(),
+│                    list_labs() — plug in new types without modifying engine
+├── objective.py  ← check() — validates submissions against objectives
+├── events.py     ← EventLog — per-session event log
+├── progress.py   ← LabProgress — completion %, XP, hints, attempts
+├── state.py      ← In-memory save/load/reset
+├── workspace.py  ← Abstract workspace lifecycle
+├── session.py    ← LabSession — isolated per-student session
+├── engine.py     ← Orchestrator: start, submit, hint, reset, ai_context
+└── services.py   ← Public API
 ```
 
-## Simulation Design
+## How it works
 
-Everything runs in-memory. The VirtualFS holds a dict tree, the Terminal
-parses commands against it. No real shell, no OS access, no subprocess calls.
+1. Register a lab definition: `register_lab(LabDef(...))`
+2. Register a workspace factory: `register_workspace("linux", factory)`
+3. Student starts: `start_lab(user_id, slug)` → LabSession
+4. Student submits: `submit_objective(user_id, slug, "o1", "pwd")` → result
+5. Auto-saves after every submission
+6. XP awarded via existing User model
+7. AI gets context: `get_ai_context(user_id, slug)`
 
-### Linux commands (15)
-ls, pwd, cd, cat, grep, find, chmod, mkdir, rm, cp, mv, echo, history, clear, whoami
+## Adding a new lab type
 
-### Windows commands (11)
-dir, cd, type, copy, move, tree, findstr, ipconfig, whoami, cls, mkdir, echo
+```python
+from app.core.lab_engine import register_lab, register_workspace, LabDef, LabObjectiveDef, Workspace
 
-## Validation
+# 1. Register workspace factory
+def create_terminal(config):
+    return Workspace(workspace_type="linux", config=config)
+register_workspace("linux", create_terminal)
 
-3 types: `command` (exact/partial match), `answer` (text comparison),
-`file` (existence check). Auto-validates after every command.
+# 2. Register lab
+register_lab(LabDef(
+    slug="linux-basics", title="Linux Basics", lab_type="linux",
+    objectives=[
+        LabObjectiveDef(id="1", title="Run pwd", kind="run_command", expected="pwd", xp=25),
+    ],
+))
+```
 
-## Lab Lifecycle
+## Integrations
 
-1. `start_lab(user_id, slug)` → creates LabSimulator
-2. `execute_command(user_id, slug, "pwd")` → runs command, auto-validates
-3. Auto-saved after every command
-4. `reset_lab(user_id, slug)` → fresh start
-
-## API
-
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `/api/lab-engine/labs` | GET | List available labs |
-| `/api/lab-engine/start` | POST | Start/resume lab |
-| `/api/lab-engine/execute` | POST | Run terminal command |
-| `/api/lab-engine/answer` | POST | Submit text answer |
-| `/api/lab-engine/reset` | POST | Reset lab |
-| `/api/lab-engine/session/<slug>` | GET | Current session state |
-
-## Security
-
-- No real shell access — commands parsed by Terminal class
-- No subprocess, no os.system, no eval
-- VirtualFS never touches real filesystem
-- Command length limited to 500 chars
-- CSRF exempt (JSON API)
-
-## Extension
-
-Add new labs in `models.py`: create a `LabDefinition` with objectives,
-an optional custom filesystem tree, and add it to `SAMPLE_LABS`.
+- **XP**: Awards via existing `User.xp` on objective completion
+- **AI Mentor**: `ai_context()` returns current lab state for CyberMentor
+- **Achievements**: Future — hook into events
+- **Validation**: Extensible `check()` function
