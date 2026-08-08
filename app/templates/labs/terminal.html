@@ -134,6 +134,107 @@
     </div>
 </div>
 
+{% if mission and mission.web_lab_status %}
+{# ── HTTP Inspector (YC-035.1): a genuine browser-reachable panel for ──
+   inspecting the student's live HTTP traffic — Request/Response/Headers/
+   Body/Cookies/History tabs, plus an optional request builder. Reuses the
+   same dark-theme tokens and .tm-netstatus color language as the rest of
+   this page; a new component shape (tabs) needs its own small stylesheet
+   section, added to terminal.css rather than a new file. #}
+<section class="tm-inspector" aria-label="HTTP Inspector">
+    <div class="tm-inspector__bar">
+        <button class="tm-toolbar__btn" data-inspector-toggle type="button"
+                aria-expanded="true" aria-controls="tm-inspector-body">🔍 HTTP Inspector</button>
+    </div>
+    {# ── HTTP vs HTTPS — conceptual only, no real TLS is ever implemented ── #}
+    <div class="tm-tls" aria-label="HTTP versus HTTPS">
+        <div class="tm-tls__row">
+            <span class="tm-tls__label">HTTP</span>
+            <span class="tm-tls__path">You <span class="tm-tls__arrow" aria-hidden="true">──────────────→</span> Server</span>
+            <span class="tm-tls__note">Plain text — readable by anyone on the network path.</span>
+        </div>
+        <div class="tm-tls__row">
+            <span class="tm-tls__label">HTTPS</span>
+            <span class="tm-tls__path">You <span class="tm-tls__arrow" aria-hidden="true">──🔒 TLS──→</span> Server</span>
+            <span class="tm-tls__note">Encrypted, tamper-evident, and the server's identity is verified.
+                Same request/response shape underneath — TLS wraps it, it doesn't change it.</span>
+        </div>
+        <p class="tm-tls__disclaimer">This simulator never opens a real connection either way — every
+            request/response here is modeled data, studied safely with no real network involved.</p>
+    </div>
+    <div class="tm-inspector__body" id="tm-inspector-body">
+        <div class="tm-inspector__tabs" role="tablist" aria-label="Inspector view">
+            <button class="tm-inspector__tab is-active" role="tab" aria-selected="true"
+                    id="tm-tab-request" aria-controls="tm-panel-request" data-tab="request">Request</button>
+            <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                    id="tm-tab-response" aria-controls="tm-panel-response" data-tab="response">Response</button>
+            <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                    id="tm-tab-headers" aria-controls="tm-panel-headers" data-tab="headers">Headers</button>
+            <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                    id="tm-tab-body" aria-controls="tm-panel-body" data-tab="body">Body</button>
+            <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                    id="tm-tab-cookies" aria-controls="tm-panel-cookies" data-tab="cookies">Cookies</button>
+            <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                    id="tm-tab-history" aria-controls="tm-panel-history" data-tab="history">History</button>
+        </div>
+        <div class="tm-inspector__panel" data-panel="request" role="tabpanel"
+             id="tm-panel-request" aria-labelledby="tm-tab-request">
+            <pre data-inspector-request>No request yet. Use 'open URL' in the terminal, or the Request Builder below.</pre>
+        </div>
+        <div class="tm-inspector__panel" data-panel="response" role="tabpanel" hidden
+             id="tm-panel-response" aria-labelledby="tm-tab-response">
+            <pre data-inspector-response>No response yet.</pre>
+        </div>
+        <div class="tm-inspector__panel" data-panel="headers" role="tabpanel" hidden
+             id="tm-panel-headers" aria-labelledby="tm-tab-headers">
+            <pre data-inspector-headers>No headers yet.</pre>
+        </div>
+        <div class="tm-inspector__panel" data-panel="body" role="tabpanel" hidden
+             id="tm-panel-body" aria-labelledby="tm-tab-body">
+            <pre data-inspector-body>No body in the last exchange.</pre>
+        </div>
+        <div class="tm-inspector__panel" data-panel="cookies" role="tabpanel" hidden
+             id="tm-panel-cookies" aria-labelledby="tm-tab-cookies">
+            <pre data-inspector-cookies>No cookies stored.</pre>
+        </div>
+        <div class="tm-inspector__panel" data-panel="history" role="tabpanel" hidden
+             id="tm-panel-history" aria-labelledby="tm-tab-history">
+            <ul class="tm-inspector__history" data-inspector-history aria-label="Request history"></ul>
+        </div>
+
+        <details class="tm-inspector__builder">
+            <summary>Request Builder (optional — builds an 'open' command for you)</summary>
+            <form data-inspector-form>
+                <div class="tm-inspector__builder-row">
+                    <label class="tm-inspector__field">Method
+                        <select data-builder-method>
+                            <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+                        </select>
+                    </label>
+                    <label class="tm-inspector__field tm-inspector__field--grow">Path
+                        <input type="text" data-builder-path placeholder="/products" />
+                    </label>
+                </div>
+                <label class="tm-inspector__field">Query string
+                    <input type="text" data-builder-query placeholder="id=42" />
+                </label>
+                <label class="tm-inspector__field">Headers (one per line, "Name: Value")
+                    <textarea data-builder-headers rows="2" placeholder="Content-Type: application/json&#10;Authorization: Bearer training-token-001"></textarea>
+                </label>
+                <label class="tm-inspector__field">Body
+                    <textarea data-builder-body rows="2" placeholder='{"username": "student", "password": "training123"}'></textarea>
+                </label>
+                <div class="tm-inspector__builder-actions">
+                    <button type="submit" class="btn btn--primary">Send</button>
+                    <button type="button" class="btn btn--outline" data-builder-clear>Clear</button>
+                </div>
+            </form>
+        </details>
+    </div>
+</section>
+<script type="application/json" id="tm-web-lab-initial">{{ mission.web_lab_status | tojson }}</script>
+{% endif %}
+
 {% if mission %}
 {# ── Completion overlay (shown by JS at 100%) ── #}
 <div class="tm-complete" data-tm-complete hidden role="dialog" aria-modal="true" aria-labelledby="tm-complete-title">

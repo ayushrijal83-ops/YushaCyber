@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import time
 from dataclasses import asdict, dataclass, field
@@ -26,6 +27,7 @@ class MissionProgress:
     attempts: int = 0
     started_at: float = 0.0
     completed: bool = False
+    hint_index: dict[str, int] = field(default_factory=dict)
 
     @property
     def pct(self) -> int:
@@ -164,35 +166,66 @@ class MissionRunner:
         history, server-side login state) is replayed on top so a resumed
         session keeps its logged-in state.
         """
-        if not self.mission.get("web_lab"):
+        web_config = self.mission.get("web_lab")
+        if not web_config:
             return
         from app.core.terminal.web import build_web_lab
-        shell.web_lab = build_web_lab()
+        # `web_lab` is either `True` (legacy — YC-035.0's default
+        # scenario) or a scenario-name string (YC-035.1 needs its own
+        # investigation transcript) — see web.py's _INVESTIGATION_BUILDERS.
+        scenario = web_config if isinstance(web_config, str) else "login-flow"
+        shell.web_lab = build_web_lab(scenario)
         pending = getattr(shell, "_pending_web_lab_state", None)
         if pending:
             shell.web_lab.apply_state(pending)
         shell._pending_web_lab_state = None
 
     def web_lab_status(self) -> dict[str, Any] | None:
-        """Live web-session summary for the mission UI / AI mentor context."""
+        """Live web-session summary for the mission UI / AI mentor context.
+
+        Carries full structured request/response/history data (YC-035.1)
+        so the browser's HTTP Inspector panel can render Request/Response/
+        Headers/Body/Cookies/History tabs without a second round trip —
+        the same JSON already returned by execute()/to_dict()."""
         lab = self.shell.web_lab
         if lab is None:
             return None
         sid = lab.session.cookies.get("session_id")
         username = lab.app.sessions.get(sid) if sid else None
-        resp = lab.session.last_response
+        req, resp = lab.session.last_request, lab.session.last_response
         return {
             "logged_in_as": username,
             "last_status": resp.status_code if resp else None,
-            "last_path": lab.session.last_request.path if lab.session.last_request else None,
+            "last_path": req.path if req else None,
             "cookie_count": len(lab.session.cookies),
+            "cookies": dict(lab.session.cookies),
+            "last_request": dataclasses.asdict(req) if req else None,
+            "last_response": dataclasses.asdict(resp) if resp else None,
+            "history": [
+                {"index": i + 1, "method": r.method, "path": r.path,
+                 "status_code": s.status_code,
+                 "request": dataclasses.asdict(r), "response": dataclasses.asdict(s)}
+                for i, (r, s) in enumerate(lab.session.history[-20:])
+            ],
         }
 
     def use_hint(self, objective_id: str) -> str:
-        """Return the hint for an objective."""
+        """Return the hint for an objective.
+
+        Supports two shapes on an objective: a single `hint` string (every
+        prior mission — unchanged, still works exactly as before), or a
+        `hints` list of progressively more specific hints (YC-035.1 — "the
+        answer" is never handed over on the first ask). Each *further*
+        request for the same objective's hint advances one step deeper,
+        capped at the last entry."""
         self.progress.hints_used += 1
         for obj in self.mission["objectives"]:
             if obj["id"] == objective_id:
+                hints = obj.get("hints")
+                if hints:
+                    idx = self.progress.hint_index.get(objective_id, 0)
+                    self.progress.hint_index[objective_id] = min(idx + 1, len(hints) - 1)
+                    return hints[idx]
                 return obj.get("hint", "No hint available.")
         return "Objective not found."
 
@@ -238,7 +271,26 @@ class MissionRunner:
             ctx["packet_lab"] = pkt_status
         web_status = self.web_lab_status()
         if web_status is not None:
-            ctx["web"] = web_status
+            # A trimmed view for the AI mentor prompt (YC-035.1 wants the
+            # mentor aware of the current endpoint, last request/response,
+            # headers, cookies, and recent history) — the *full* payload in
+            # web_lab_status() is sized for the browser's HTTP Inspector
+            # panel, not for repeating entire raw bodies on every mentor
+            # turn, so only headers (small, useful) and a short history
+            # summary (method/path/status, not full objects) are included.
+            req, resp = web_status["last_request"], web_status["last_response"]
+            ctx["web"] = {
+                "logged_in_as": web_status["logged_in_as"],
+                "last_path": web_status["last_path"],
+                "last_status": web_status["last_status"],
+                "last_request_headers": req["headers"] if req else {},
+                "last_response_headers": resp["headers"] if resp else {},
+                "cookies": web_status["cookies"],
+                "recent_history": [
+                    f"{h['method']} {h['path']} -> {h['status_code']}"
+                    for h in web_status["history"][-5:]
+                ],
+            }
         return ctx
 
     def to_dict(self) -> dict[str, Any]:
@@ -276,6 +328,7 @@ class MissionRunner:
         runner.progress.hints_used = p.get("hints_used", 0)
         runner.progress.attempts = p.get("attempts", 0)
         runner.progress.completed = p.get("completed", False)
+        runner.progress.hint_index = p.get("hint_index", {})
         runner.progress.started_at = (
             time.time() - p.get("elapsed", 0))
         if "shell" in state:

@@ -187,6 +187,42 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
             return _pass(obj_id, xp)
         return _fail(obj_id, "Look for a redirect response and check its Location header.")
 
+    if check == "body_field":
+        # Inspects a specific JSON/form field on the request or response
+        # body (YC-035.1) — structured, so a student can't pass by having
+        # *any* text containing the expected value somewhere unrelated.
+        field_name = v.get("field", "")
+        in_ = v.get("in", "response")
+        source = req if in_ == "request" else resp
+        if source is None:
+            return _fail(obj_id, "No body to inspect yet.")
+        from app.core.terminal.web import parse_body
+        data = parse_body(source.body, source.headers.get("Content-Type", ""))
+        if str(data.get(field_name, "")) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Check the '{field_name}' field in the {in_} body.")
+
+    if check == "history_sequence":
+        # `sequence` (a list, via the existing match-list mechanism) is
+        # read here as an *ordered* list of "METHOD path" tokens that
+        # must appear in the session's own request history, in that
+        # order — not necessarily contiguous, so following a redirect via
+        # extra intermediate requests still counts.
+        sequence = _match_candidates(v.get("match", ""))
+        hist_tokens = [f"{r.method} {r.path}" for r, _ in lab.session.history]
+        idx = 0
+        for token in hist_tokens:
+            if idx < len(sequence) and token == sequence[idx]:
+                idx += 1
+        if idx >= len(sequence):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Make the requests in this chain, in order.")
+
+    if check == "request_count":
+        if len(lab.session.history) >= int(expected):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Make a few more requests first.")
+
     if check == "session_authenticated":
         # Deliberately requires the *last request* to actually be a
         # successful hit on a session-gated resource — not just "a valid

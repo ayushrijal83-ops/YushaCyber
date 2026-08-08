@@ -578,11 +578,15 @@ _COMMANDS["packet"] = _show_packet  # alias, matches the ticket's 'packet <n>' f
 # host is rejected here before any dispatch is even attempted.
 # ══════════════════════════════════════════════════════
 
-def _parse_open_args(args: list[str]) -> tuple[str, str | None, str | None]:
-    """Parse `open [-X METHOD] [-d DATA] URL` (curl-like)."""
+def _parse_open_args(args: list[str]) -> tuple[str, str | None, str | None, dict[str, str]]:
+    """Parse `open [-X METHOD] [-H "Key: Value"] [-d DATA] URL` (curl-like).
+    `-H` is repeatable, mirroring curl, and lets a student set/override any
+    request header — Authorization, Referer, or a custom Content-Type for
+    a JSON body (YC-035.1)."""
     method = "GET"
     data: str | None = None
     url: str | None = None
+    headers: dict[str, str] = {}
     i = 0
     while i < len(args):
         t = args[i]
@@ -592,26 +596,33 @@ def _parse_open_args(args: list[str]) -> tuple[str, str | None, str | None]:
         elif t == "-d" and i + 1 < len(args):
             data = args[i + 1]
             i += 1
+        elif t == "-H" and i + 1 < len(args):
+            header_str = args[i + 1]
+            if ":" in header_str:
+                name, _, value = header_str.partition(":")
+                headers[name.strip()] = value.strip()
+            i += 1
         elif not t.startswith("-"):
             url = t
         i += 1
     if data and method == "GET":
         method = "POST"
-    return method, data, url
+    return method, data, url, headers
 
 
 @cmd("open")
 def _open(sh: Shell, args: list[str]) -> str:
     if sh.web_lab is None:
         return "open: no simulated web environment configured for this session"
-    method, data, url = _parse_open_args(args)
+    method, data, url, headers = _parse_open_args(args)
     if not url:
-        return "Usage: open [-X METHOD] [-d DATA] URL"
+        return 'Usage: open [-X METHOD] [-H "Key: Value"] [-d DATA] URL'
     from app.core.terminal.web import HOST, build_request, parse_url, render_exchange
     parsed = parse_url(url)
     if parsed.host != HOST:
         return "External hosts are not available in the training environment."
-    req = build_request(method, parsed, body=data or "", cookies=sh.web_lab.session.cookies)
+    req = build_request(method, parsed, body=data or "", cookies=sh.web_lab.session.cookies,
+                        extra_headers=headers)
     resp = sh.web_lab.app.handle(req)
     sh.web_lab.session.record(req, resp)
     return render_exchange(req, resp)
@@ -637,8 +648,26 @@ def _web(sh: Shell, args: list[str]) -> str:
     username = sh.web_lab.app.sessions.get(sid) if sid else None
     status = f"Logged in as {username}" if username else "Not logged in"
     return (f"Simulated site: {HOST}\n{status}\n"
-           f"Routes: / /products /search /login /auth/login /profile /logout\n"
+           f"Routes: / /products /search /login /auth/login /profile /logout "
+           f"/api/login /api/profile /api/me\n"
            f"Type 'open URL' or 'request METHOD PATH' to make a request.")
+
+
+@cmd("requests")
+def _requests(sh: Shell, args: list[str]) -> str:
+    """List every HTTP request/response this session has made so far, in
+    order — the request-history view (YC-035.1). Distinct from the shell's
+    own 'history' command (which lists typed commands, not HTTP traffic).
+    """
+    if sh.web_lab is None:
+        return "requests: no simulated web environment configured for this session"
+    hist = sh.web_lab.session.history
+    if not hist:
+        return "No requests made yet. Use 'open URL' first."
+    lines = ["Request history:"]
+    for i, (req, resp) in enumerate(hist, start=1):
+        lines.append(f"  #{i}  {req.method} {req.path}  -> {resp.status_code} {resp.reason}")
+    return "\n".join(lines)
 
 
 @cmd("evidence")

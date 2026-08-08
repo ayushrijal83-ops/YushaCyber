@@ -1360,6 +1360,262 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "web_lab": True,
+        "next_mission": "http-deep-dive",
+    },
+    "http-deep-dive": {
+        "id": "http-deep-dive",
+        "title": "HTTP Deep Dive",
+        "description": "Go beyond the basics: JSON APIs, the Authorization header, Referer, "
+                       "cache headers, URL-encoding, and reconstructing a multi-request chain "
+                       "from history — against the same simulated training site (CyberShop), "
+                       "extended with a JSON API surface. Still purely educational: no "
+                       "injection, no session hijacking, no real network request ever made.",
+        "difficulty": "Intermediate",
+        "category": "Web Security",
+        "xp_total": 500,
+        "estimated_minutes": 55,
+        "learn": ["JSON request/response bodies", "Authorization header", "Referer header",
+                  "Cache-Control / ETag", "URL encoding", "Request history",
+                  "Redirect-chain reconstruction", "Cookie vs token auth"],
+        "objectives": [
+            {
+                "id": "hd-1",
+                "title": "Identify the Request Line",
+                "description": "Request the products page and identify the method, path, and "
+                               "protocol on the request line.",
+                "hints": [
+                    "Every HTTP request starts with one line: METHOD PATH PROTOCOL.",
+                    ("Make any request against the simulated site, then look at the first "
+                     "line of what 'inspect' or the Request tab shows you."),
+                    "Use 'open https://cybershop.training/products'.",
+                ],
+                "validate": {"type": "web_state", "check": "path", "match": "/products"},
+                "xp": 30,
+            },
+            {
+                "id": "hd-2",
+                "title": "Identify the Status Line",
+                "description": "Make a request and identify the status line of the response.",
+                "hints": [
+                    "A response's first line is PROTOCOL STATUS_CODE REASON.",
+                    ("Make a request, then check 'response' or the Response tab for the "
+                     "status line."),
+                    "Use 'open https://cybershop.training/' then 'response'.",
+                ],
+                "validate": {"type": "web_state", "check": "status_code", "match": "200"},
+                "xp": 25,
+            },
+            {
+                "id": "hd-3",
+                "title": "Inspect a Request Header",
+                "description": "Check the User-Agent header your own request sent.",
+                "hints": [
+                    ("Every request you send carries a User-Agent header identifying your "
+                     "client, even though you never typed it."),
+                    "Make a request, then use 'headers' to see the Request headers section.",
+                    "Use 'headers' after making any request — look for User-Agent.",
+                ],
+                "validate": {"type": "web_state", "check": "header", "in": "request",
+                             "header": "User-Agent", "match": "YushaCyber-Trainer/1.0"},
+                "xp": 30,
+            },
+            {
+                "id": "hd-4",
+                "title": "Inspect a Response Header",
+                "description": "Check the Server header the simulated site responds with.",
+                "hints": [
+                    "Responses carry their own headers, separate from the request's.",
+                    "Make a request, then use 'headers' to see the Response headers section.",
+                    "Use 'headers' after making any request — look for Server.",
+                ],
+                "validate": {"type": "web_state", "check": "header", "in": "response",
+                             "header": "Server", "match": "CyberShop-Sim/1.0"},
+                "xp": 30,
+            },
+            {
+                "id": "hd-5",
+                "title": "Understand Form Encoding",
+                "description": "Submit the login form and confirm the 'username' field the "
+                               "server actually received.",
+                "hints": [
+                    "HTML forms send data as key=value pairs joined with '&' in the body.",
+                    "POST to /auth/login with a body like username=...&password=....",
+                    ('Use \'open -X POST -d "username=student&password=training123" '
+                     "https://cybershop.training/auth/login'."),
+                ],
+                "validate": {"type": "web_state", "check": "body_field", "in": "request",
+                             "field": "username", "match": "student"},
+                "xp": 35,
+            },
+            {
+                "id": "hd-6",
+                "title": "Understand a JSON Request",
+                "description": "Send a JSON body to the profile API and confirm the request's "
+                               "content type.",
+                "hints": [
+                    ("A JSON request needs its Content-Type header set explicitly — the "
+                     "simulator won't guess it for you like it does for form data."),
+                    ("Use '-H' to set 'Content-Type: application/json' alongside '-d' with a "
+                     "JSON string, targeting /api/profile."),
+                    ('Use \'open -X POST -H "Content-Type: application/json" -d '
+                     "'{\"bio\": \"training\"}' https://cybershop.training/api/profile'."),
+                ],
+                "validate": {"type": "web_state", "check": "header", "in": "request",
+                             "header": "Content-Type", "match": "application/json"},
+                "xp": 35,
+            },
+            {
+                "id": "hd-7",
+                "title": "Decode a URL-Encoded Query",
+                "description": "Search using a URL-encoded space in the query string and "
+                               "confirm the decoded value.",
+                "hints": [
+                    "URLs can't contain literal spaces — they're encoded as %20.",
+                    "Search for something with a space in it, percent-encoded in the URL.",
+                    "Use 'open https://cybershop.training/search?q=web%20security'.",
+                ],
+                "validate": {"type": "web_state", "check": "query_param",
+                             "param": "q", "match": "web security"},
+                "xp": 30,
+            },
+            {
+                "id": "hd-8",
+                "title": "Analyze a Redirect",
+                "description": "Request the login page and identify where it redirects to.",
+                "hints": [
+                    ("A 3xx response tells the client to go somewhere else — check its "
+                     "Location header."),
+                    ("Request the login page and look at the response's status code and "
+                     "headers."),
+                    "Use 'open https://cybershop.training/login'.",
+                ],
+                "validate": {"type": "web_state", "check": "redirect_location",
+                             "match": "/auth/login"},
+                "xp": 35,
+            },
+            {
+                "id": "hd-9",
+                "title": "Analyze the Session Cookie",
+                "description": "Log in and identify the session cookie you received.",
+                "hints": [
+                    ("A successful login response sets a cookie the server will recognize "
+                     "on later requests."),
+                    "Submit the login form, then check what's in your cookie jar.",
+                    ('After logging in with \'open -X POST -d '
+                     '"username=student&password=training123" '
+                     "https://cybershop.training/auth/login', use 'cookies'."),
+                ],
+                "validate": {"type": "web_state", "check": "cookie",
+                             "cookie_name": "session_id", "match": "student-session"},
+                "xp": 35,
+            },
+            {
+                "id": "hd-10",
+                "title": "Analyze the Authorization Header",
+                "description": "Access the token-protected API endpoint using a Bearer token "
+                               "instead of a session cookie.",
+                "hints": [
+                    ("Not every protected endpoint uses cookies — some expect a token in "
+                     "the Authorization header instead."),
+                    ("The training token is a fixed value: training-token-001, sent as "
+                     "'Bearer <token>'."),
+                    ('Use \'open -H "Authorization: Bearer training-token-001" '
+                     "https://cybershop.training/api/me'."),
+                ],
+                "validate": {"type": "web_state", "check": "body_field", "in": "response",
+                             "field": "username", "match": "student"},
+                "xp": 35,
+            },
+            {
+                "id": "hd-11",
+                "title": "Analyze the Referer Header",
+                "description": "Make a request that carries a Referer header and confirm its "
+                               "value.",
+                "hints": [
+                    ("Referer tells the server which page the request 'came from' — note "
+                     "the HTTP spec's spelling."),
+                    ("Set it explicitly with '-H', since a fresh request has none by "
+                     "default."),
+                    ('Use \'open -H "Referer: https://cybershop.training/" '
+                     "https://cybershop.training/products'."),
+                ],
+                "validate": {"type": "web_state", "check": "header", "in": "request",
+                             "header": "Referer", "match": "https://cybershop.training/"},
+                "xp": 30,
+            },
+            {
+                "id": "hd-12",
+                "title": "Analyze Cache Headers",
+                "description": "Request a specific product and confirm its Cache-Control "
+                               "header.",
+                "hints": [
+                    ("Cache-Control and ETag tell a client how long it may reuse a response "
+                     "without asking again."),
+                    "Only a specific product page (with an id) carries cache headers here.",
+                    "Use 'open https://cybershop.training/products?id=42'.",
+                ],
+                "validate": {"type": "web_state", "check": "header", "in": "response",
+                             "header": "Cache-Control", "match": "max-age=60"},
+                "xp": 30,
+            },
+            {
+                "id": "hd-13",
+                "title": "Reconstruct a Request Chain",
+                "description": "Reproduce the full login chain, in order: visit the login "
+                               "page, follow the redirect, then submit the form.",
+                "hints": [
+                    ("A real browser doesn't make one request — it follows a chain: the "
+                     "login link, the page the redirect points to, then the form submit."),
+                    ("You must make all three requests, in this order, in one session — "
+                     "'requests' shows your history so far."),
+                    ("Run, in order: 'open https://cybershop.training/login', then "
+                     "'open https://cybershop.training/auth/login', then "
+                     '\'open -X POST -d "username=student&password=training123" '
+                     "https://cybershop.training/auth/login'."),
+                ],
+                "validate": {"type": "web_state", "check": "history_sequence",
+                             "match": ["GET /login", "GET /auth/login", "POST /auth/login"]},
+                "xp": 60,
+            },
+            {
+                "id": "hd-14",
+                "title": "FINAL INVESTIGATION",
+                "description": "A user reports their profile 'loads incorrectly' after "
+                               "logging in successfully. Inspect the investigation log and "
+                               "determine the actual root cause from the evidence, then "
+                               "record your conclusion.",
+                "hints": [
+                    ("The login and redirect and cookie all worked correctly — look closer "
+                     "at the very last response."),
+                    ("Compare the final response's Content-Type against what a normal HTML "
+                     "profile page should return."),
+                    ("Use 'evidence' to list the log, then 'inspect 1' through 'inspect 4' "
+                     "to read each exchange — the last entry's Content-Type is the bug. "
+                     'Then: echo "Conclusion: the profile response Content-Type is '
+                     'application/json instead of text/html" > web/http-investigation.txt.'),
+                ],
+                "validate": {"type": "file_contains", "match": "application/json",
+                             "path": "/home/student/web/http-investigation.txt"},
+                "xp": 60,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": "content-type-bug",
         "next_mission": None,
     },
 }

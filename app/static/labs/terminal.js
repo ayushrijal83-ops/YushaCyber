@@ -126,9 +126,10 @@ function exec(cmd){
         if(d.packet_lab_status){
             updatePacketLabStatus(d.packet_lab_status);
         }
-        /* ── Update web session status panel (YC-035.0) ── */
+        /* ── Update web session status panel (YC-035.0) + HTTP Inspector (YC-035.1) ── */
         if(d.web_lab_status){
             updateWebLabStatus(d.web_lab_status);
+            renderInspector(d.web_lab_status);
         }
         /* ── Mission complete ── */
         if(d.completed){
@@ -179,6 +180,164 @@ function updateWebLabStatus(web){
     if(status) status.textContent = web.last_status || '—';
     if(path) path.textContent = web.last_path || '—';
     if(cookies) cookies.textContent = web.cookie_count || 0;
+}
+
+/* ── HTTP Inspector (YC-035.1) ──
+   Renders the live request/response/history from mission.web_lab_status
+   (also carried on every /execute response) into the tabbed inspector
+   panel. Purely a view over data the server already computes — no new
+   API calls, same pattern as updateNetStatus/updatePacketLabStatus. */
+function formatHeaders(headers){
+    return Object.keys(headers || {}).map(function(k){ return k + ': ' + headers[k]; }).join('\n');
+}
+function formatQuery(query){
+    var keys = Object.keys(query || {});
+    if(!keys.length) return '';
+    return '?' + keys.map(function(k){ return k + '=' + query[k]; }).join('&');
+}
+function formatRequestLine(req){
+    return req.method + ' ' + req.path + formatQuery(req.query) + ' HTTP/1.1';
+}
+function formatStatusLine(resp){
+    return 'HTTP/1.1 ' + resp.status_code + ' ' + resp.reason;
+}
+
+function renderInspector(status){
+    if(!status) return;
+    var req = status.last_request, resp = status.last_response;
+
+    var reqEl = document.querySelector('[data-inspector-request]');
+    if(reqEl){
+        reqEl.textContent = req
+            ? formatRequestLine(req) + '\n' + formatHeaders(req.headers) + (req.body ? '\n\n' + req.body : '')
+            : "No request yet. Use 'open URL' in the terminal, or the Request Builder below.";
+    }
+    var respEl = document.querySelector('[data-inspector-response]');
+    if(respEl){
+        respEl.textContent = resp
+            ? formatStatusLine(resp) + '\n' + formatHeaders(resp.headers) + (resp.body ? '\n\n' + resp.body : '')
+            : 'No response yet.';
+    }
+    var headersEl = document.querySelector('[data-inspector-headers]');
+    if(headersEl){
+        var lines = [];
+        if(req){ lines.push('Request headers:'); lines.push(formatHeaders(req.headers) || '(none)'); }
+        if(resp){ lines.push(''); lines.push('Response headers:'); lines.push(formatHeaders(resp.headers) || '(none)'); }
+        headersEl.textContent = lines.length ? lines.join('\n') : 'No headers yet.';
+    }
+    var bodyEl = document.querySelector('[data-inspector-body]');
+    if(bodyEl){
+        var parts = [];
+        if(req && req.body) parts.push('Request body:\n' + req.body);
+        if(resp && resp.body) parts.push((parts.length ? '\n\n' : '') + 'Response body:\n' + resp.body);
+        bodyEl.textContent = parts.length ? parts.join('') : 'No body in the last exchange.';
+    }
+    var cookiesEl = document.querySelector('[data-inspector-cookies]');
+    if(cookiesEl){
+        var entries = Object.keys(status.cookies || {});
+        cookiesEl.textContent = entries.length
+            ? entries.map(function(k){ return k + '=' + status.cookies[k]; }).join('\n')
+            : 'No cookies stored.';
+    }
+    var historyEl = document.querySelector('[data-inspector-history]');
+    if(historyEl && status.history){
+        historyEl.innerHTML = '';
+        if(!status.history.length){
+            var empty = document.createElement('li');
+            empty.className = 'tm-inspector__history-item';
+            empty.textContent = 'No requests made yet.';
+            historyEl.appendChild(empty);
+        }
+        status.history.forEach(function(entry){
+            var li = document.createElement('li');
+            li.className = 'tm-inspector__history-item';
+            li.tabIndex = 0;
+            li.setAttribute('role', 'button');
+            li.textContent = '#' + entry.index + '  ' + entry.method + ' ' + entry.path + '  → ' + entry.status_code;
+            var openEntry = function(){
+                renderInspector({last_request: entry.request, last_response: entry.response,
+                    cookies: status.cookies, history: status.history});
+                selectInspectorTab('request');
+            };
+            li.addEventListener('click', openEntry);
+            li.addEventListener('keydown', function(e){
+                if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openEntry(); }
+            });
+            historyEl.appendChild(li);
+        });
+    }
+}
+
+function selectInspectorTab(name){
+    document.querySelectorAll('.tm-inspector__tab').forEach(function(btn){
+        var active = btn.dataset.tab === name;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.tm-inspector__panel').forEach(function(panel){
+        panel.hidden = panel.dataset.panel !== name;
+    });
+}
+
+document.querySelectorAll('.tm-inspector__tab').forEach(function(btn){
+    btn.addEventListener('click', function(){ selectInspectorTab(btn.dataset.tab); });
+});
+
+var inspectorToggle = document.querySelector('[data-inspector-toggle]');
+if(inspectorToggle){
+    inspectorToggle.addEventListener('click', function(){
+        var body = document.getElementById('tm-inspector-body');
+        var expanded = inspectorToggle.getAttribute('aria-expanded') === 'true';
+        inspectorToggle.setAttribute('aria-expanded', (!expanded).toString());
+        if(body) body.hidden = expanded;
+    });
+}
+
+/* Wraps a value in POSIX single quotes, safely embedding any literal
+   single quote it contains — avoids any double-quote/JSON escaping
+   headaches when the Request Builder hands its input to the terminal's
+   'open' command. */
+function shQuote(s){
+    return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+var inspectorForm = document.querySelector('[data-inspector-form]');
+if(inspectorForm){
+    inspectorForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var method = document.querySelector('[data-builder-method]').value;
+        var path = document.querySelector('[data-builder-path]').value.trim() || '/';
+        var query = document.querySelector('[data-builder-query]').value.trim();
+        var headersRaw = document.querySelector('[data-builder-headers]').value.trim();
+        var bodyRaw = document.querySelector('[data-builder-body]').value.trim();
+
+        var url = 'https://cybershop.training' + path + (query ? '?' + query : '');
+        var cmd = 'open -X ' + method;
+        if(headersRaw){
+            headersRaw.split('\n').forEach(function(line){
+                line = line.trim();
+                if(line) cmd += ' -H ' + shQuote(line);
+            });
+        }
+        if(bodyRaw) cmd += ' -d ' + shQuote(bodyRaw);
+        cmd += ' ' + url;
+
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+var builderClear = document.querySelector('[data-builder-clear]');
+if(builderClear && inspectorForm){
+    builderClear.addEventListener('click', function(){ inspectorForm.reset(); });
+}
+
+/* Initial render from server-rendered state, so the panel isn't empty
+   until the student's first command. */
+var initialWebLabEl = document.getElementById('tm-web-lab-initial');
+if(initialWebLabEl){
+    try{
+        renderInspector(JSON.parse(initialWebLabEl.textContent));
+    }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
 function markObjectiveDone(objId){
@@ -311,6 +470,10 @@ function doReset(){
         appendSystem('Lab reset. Fresh environment loaded.\n');
         updatePrompt(d.prompt||currentPrompt);
         if(d.progress) updateProgress(d.progress);
+        if(d.web_lab_status){
+            updateWebLabStatus(d.web_lab_status);
+            renderInspector(d.web_lab_status);
+        }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');
             el.setAttribute('aria-current', 'false');

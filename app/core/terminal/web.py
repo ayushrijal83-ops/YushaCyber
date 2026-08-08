@@ -18,6 +18,8 @@ outbound call even if that check were bypassed.
 from __future__ import annotations
 
 import dataclasses
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import parse_qs, parse_qsl, urlsplit
@@ -27,6 +29,10 @@ SERVER_HEADER = "CyberShop-Sim/1.0"
 
 # Training-only credentials — never real accounts.
 _USERS = {"student": "training123", "analyst": "analyst123", "admin": "admin123"}
+
+# Fixed training bearer token for the Authorization-header objective
+# (YC-035.1) — a single, deterministic value, never a real secret.
+API_TOKEN = "training-token-001"
 
 
 @dataclass
@@ -53,6 +59,23 @@ def parse_url(url: str) -> ParsedUrl:
 
 def _parse_form(body: str) -> dict[str, str]:
     return dict(parse_qsl(body))
+
+
+def parse_body(body: str, content_type: str) -> dict[str, Any]:
+    """Parse a request/response body into a dict, per its Content-Type
+    (YC-035.1) — pure parsing, mirrors _parse_form for JSON. Used by the
+    'body_field' validator check so objectives can inspect a specific
+    JSON/form field instead of substring-matching raw text."""
+    if not body:
+        return {}
+    ct = (content_type or "").lower()
+    if "json" in ct:
+        try:
+            data = json.loads(body)
+        except ValueError:
+            return {}
+        return data if isinstance(data, dict) else {}
+    return _parse_form(body)
 
 
 @dataclass
@@ -82,7 +105,8 @@ class HttpResponse:
 
 def build_request(method: str, url: ParsedUrl, body: str = "",
                   cookies: dict[str, str] | None = None,
-                  timestamp: float = 0.0) -> HttpRequest:
+                  timestamp: float = 0.0,
+                  extra_headers: dict[str, str] | None = None) -> HttpRequest:
     headers = {
         "Host": url.host,
         "User-Agent": "YushaCyber-Trainer/1.0",
@@ -91,6 +115,13 @@ def build_request(method: str, url: ParsedUrl, body: str = "",
     if body:
         headers["Content-Type"] = "application/x-www-form-urlencoded"
         headers["Content-Length"] = str(len(body))
+    if extra_headers:
+        # Applied after the defaults so a caller can override Content-Type
+        # (e.g. to send JSON) or add Authorization/Referer (YC-035.1) —
+        # the same curl-like '-H' mechanism a real HTTP client offers.
+        headers.update(extra_headers)
+        if body:
+            headers["Content-Length"] = str(len(body))
     return HttpRequest(method=method.upper(), scheme=url.scheme, host=url.host,
                        port=url.port, path=url.path, query=dict(url.query),
                        headers=headers, cookies=dict(cookies or {}), body=body,
@@ -112,10 +143,7 @@ class WebApp:
         if req.path == "/" and req.method == "GET":
             return self._ok("Welcome to CyberShop — a simulated training storefront.")
         if req.path == "/products" and req.method == "GET":
-            pid = req.query.get("id")
-            if pid:
-                return self._ok(f"Product #{pid}: Sample training item.")
-            return self._ok("Product catalog: 3 items available.")
+            return self._products(req)
         if req.path == "/search" and req.method == "GET":
             q = req.query.get("q", "")
             return self._ok(f"Search results for '{q}': 0 matches in the training catalog.")
@@ -123,18 +151,48 @@ class WebApp:
             return self._redirect("/auth/login")
         if req.path == "/auth/login" and req.method == "GET":
             return self._ok("Please log in with your training account.")
-        if req.path == "/login" and req.method == "POST":
+        if req.path in ("/login", "/auth/login") and req.method == "POST":
             return self._login(req)
         if req.path == "/profile" and req.method == "GET":
             return self._profile(req)
         if req.path == "/logout" and req.method == "GET":
             return self._logout(req)
+        if req.path == "/api/login" and req.method == "POST":
+            return self._api_login(req)
+        if req.path == "/api/profile" and req.method in ("GET", "POST"):
+            return self._api_profile(req)
+        if req.path == "/api/me" and req.method == "GET":
+            return self._api_me(req)
         return self._not_found()
 
-    def _login(self, req: HttpRequest) -> HttpResponse:
-        form = _parse_form(req.body)
-        username, password = form.get("username", ""), form.get("password", "")
+    def _products(self, req: HttpRequest) -> HttpResponse:
+        pid = req.query.get("id")
+        if pid:
+            body = f"Product #{pid}: Sample training item."
+            # Deterministic cache metadata (YC-035.1) — a fixed value, not a
+            # real cache engine; "do NOT implement a complex cache engine...
+            # a deterministic simulated response is enough".
+            headers = {"Content-Type": "text/html", "Content-Length": str(len(body)),
+                      "Server": SERVER_HEADER, "Cache-Control": "max-age=60",
+                      "ETag": f'"product-{pid}-v1"',
+                      "Last-Modified": "Wed, 01 Jan 2025 00:00:00 GMT"}
+            return HttpResponse(status_code=200, reason="OK", body=body,
+                                content_type="text/html", headers=headers)
+        return self._ok("Product catalog: 3 items available.")
+
+    def _check_credentials(self, req: HttpRequest) -> str | None:
+        """Returns the matched training username, or None if invalid.
+        Shared by the form-based and JSON login endpoints — same
+        credentials, two different wire formats (YC-035.1)."""
+        creds = parse_body(req.body, req.headers.get("Content-Type", ""))
+        username, password = creds.get("username", ""), creds.get("password", "")
         if username in _USERS and _USERS[username] == password:
+            return username
+        return None
+
+    def _login(self, req: HttpRequest) -> HttpResponse:
+        username = self._check_credentials(req)
+        if username:
             sid = f"{username}-session"
             self.sessions[sid] = username
             resp = self._redirect("/profile")
@@ -143,8 +201,7 @@ class WebApp:
         return self._error(401, "Unauthorized", "Invalid username or password.")
 
     def _profile(self, req: HttpRequest) -> HttpResponse:
-        sid = req.cookies.get("session_id")
-        username = self.sessions.get(sid) if sid else None
+        username = self._session_user(req)
         if username:
             return self._ok(f"Profile: {username}")
         return self._error(401, "Unauthorized", "You must log in to view this page.")
@@ -155,10 +212,64 @@ class WebApp:
             self.sessions.pop(sid, None)
         return self._redirect("/")
 
+    def _session_user(self, req: HttpRequest) -> str | None:
+        """Cookie-based session lookup — the browser/HTML auth mechanism."""
+        sid = req.cookies.get("session_id")
+        return self.sessions.get(sid) if sid else None
+
+    def _bearer_user(self, req: HttpRequest) -> str | None:
+        """Authorization: Bearer <token> lookup — a deliberately separate,
+        token-based mechanism (YC-035.1) so students see cookie-session
+        auth and header-token auth as two distinct concepts, not the same
+        thing wearing different clothes. Only the fixed training token
+        maps to an identity; nothing here is a real auth system."""
+        auth = req.headers.get("Authorization", "")
+        if auth == f"Bearer {API_TOKEN}":
+            return "student"
+        return None
+
+    def _api_login(self, req: HttpRequest) -> HttpResponse:
+        username = self._check_credentials(req)
+        if username:
+            return self._json_ok({"status": "success", "message": "Authentication successful"})
+        return self._json_error(401, "Unauthorized",
+                                {"status": "error", "message": "Invalid credentials"})
+
+    def _api_profile(self, req: HttpRequest) -> HttpResponse:
+        """JSON counterpart to /profile — cookie-session protected, like
+        the HTML page, to teach that a JSON API can sit behind the same
+        session cookie (distinct from the bearer-token /api/me below)."""
+        username = self._session_user(req)
+        if not username:
+            return self._json_error(401, "Unauthorized",
+                                    {"status": "error", "message": "Authentication required"})
+        if req.method == "POST":
+            return self._json_ok({"status": "updated"})
+        return self._json_ok({"username": username})
+
+    def _api_me(self, req: HttpRequest) -> HttpResponse:
+        username = self._bearer_user(req)
+        if username:
+            return self._json_ok({"username": username})
+        return self._json_error(401, "Unauthorized",
+                                {"status": "error", "message": "Authentication required"})
+
     def _ok(self, body: str, content_type: str = "text/html") -> HttpResponse:
         return HttpResponse(status_code=200, reason="OK", body=body, content_type=content_type,
                             headers={"Content-Type": content_type, "Content-Length": str(len(body)),
                                     "Server": SERVER_HEADER, "Cache-Control": "no-store"})
+
+    def _json_ok(self, data: dict[str, Any]) -> HttpResponse:
+        body = json.dumps(data)
+        return HttpResponse(status_code=200, reason="OK", body=body, content_type="application/json",
+                            headers={"Content-Type": "application/json", "Content-Length": str(len(body)),
+                                    "Server": SERVER_HEADER, "Cache-Control": "no-store"})
+
+    def _json_error(self, code: int, reason: str, data: dict[str, Any]) -> HttpResponse:
+        body = json.dumps(data)
+        return HttpResponse(status_code=code, reason=reason, body=body, content_type="application/json",
+                            headers={"Content-Type": "application/json", "Content-Length": str(len(body)),
+                                    "Server": SERVER_HEADER})
 
     def _redirect(self, location: str) -> HttpResponse:
         return HttpResponse(status_code=302, reason="Found", content_type="text/plain",
@@ -196,6 +307,50 @@ def build_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
     log.append((req, app.handle(req)))
 
     return log
+
+
+def build_content_type_bug_log() -> list[tuple[HttpRequest, HttpResponse]]:
+    """A fixed, deterministic transcript for the HTTP Deep Dive final
+    objective (YC-035.1): a user logs in *successfully* — form submitted,
+    redirect followed, session cookie set and used — but their profile
+    "loads incorrectly". The root cause is a benign misconfiguration, not
+    an attack: the final response's Content-Type is wrong
+    (application/json instead of text/html), even though the body and
+    status code are otherwise correct. Built once against an isolated
+    WebApp instance — never touches the student's own session state."""
+    app = WebApp()
+    log: list[tuple[HttpRequest, HttpResponse]] = []
+
+    url = parse_url(f"https://{HOST}/login")
+    req = build_request("GET", url, timestamp=1.0)
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/auth/login")
+    req = build_request("GET", url, timestamp=2.0)
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/auth/login")
+    req = build_request("POST", url, body="username=student&password=training123", timestamp=3.0)
+    resp = app.handle(req)
+    log.append((req, resp))
+    sid = resp.cookies["session_id"]
+
+    url = parse_url(f"https://{HOST}/profile")
+    req = build_request("GET", url, cookies={"session_id": sid}, timestamp=4.0)
+    resp = app.handle(req)
+    # The deliberate bug: right body, right status, wrong Content-Type —
+    # the actual thing the student must notice and report.
+    resp.headers["Content-Type"] = "application/json"
+    resp.content_type = "application/json"
+    log.append((req, resp))
+
+    return log
+
+
+_INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResponse]]]] = {
+    "login-flow": build_investigation_log,
+    "content-type-bug": build_content_type_bug_log,
+}
 
 
 @dataclass
@@ -250,8 +405,12 @@ class WebLab:
         self.session = WebSession.from_dict(snapshot.get("session", {}))
 
 
-def build_web_lab() -> WebLab:
-    return WebLab(app=WebApp(), investigation_log=build_investigation_log())
+def build_web_lab(scenario: str = "login-flow") -> WebLab:
+    """`scenario` selects which fixed investigation transcript this
+    mission's final objective gets (YC-035.1 needs a different one than
+    YC-035.0), the same registry pattern as packets.py's CAPTURE_REGISTRY."""
+    builder = _INVESTIGATION_BUILDERS.get(scenario, build_investigation_log)
+    return WebLab(app=WebApp(), investigation_log=builder())
 
 
 # ── Rendering — text formatting only ──
