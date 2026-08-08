@@ -53,6 +53,7 @@ class MissionRunner:
         self.shell = Shell(fs=fs)
         self._attach_network(self.shell)
         self._attach_packet_lab(self.shell)
+        self._attach_web_lab(self.shell)
         self.progress = MissionProgress(
             mission_id=mission_id, user_id=user_id,
             total=len(self.mission["objectives"]),
@@ -88,6 +89,7 @@ class MissionRunner:
             "completed": self.progress.completed,
             "network_status": self.network_status(),
             "packet_lab_status": self.packet_lab_status(),
+            "web_lab_status": self.web_lab_status(),
         }
 
     def _attach_network(self, shell: Shell) -> None:
@@ -154,6 +156,38 @@ class MissionRunner:
             "last_filter": lab.last_filter,
         }
 
+    def _attach_web_lab(self, shell: Shell) -> None:
+        """Attach a simulated CyberShop web session (if this mission wants
+        one). Mirrors _attach_network/_attach_packet_lab: the site and
+        investigation transcript are always rebuilt fresh and
+        deterministically; a saved session snapshot (cookie jar, request
+        history, server-side login state) is replayed on top so a resumed
+        session keeps its logged-in state.
+        """
+        if not self.mission.get("web_lab"):
+            return
+        from app.core.terminal.web import build_web_lab
+        shell.web_lab = build_web_lab()
+        pending = getattr(shell, "_pending_web_lab_state", None)
+        if pending:
+            shell.web_lab.apply_state(pending)
+        shell._pending_web_lab_state = None
+
+    def web_lab_status(self) -> dict[str, Any] | None:
+        """Live web-session summary for the mission UI / AI mentor context."""
+        lab = self.shell.web_lab
+        if lab is None:
+            return None
+        sid = lab.session.cookies.get("session_id")
+        username = lab.app.sessions.get(sid) if sid else None
+        resp = lab.session.last_response
+        return {
+            "logged_in_as": username,
+            "last_status": resp.status_code if resp else None,
+            "last_path": lab.session.last_request.path if lab.session.last_request else None,
+            "cookie_count": len(lab.session.cookies),
+        }
+
     def use_hint(self, objective_id: str) -> str:
         """Return the hint for an objective."""
         self.progress.hints_used += 1
@@ -202,6 +236,9 @@ class MissionRunner:
         pkt_status = self.packet_lab_status()
         if pkt_status is not None:
             ctx["packet_lab"] = pkt_status
+        web_status = self.web_lab_status()
+        if web_status is not None:
+            ctx["web"] = web_status
         return ctx
 
     def to_dict(self) -> dict[str, Any]:
@@ -225,6 +262,7 @@ class MissionRunner:
             "current_objective": self.current_objective(),
             "network_status": self.network_status(),
             "packet_lab_status": self.packet_lab_status(),
+            "web_lab_status": self.web_lab_status(),
         }
 
     @classmethod
@@ -244,6 +282,7 @@ class MissionRunner:
             runner.shell = Shell.from_dict(state["shell"])
             runner._attach_network(runner.shell)
             runner._attach_packet_lab(runner.shell)
+            runner._attach_web_lab(runner.shell)
         return runner
 
     def save_state(self) -> dict[str, Any]:

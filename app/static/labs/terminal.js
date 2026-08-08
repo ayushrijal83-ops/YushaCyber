@@ -126,6 +126,10 @@ function exec(cmd){
         if(d.packet_lab_status){
             updatePacketLabStatus(d.packet_lab_status);
         }
+        /* ── Update web session status panel (YC-035.0) ── */
+        if(d.web_lab_status){
+            updateWebLabStatus(d.web_lab_status);
+        }
         /* ── Mission complete ── */
         if(d.completed){
             showComplete(d.progress);
@@ -162,6 +166,19 @@ function updatePacketLabStatus(pkt){
     if(count) count.textContent = pkt.total_packets || 0;
     if(selected) selected.textContent = pkt.selected_packet || '—';
     if(filter) filter.textContent = pkt.last_filter || '—';
+}
+
+function updateWebLabStatus(web){
+    var panel = document.querySelector('[data-web-status]');
+    if(!panel) return;
+    var user = panel.querySelector('[data-web-user]');
+    var status = panel.querySelector('[data-web-status-code]');
+    var path = panel.querySelector('[data-web-path]');
+    var cookies = panel.querySelector('[data-web-cookies]');
+    if(user) user.textContent = web.logged_in_as || 'not logged in';
+    if(status) status.textContent = web.last_status || '—';
+    if(path) path.textContent = web.last_path || '—';
+    if(cookies) cookies.textContent = web.cookie_count || 0;
 }
 
 function markObjectiveDone(objId){

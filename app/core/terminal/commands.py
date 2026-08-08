@@ -8,6 +8,7 @@ from collections.abc import Callable
 from app.core.terminal.filesystem import VirtualFS
 from app.core.terminal.network import VirtualNetwork
 from app.core.terminal.packets import PacketLab
+from app.core.terminal.web import WebLab
 
 CommandFn = Callable[["Shell", list[str]], str]
 _COMMANDS: dict[str, CommandFn] = {}
@@ -49,6 +50,7 @@ class Shell:
     _pipe_input: str | None
     network: VirtualNetwork | None
     packet_lab: PacketLab | None
+    web_lab: WebLab | None
 
 
 # ══════════════════════════════════════════════════════
@@ -567,3 +569,131 @@ def _filter(sh: Shell, args: list[str]) -> str:
 
 
 _COMMANDS["packet"] = _show_packet  # alias, matches the ticket's 'packet <n>' form too
+
+
+# ══════════════════════════════════════════════════════
+# Simulated web / HTTP inspection (YC-035.0) — reads sh.web_lab only.
+# Every request is handled entirely in-memory by WebApp (web.py); there is
+# no outbound HTTP client anywhere in this codepath, so a non-simulated
+# host is rejected here before any dispatch is even attempted.
+# ══════════════════════════════════════════════════════
+
+def _parse_open_args(args: list[str]) -> tuple[str, str | None, str | None]:
+    """Parse `open [-X METHOD] [-d DATA] URL` (curl-like)."""
+    method = "GET"
+    data: str | None = None
+    url: str | None = None
+    i = 0
+    while i < len(args):
+        t = args[i]
+        if t == "-X" and i + 1 < len(args):
+            method = args[i + 1].upper()
+            i += 1
+        elif t == "-d" and i + 1 < len(args):
+            data = args[i + 1]
+            i += 1
+        elif not t.startswith("-"):
+            url = t
+        i += 1
+    if data and method == "GET":
+        method = "POST"
+    return method, data, url
+
+
+@cmd("open")
+def _open(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "open: no simulated web environment configured for this session"
+    method, data, url = _parse_open_args(args)
+    if not url:
+        return "Usage: open [-X METHOD] [-d DATA] URL"
+    from app.core.terminal.web import HOST, build_request, parse_url, render_exchange
+    parsed = parse_url(url)
+    if parsed.host != HOST:
+        return "External hosts are not available in the training environment."
+    req = build_request(method, parsed, body=data or "", cookies=sh.web_lab.session.cookies)
+    resp = sh.web_lab.app.handle(req)
+    sh.web_lab.session.record(req, resp)
+    return render_exchange(req, resp)
+
+
+@cmd("request")
+def _request(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "request: no simulated web environment configured for this session"
+    if len(args) < 2:
+        return "Usage: request METHOD PATH"
+    method, path = args[0].upper(), args[1]
+    from app.core.terminal.web import HOST
+    return _open(sh, ["-X", method, f"https://{HOST}{path}"])
+
+
+@cmd("web")
+def _web(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "web: no simulated web environment configured for this session"
+    from app.core.terminal.web import HOST
+    sid = sh.web_lab.session.cookies.get("session_id")
+    username = sh.web_lab.app.sessions.get(sid) if sid else None
+    status = f"Logged in as {username}" if username else "Not logged in"
+    return (f"Simulated site: {HOST}\n{status}\n"
+           f"Routes: / /products /search /login /auth/login /profile /logout\n"
+           f"Type 'open URL' or 'request METHOD PATH' to make a request.")
+
+
+@cmd("evidence")
+def _evidence(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "evidence: no simulated web environment configured for this session"
+    lines = ["Investigation log:"]
+    for i, (req, resp) in enumerate(sh.web_lab.investigation_log, start=1):
+        lines.append(f"  #{i}  {req.method} {req.path}  -> {resp.status_code} {resp.reason}")
+    return "\n".join(lines)
+
+
+@cmd("inspect")
+def _inspect(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "inspect: no simulated web environment configured for this session"
+    from app.core.terminal.web import render_exchange
+    if args and args[0].isdigit():
+        idx = int(args[0]) - 1
+        log = sh.web_lab.investigation_log
+        if not (0 <= idx < len(log)):
+            return f"inspect: entry {args[0]} not found"
+        return render_exchange(*log[idx])
+    if sh.web_lab.session.last_request is None:
+        return "No request made yet. Use 'open URL' first."
+    return render_exchange(sh.web_lab.session.last_request, sh.web_lab.session.last_response)
+
+
+@cmd("headers")
+def _web_headers(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None or sh.web_lab.session.last_request is None:
+        return "No request made yet. Use 'open URL' first."
+    req, resp = sh.web_lab.session.last_request, sh.web_lab.session.last_response
+    lines = ["Request headers:"]
+    for k, v in req.headers.items():
+        lines.append(f"  {k}: {v}")
+    lines.append("")
+    lines.append("Response headers:")
+    for k, v in resp.headers.items():
+        lines.append(f"  {k}: {v}")
+    return "\n".join(lines)
+
+
+@cmd("cookies")
+def _web_cookies(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "cookies: no simulated web environment configured for this session"
+    if not sh.web_lab.session.cookies:
+        return "No cookies stored."
+    return "\n".join(f"{k}={v}" for k, v in sh.web_lab.session.cookies.items())
+
+
+@cmd("response")
+def _web_response(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None or sh.web_lab.session.last_response is None:
+        return "No request made yet. Use 'open URL' first."
+    from app.core.terminal.web import render_response
+    return render_response(sh.web_lab.session.last_response)

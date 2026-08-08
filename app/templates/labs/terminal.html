@@ -74,6 +74,15 @@
             <div class="tm-netstatus__row"><span class="tm-netstatus__label">Filter:</span> <span data-pkt-filter>{{ mission.packet_lab_status.last_filter or "—" }}</span></div>
         </div>
         {% endif %}
+        {% if mission.web_lab_status %}
+        <div class="tm-netstatus" data-web-status aria-label="Web session status">
+            <div class="tm-netstatus__head">WEB SESSION</div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">User:</span> <span data-web-user>{{ mission.web_lab_status.logged_in_as or "not logged in" }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Last status:</span> <span data-web-status-code>{{ mission.web_lab_status.last_status or "—" }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Last path:</span> <span data-web-path>{{ mission.web_lab_status.last_path or "—" }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Cookies:</span> <span data-web-cookies>{{ mission.web_lab_status.cookie_count }}</span></div>
+        </div>
+        {% endif %}
         <div data-mission-objectives role="list" aria-label="Objectives">
         {% for obj in mission.mission.objectives %}
         <div class="tm-obj{% if obj.completed %} tm-obj--done{% elif mission.current_objective and obj.id == mission.current_objective.id %} tm-obj--current{% endif %}"

@@ -92,6 +92,9 @@ def validate(objective: dict[str, Any], shell: Shell,
     if v_type == "network_state":
         return _validate_network_state(v, shell, obj_id, xp, expected)
 
+    if v_type == "web_state":
+        return _validate_web_state(v, shell, obj_id, xp, expected)
+
     return _fail(obj_id, "Unknown validation type.")
 
 
@@ -126,6 +129,80 @@ def _validate_network_state(v: dict[str, Any], shell: Shell, obj_id: str,
         return _fail(obj_id, "The default gateway isn't set correctly yet.")
 
     return _fail(obj_id, "Unknown network check.")
+
+
+def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
+                        xp: int, expected: str) -> ValidationResult:
+    """Checks structured HTTP request/response state (YC-035.0) — the
+    web-mission counterpart to _validate_network_state. Used wherever a
+    specific factual answer (a status code, a header value, a cookie)
+    should be checked against real simulator state rather than a
+    substring of rendered text, per the ticket's explicit instruction to
+    avoid brittle string matching where structured data is available."""
+    lab = getattr(shell, "web_lab", None)
+    if lab is None:
+        return _fail(obj_id, "No simulated web session available.")
+    check = v.get("check")
+    req, resp = lab.session.last_request, lab.session.last_response
+
+    if check == "status_code":
+        if resp is not None and str(resp.status_code) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "That status code hasn't been observed yet.")
+
+    if check == "method":
+        if req is not None and req.method == expected.upper():
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Try making a {expected.upper()} request.")
+
+    if check == "path":
+        if req is not None and req.path == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Request {expected} to see this.")
+
+    if check == "query_param":
+        param = v.get("param", "")
+        if req is not None and req.query.get(param) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Check the '{param}' query parameter.")
+
+    if check == "header":
+        name = v.get("header", "")
+        in_ = v.get("in", "response")
+        source = req if in_ == "request" else resp
+        value = source.headers.get(name) if source else None
+        if value is not None and value.lower() == expected.lower():
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Check the '{name}' {in_} header.")
+
+    if check == "cookie":
+        name = v.get("cookie_name", "session_id")
+        if lab.session.cookies.get(name) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"The '{name}' cookie doesn't have the expected value yet.")
+
+    if check == "redirect_location":
+        if resp is not None and resp.status_code in (301, 302) \
+                and resp.headers.get("Location") == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Look for a redirect response and check its Location header.")
+
+    if check == "session_authenticated":
+        # Deliberately requires the *last request* to actually be a
+        # successful hit on a session-gated resource — not just "a valid
+        # cookie currently sits in the jar" (true immediately after
+        # login, before the student ever exercises it against anything).
+        sid = lab.session.cookies.get("session_id")
+        authenticated = bool(
+            sid and sid in lab.app.sessions
+            and req is not None and resp is not None
+            and resp.status_code == 200 and "session_id" in req.cookies
+        )
+        if authenticated == (expected.lower() == "true"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Request a session-protected page while logged in.")
+
+    return _fail(obj_id, "Unknown web check.")
 
 
 def _pass(obj_id: str, xp: int) -> ValidationResult:

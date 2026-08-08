@@ -1212,6 +1212,154 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "packet_captures": ["handshake", "dns", "http", "icmp", "mixed", "investigation"],
+        "next_mission": "web-fundamentals",
+    },
+    "web-fundamentals": {
+        "id": "web-fundamentals",
+        "title": "Web Fundamentals",
+        "description": "Learn how modern web applications communicate — URL structure, "
+                       "HTTP methods and status codes, headers, query parameters, forms, "
+                       "cookies, and sessions — against a fully simulated training site "
+                       "(CyberShop). This is the first mission in the Web Security path; "
+                       "it is purely educational, not an exploitation exercise, and never "
+                       "makes a real network request to any host.",
+        "difficulty": "Intermediate",
+        "category": "web",
+        "xp_total": 450,
+        "estimated_minutes": 50,
+        "learn": ["URL structure", "HTTP requests", "HTTP responses", "HTTP methods",
+                  "Status codes", "Headers", "Query parameters", "Request bodies",
+                  "Cookies", "Sessions", "Forms", "Redirects"],
+        "objectives": [
+            {
+                "id": "wb-1",
+                "title": "Understand URL Structure",
+                "description": "Open a product page and identify the scheme, host, path, "
+                               "and query parameter in its URL.",
+                "hint": "Use 'open https://cybershop.training/products?id=42'.",
+                "validate": {"type": "web_state", "check": "query_param",
+                             "param": "id", "match": "42"},
+                "xp": 45,
+            },
+            {
+                "id": "wb-2",
+                "title": "Make a GET Request",
+                "description": "Request the products page and confirm the HTTP method used.",
+                "hint": "Use 'request GET /products'.",
+                "validate": {"type": "web_state", "check": "method", "match": "GET"},
+                "xp": 25,
+            },
+            {
+                "id": "wb-3",
+                "title": "Inspect a Query Parameter",
+                "description": "Search the site and identify the query parameter name and value.",
+                "hint": "Use 'open https://cybershop.training/search?q=linux'.",
+                "validate": {"type": "web_state", "check": "query_param",
+                             "param": "q", "match": "linux"},
+                "xp": 30,
+            },
+            {
+                "id": "wb-4",
+                "title": "Understand a 200 OK Response",
+                "description": "Open a valid page and confirm it returns 200 OK.",
+                "hint": "Use 'open https://cybershop.training/'.",
+                "validate": {"type": "web_state", "check": "status_code", "match": "200"},
+                "xp": 25,
+            },
+            {
+                "id": "wb-5",
+                "title": "Find a 404 Response",
+                "description": "Request a page that doesn't exist and confirm the status code.",
+                "hint": "Use 'open https://cybershop.training/does-not-exist'.",
+                "validate": {"type": "web_state", "check": "status_code", "match": "404"},
+                "xp": 30,
+            },
+            {
+                "id": "wb-6",
+                "title": "Inspect Request Headers",
+                "description": "Check the Host header your own request sent.",
+                "hint": "Use 'headers' after making a request.",
+                "validate": {"type": "web_state", "check": "header", "in": "request",
+                             "header": "Host", "match": "cybershop.training"},
+                "xp": 30,
+            },
+            {
+                "id": "wb-7",
+                "title": "Inspect Response Headers",
+                "description": "Check the Content-Type header the server responded with.",
+                "hint": "Use 'headers' after making a request.",
+                "validate": {"type": "web_state", "check": "header", "in": "response",
+                             "header": "Content-Type", "match": "text/html"},
+                "xp": 30,
+            },
+            {
+                "id": "wb-8",
+                "title": "Submit the Login Form",
+                "description": "Submit the login form and confirm the request's content type.",
+                "hint": 'Use \'open -X POST -d "username=student&password=training123" '
+                       "https://cybershop.training/login'.",
+                "validate": {"type": "web_state", "check": "header", "in": "request",
+                             "header": "Content-Type", "match": "application/x-www-form-urlencoded"},
+                "xp": 35,
+            },
+            {
+                "id": "wb-9",
+                "title": "Inspect Set-Cookie",
+                "description": "After a successful login, identify the session cookie you received.",
+                "hint": "Use 'cookies' after logging in.",
+                "validate": {"type": "web_state", "check": "cookie",
+                             "cookie_name": "session_id", "match": "student-session"},
+                "xp": 35,
+            },
+            {
+                "id": "wb-10",
+                "title": "Use the Session Cookie",
+                "description": "Request your profile and confirm the server recognizes your session.",
+                "hint": "Use 'open https://cybershop.training/profile'.",
+                "validate": {"type": "web_state", "check": "session_authenticated", "match": "true"},
+                "xp": 35,
+            },
+            {
+                "id": "wb-11",
+                "title": "Analyze a Redirect",
+                "description": "Request the login page and identify where it redirects to.",
+                "hint": "Use 'open https://cybershop.training/login'.",
+                "validate": {"type": "web_state", "check": "redirect_location",
+                             "match": "/auth/login"},
+                "xp": 50,
+            },
+            {
+                "id": "wb-12",
+                "title": "Final Web Investigation",
+                "description": "A user reports they cannot access their profile. Inspect the "
+                               "investigation log and determine why, using evidence from the "
+                               "HTTP exchange, then record your conclusion.",
+                "hint": 'Use \'evidence\' to list the log, \'inspect 1\'/\'inspect 2\'/'
+                       "'inspect 3' to read each exchange, then "
+                       'echo "Conclusion: the user never submitted the login form, so no '
+                       'session cookie was ever set - no session cookie" > web/investigation.txt.',
+                "validate": {"type": "file_contains", "match": "no session cookie",
+                             "path": "/home/student/web/investigation.txt"},
+                "xp": 80,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": True,
         "next_mission": None,
     },
 }

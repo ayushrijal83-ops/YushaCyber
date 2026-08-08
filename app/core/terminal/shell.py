@@ -18,6 +18,7 @@ from app.core.terminal.commands import autocomplete, get_commands
 from app.core.terminal.filesystem import VirtualFS
 from app.core.terminal.network import VirtualNetwork
 from app.core.terminal.packets import PacketLab
+from app.core.terminal.web import WebLab
 
 _ASSIGN_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 _REDIR_RE = re.compile(r"(>>|>)\s*(\S+)\s*$")
@@ -76,6 +77,10 @@ class Shell:
         # unaffected.
         self.packet_lab: PacketLab | None = None
         self._pending_packet_lab_state: dict[str, Any] | None = None
+        # Attached by MissionRunner for web-fundamentals-style missions;
+        # None (the default) leaves every other session unaffected.
+        self.web_lab: WebLab | None = None
+        self._pending_web_lab_state: dict[str, Any] | None = None
 
     @property
     def prompt(self) -> str:
@@ -250,6 +255,8 @@ class Shell:
             d["network"] = self.network.to_dict()
         if self.packet_lab is not None:
             d["packet_lab"] = self.packet_lab.to_dict()
+        if self.web_lab is not None:
+            d["web_lab"] = self.web_lab.to_dict()
         return d
 
     @classmethod
@@ -266,4 +273,7 @@ class Shell:
         # Same idea for which capture was open / selected / last filtered
         # (see MissionRunner._attach_packet_lab).
         sh._pending_packet_lab_state = d.get("packet_lab")
+        # Same idea for the web session's cookie jar / history / server-
+        # side login state (see MissionRunner._attach_web_lab).
+        sh._pending_web_lab_state = d.get("web_lab")
         return sh
