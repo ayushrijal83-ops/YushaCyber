@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable
 
 from app.core.terminal.filesystem import VirtualFS
+from app.core.terminal.network import VirtualNetwork
 
 CommandFn = Callable[["Shell", list[str]], str]
 _COMMANDS: dict[str, CommandFn] = {}
@@ -45,6 +46,7 @@ class Shell:
     vars: dict[str, str]
     history: list[str]
     _pipe_input: str | None
+    network: VirtualNetwork | None
 
 
 # ══════════════════════════════════════════════════════
@@ -305,3 +307,71 @@ def _uname(sh: Shell, args: list[str]) -> str:
     if "-a" in args:
         return "Linux yushacyber-lab 5.15.0 #1 SMP x86_64 GNU/Linux"
     return "Linux"
+
+
+# ══════════════════════════════════════════════════════
+# Networking commands (YC-034.5) — fully simulated, reads
+# from sh.network only. Never opens a real socket, resolves
+# real DNS, or touches the host's network stack.
+# ══════════════════════════════════════════════════════
+
+@cmd("ip")
+def _ip(sh: Shell, args: list[str]) -> str:
+    if sh.network is None:
+        return "ip: no network configured for this session"
+    if not args:
+        return "Usage: ip {addr|route|link}"
+    sub = args[0]
+    if sub in ("addr", "a"):
+        return sh.network.interfaces_text()
+    if sub in ("route", "r"):
+        return sh.network.route_text()
+    if sub == "link":
+        return sh.network.link_text()
+    return f"ip: unknown sub-command '{sub}'"
+
+
+@cmd("ping")
+def _ping(sh: Shell, args: list[str]) -> str:
+    if sh.network is None:
+        return "ping: no network configured for this session"
+    targets = [a for a in args if not a.startswith("-")]
+    if not targets:
+        return "ping: usage error: Destination address required"
+    target = sh.network.resolve(targets[0]) or targets[0]
+    _, output = sh.network.ping(target)
+    return output
+
+
+@cmd("ss")
+def _ss(sh: Shell, args: list[str]) -> str:
+    if sh.network is None:
+        return "ss: no network configured for this session"
+    return sh.network.services_text()
+
+
+@cmd("nslookup")
+def _nslookup(sh: Shell, args: list[str]) -> str:
+    if sh.network is None:
+        return "nslookup: no network configured for this session"
+    if not args:
+        return "Usage: nslookup HOSTNAME"
+    hostname = args[0]
+    ip = sh.network.resolve(hostname)
+    server = sh.network.dns_server_ip or "unknown"
+    if ip is None:
+        return f"Server:\t\t{server}\n\n** server can't find {hostname}: NXDOMAIN"
+    return f"Server:\t\t{server}\n\nName:\t{hostname}\nAddress: {ip}"
+
+
+@cmd("host")
+def _host(sh: Shell, args: list[str]) -> str:
+    if sh.network is None:
+        return "host: no network configured for this session"
+    if not args:
+        return "Usage: host HOSTNAME"
+    hostname = args[0]
+    ip = sh.network.resolve(hostname)
+    if ip is None:
+        return f"Host {hostname} not found: 3(NXDOMAIN)"
+    return f"{hostname} has address {ip}"

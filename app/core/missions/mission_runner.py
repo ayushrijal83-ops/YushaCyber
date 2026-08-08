@@ -48,6 +48,7 @@ class MissionRunner:
         fs_perms = self.mission.get("permissions")
         fs = VirtualFS(tree=fs_tree, permissions=fs_perms)
         self.shell = Shell(fs=fs)
+        self._attach_network(self.shell)
         self.progress = MissionProgress(
             mission_id=mission_id, user_id=user_id,
             total=len(self.mission["objectives"]),
@@ -81,6 +82,18 @@ class MissionRunner:
             "completed": self.progress.completed,
         }
 
+    def _attach_network(self, shell: Shell) -> None:
+        """Attach the mission's declarative network config (if any) to a shell.
+
+        Needed both on fresh construction and after Shell.from_dict()
+        replaces the shell wholesale during resume — network state is
+        deterministic/static, so it's cheap to rebuild rather than persist.
+        """
+        net_config = self.mission.get("network")
+        if net_config:
+            from app.core.terminal.network import build_network
+            shell.network = build_network(net_config)
+
     def use_hint(self, objective_id: str) -> str:
         """Return the hint for an objective."""
         self.progress.hints_used += 1
@@ -97,7 +110,7 @@ class MissionRunner:
 
     def ai_context(self) -> dict[str, Any]:
         cur = self.current_objective()
-        return {
+        ctx: dict[str, Any] = {
             "mission": self.mission["title"],
             "mission_id": self.progress.mission_id,
             "current_objective": cur.get("title") if cur else "All complete",
@@ -108,6 +121,12 @@ class MissionRunner:
             "last_command": self.shell.history[-1] if self.shell.history else "",
             "cwd": self.shell.fs.cwd,
         }
+        if self.shell.network is not None:
+            ctx["network"] = {
+                "student_ip": self.shell.network.student_ip,
+                "default_gateway": self.shell.network.default_gateway(),
+            }
+        return ctx
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -145,6 +164,7 @@ class MissionRunner:
             time.time() - p.get("elapsed", 0))
         if "shell" in state:
             runner.shell = Shell.from_dict(state["shell"])
+            runner._attach_network(runner.shell)
         return runner
 
     def save_state(self) -> dict[str, Any]:

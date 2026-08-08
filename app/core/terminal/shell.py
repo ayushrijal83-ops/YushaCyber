@@ -16,6 +16,7 @@ from typing import Any
 
 from app.core.terminal.commands import autocomplete, get_commands
 from app.core.terminal.filesystem import VirtualFS
+from app.core.terminal.network import VirtualNetwork
 
 _ASSIGN_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 _REDIR_RE = re.compile(r"(>>|>)\s*(\S+)\s*$")
@@ -63,6 +64,9 @@ class Shell:
         self.history: list[str] = []
         self._commands = get_commands()
         self._pipe_input: str | None = None
+        # Attached by MissionRunner for networking missions; None (the
+        # default) leaves every other mission/free-play session unaffected.
+        self.network: VirtualNetwork | None = None
 
     @property
     def prompt(self) -> str:
