@@ -80,19 +80,41 @@ class MissionRunner:
             "validations": validations,
             "progress": self.progress.to_dict(),
             "completed": self.progress.completed,
+            "network_status": self.network_status(),
         }
 
     def _attach_network(self, shell: Shell) -> None:
         """Attach the mission's declarative network config (if any) to a shell.
 
         Needed both on fresh construction and after Shell.from_dict()
-        replaces the shell wholesale during resume — network state is
-        deterministic/static, so it's cheap to rebuild rather than persist.
+        replaces the shell wholesale during resume. The static topology is
+        always rebuilt fresh from the mission config; if a saved *mutation*
+        snapshot is pending (student fixed/broke something before saving —
+        see YC-034.6), it's replayed on top so resumed sessions keep it.
         """
         net_config = self.mission.get("network")
-        if net_config:
-            from app.core.terminal.network import build_network
-            shell.network = build_network(net_config)
+        if not net_config:
+            return
+        from app.core.terminal.network import build_network
+        shell.network = build_network(net_config)
+        pending = getattr(shell, "_pending_network_state", None)
+        if pending:
+            shell.network.apply_state(pending)
+        shell._pending_network_state = None
+
+    def network_status(self) -> dict[str, Any] | None:
+        """Live network summary for the mission UI / AI mentor context."""
+        net = self.shell.network
+        if net is None:
+            return None
+        eth0 = next((i for i in net.student.interfaces if i.name != "lo"), None)
+        return {
+            "interface": eth0.name if eth0 else None,
+            "interface_state": eth0.state if eth0 else "UNKNOWN",
+            "interface_ip": f"{eth0.ip}/{eth0.cidr}" if eth0 else None,
+            "default_gateway": net.default_gateway(),
+            "dns_server": net.dns_server_ip,
+        }
 
     def use_hint(self, objective_id: str) -> str:
         """Return the hint for an objective."""
@@ -121,11 +143,9 @@ class MissionRunner:
             "last_command": self.shell.history[-1] if self.shell.history else "",
             "cwd": self.shell.fs.cwd,
         }
-        if self.shell.network is not None:
-            ctx["network"] = {
-                "student_ip": self.shell.network.student_ip,
-                "default_gateway": self.shell.network.default_gateway(),
-            }
+        net_status = self.network_status()
+        if net_status is not None:
+            ctx["network"] = net_status
         return ctx
 
     def to_dict(self) -> dict[str, Any]:
@@ -147,6 +167,7 @@ class MissionRunner:
             "progress": self.progress.to_dict(),
             "prompt": self.shell.prompt,
             "current_objective": self.current_objective(),
+            "network_status": self.network_status(),
         }
 
     @classmethod

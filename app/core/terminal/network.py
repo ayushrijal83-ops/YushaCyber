@@ -1,13 +1,19 @@
 """Simulated network — YC-034.5 Networking Fundamentals + future networking missions.
 
-A small, deterministic, read-only educational LAN model. Like VirtualFS,
-this never touches a real socket, DNS resolver, ARP table, or the host's
-network stack — `ping`/`nslookup`/`ss`/etc. are pure string-formatting
-functions over an in-memory topology built from a mission's declarative
+A small, deterministic educational LAN model. Like VirtualFS, this never
+touches a real socket, DNS resolver, ARP table, or the host's network
+stack — `ping`/`nslookup`/`ss`/etc. are pure string-formatting functions
+over an in-memory topology built from a mission's declarative
 ``"network"`` config dict (see mission_loader.py). Future networking
 missions (Nmap Fundamentals, Network Troubleshooting, Recon) reuse this
 same module by supplying their own config — hosts are never hardcoded
 into objectives or command handlers.
+
+YC-034.6 (Network Troubleshooting) adds the mutation side: a handful of
+simulated "fix" commands (`ip link set`, `ip addr add`, `ip route add`)
+change interface/route state on the student's own host so a broken
+topology can be diagnosed and repaired within one session. Everything
+mutated stays inside this in-memory object graph — never the real OS.
 """
 
 from __future__ import annotations
@@ -57,21 +63,31 @@ class VirtualHost:
 
 
 class VirtualNetwork:
-    """A small, deterministic, read-only educational LAN."""
+    """A small, deterministic educational LAN — read-only by default,
+    mutable via the simulated "fix" commands (YC-034.6)."""
 
     def __init__(self, student_ip: str, hosts: dict[str, VirtualHost],
-                 dns_records: list[DNSRecord], dns_server_ip: str | None = None) -> None:
+                 dns_records: list[DNSRecord], dns_server_ip: str | None = None,
+                 dns_working: bool = True) -> None:
         self.student_ip = student_ip
         self.hosts = hosts
         self.dns_records = dns_records
         self.dns_server_ip = dns_server_ip
+        # False simulates a DNS server outage independent of connectivity —
+        # lets a mission teach "ping by IP works, but DNS still fails".
+        self.dns_working = dns_working
 
     @property
     def student(self) -> VirtualHost:
         return self.hosts[self.student_ip]
 
+    def _student_iface_up(self) -> bool:
+        return any(i.state == "UP" for i in self.student.interfaces if i.name != "lo")
+
     def ping(self, target: str) -> tuple[bool, str]:
         """Returns (reachable, formatted ping output) — never a real ICMP call."""
+        if not self._student_iface_up():
+            return False, "connect: Network is unreachable"
         host = self.hosts.get(target)
         if host is None or not host.reachable:
             return False, (
@@ -89,10 +105,63 @@ class VirtualNetwork:
         )
 
     def resolve(self, hostname: str) -> str | None:
+        if not self.dns_working:
+            return None
         for rec in self.dns_records:
             if rec.hostname == hostname:
                 return rec.ip
         return None
+
+    # ── Simulated fixes (YC-034.6) — mutate only this in-memory object ──
+    def set_interface_state(self, name: str, state: str) -> bool:
+        for iface in self.student.interfaces:
+            if iface.name == name:
+                iface.state = state.upper()
+                return True
+        return False
+
+    def set_interface_address(self, name: str, ip: str, cidr: int) -> bool:
+        for iface in self.student.interfaces:
+            if iface.name == name:
+                iface.ip = ip
+                iface.cidr = cidr
+                return True
+        return False
+
+    def set_default_gateway(self, via: str, dev: str = "eth0") -> None:
+        for r in self.student.routes:
+            if r.is_default:
+                r.via = via
+                r.dev = dev
+                return
+        self.student.routes.append(Route(destination="default", via=via,
+                                          dev=dev, is_default=True))
+
+    # ── Persistence — mutable state only; static topology is always
+    # rebuilt fresh from the mission's declarative config (see
+    # MissionRunner._attach_network). ──
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            ip: {
+                "interfaces": [{"name": i.name, "ip": i.ip, "cidr": i.cidr,
+                                "state": i.state} for i in host.interfaces],
+                "routes": [{"destination": r.destination, "via": r.via, "dev": r.dev,
+                           "is_default": r.is_default} for r in host.routes],
+                "services": [{"port": s.port, "proto": s.proto, "name": s.name,
+                             "state": s.state} for s in host.services],
+            }
+            for ip, host in self.hosts.items()
+        }
+
+    def apply_state(self, snapshot: dict[str, Any]) -> None:
+        """Overlay a previously-saved mutable-state snapshot onto this network."""
+        for ip, hstate in snapshot.items():
+            host = self.hosts.get(ip)
+            if host is None:
+                continue
+            host.interfaces = [NetworkInterface(**i) for i in hstate.get("interfaces", [])]
+            host.routes = [Route(**r) for r in hstate.get("routes", [])]
+            host.services = [Service(**s) for s in hstate.get("services", [])]
 
     def is_port_open(self, ip: str, port: int) -> bool:
         host = self.hosts.get(ip)
@@ -151,4 +220,5 @@ def build_network(config: dict[str, Any]) -> VirtualNetwork:
     return VirtualNetwork(
         student_ip=config["student_ip"], hosts=hosts,
         dns_records=dns_records, dns_server_ip=config.get("dns_server_ip"),
+        dns_working=config.get("dns_working", True),
     )

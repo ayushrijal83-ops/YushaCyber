@@ -77,7 +77,43 @@ def validate(objective: dict[str, Any], shell: Shell,
             return _pass(obj_id, xp)
         return _fail(obj_id, f"'{path.split('/')[-1]}' isn't owned by the expected user yet.")
 
+    if v_type == "network_state":
+        return _validate_network_state(v, shell, obj_id, xp, expected)
+
     return _fail(obj_id, "Unknown validation type.")
+
+
+def _validate_network_state(v: dict[str, Any], shell: Shell, obj_id: str,
+                            xp: int, expected: str) -> ValidationResult:
+    """Checks actual (mutable) simulated-network state — reusable by any
+    mission whose network can change (chmod/chown's counterpart for the
+    network simulator). Only meaningful once a mission can mutate state;
+    see YC-034.6."""
+    net = getattr(shell, "network", None)
+    if net is None:
+        return _fail(obj_id, "No simulated network available.")
+    check = v.get("check")
+
+    if check == "interface_state":
+        iface = v.get("interface", "eth0")
+        state = next((i.state for i in net.student.interfaces if i.name == iface), None)
+        if state == expected.upper():
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Interface {iface} isn't {expected.upper()} yet.")
+
+    if check == "interface_ip":
+        iface = v.get("interface", "eth0")
+        ip = next((i.ip for i in net.student.interfaces if i.name == iface), None)
+        if ip == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Interface {iface} doesn't have the expected address yet.")
+
+    if check == "default_gateway":
+        if net.default_gateway() == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "The default gateway isn't set correctly yet.")
+
+    return _fail(obj_id, "Unknown network check.")
 
 
 def _pass(obj_id: str, xp: int) -> ValidationResult:

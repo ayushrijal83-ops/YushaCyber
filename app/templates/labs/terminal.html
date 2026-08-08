@@ -52,6 +52,19 @@
             <span style="background:rgba(34,197,94,.1);color:#22c55e;padding:2px 8px;border-radius:6px">{{ mission.mission.difficulty }}</span>
             <span style="color:#6366f1">+{{ mission.mission.xp_total }} XP</span>
         </div>
+        {% if mission.network_status %}
+        <div class="tm-netstatus" data-net-status aria-label="Network status">
+            <div class="tm-netstatus__head">NETWORK STATUS</div>
+            <div class="tm-netstatus__row">
+                <span class="tm-netstatus__dot{% if mission.network_status.interface_state != 'UP' %} tm-netstatus__dot--down{% endif %}"
+                      data-net-dot aria-hidden="true"></span>
+                <span data-net-iface>{{ mission.network_status.interface or "eth0" }} {{ mission.network_status.interface_state }}</span>
+            </div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">IP:</span> <span data-net-ip>{{ mission.network_status.interface_ip or "—" }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Gateway:</span> <span data-net-gw>{{ mission.network_status.default_gateway or "—" }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">DNS:</span> <span data-net-dns>{{ mission.network_status.dns_server or "—" }}</span></div>
+        </div>
+        {% endif %}
         <div data-mission-objectives role="list" aria-label="Objectives">
         {% for obj in mission.mission.objectives %}
         <div class="tm-obj{% if obj.completed %} tm-obj--done{% elif mission.current_objective and obj.id == mission.current_objective.id %} tm-obj--current{% endif %}"

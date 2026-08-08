@@ -67,6 +67,9 @@ class Shell:
         # Attached by MissionRunner for networking missions; None (the
         # default) leaves every other mission/free-play session unaffected.
         self.network: VirtualNetwork | None = None
+        # Set by from_dict() when resuming; consumed by
+        # MissionRunner._attach_network() to replay saved mutations.
+        self._pending_network_state: dict[str, Any] | None = None
 
     @property
     def prompt(self) -> str:
@@ -230,13 +233,16 @@ class Shell:
         return autocomplete(partial, self.fs)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "fs": self.fs.to_dict(),
             "env": self.env,
             "vars": self.vars,
             "history": self.history[-50:],
             "prompt": self.prompt,
         }
+        if self.network is not None:
+            d["network"] = self.network.to_dict()
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Shell:
@@ -245,4 +251,8 @@ class Shell:
         sh.env = d.get("env", sh.env)
         sh.vars = d.get("vars", {})
         sh.history = d.get("history", [])
+        # A saved network *mutation* snapshot, if any — MissionRunner
+        # rebuilds the static topology from the mission config and then
+        # replays this onto it (see MissionRunner._attach_network).
+        sh._pending_network_state = d.get("network")
         return sh

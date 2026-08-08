@@ -118,6 +118,10 @@ function exec(cmd){
         if(d.progress){
             updateProgress(d.progress);
         }
+        /* ── Update network status panel (YC-034.6) ── */
+        if(d.network_status){
+            updateNetStatus(d.network_status);
+        }
         /* ── Mission complete ── */
         if(d.completed){
             showComplete(d.progress);
@@ -125,6 +129,22 @@ function exec(cmd){
         scroll();
     })
     .catch(function(){ appendErr('Network error.'); });
+}
+
+function updateNetStatus(net){
+    var panel = document.querySelector('[data-net-status]');
+    if(!panel) return;
+    var dot = panel.querySelector('[data-net-dot]');
+    var iface = panel.querySelector('[data-net-iface]');
+    var ip = panel.querySelector('[data-net-ip]');
+    var gw = panel.querySelector('[data-net-gw]');
+    var dns = panel.querySelector('[data-net-dns]');
+    var isUp = net.interface_state === 'UP';
+    if(dot) dot.classList.toggle('tm-netstatus__dot--down', !isUp);
+    if(iface) iface.textContent = (net.interface || 'eth0') + ' ' + (net.interface_state || 'UNKNOWN');
+    if(ip) ip.textContent = net.interface_ip || '—';
+    if(gw) gw.textContent = net.default_gateway || '—';
+    if(dns) dns.textContent = net.dns_server || '—';
 }
 
 function markObjectiveDone(objId){

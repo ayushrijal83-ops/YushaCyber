@@ -63,8 +63,25 @@ def execute_command(user_id: int, mission_id: str,
     if runner.progress.completed and not was_completed:
         _try_ai_hook("on_lab_complete", user_id, mission_id)
         _try_award_achievements(user_id)
+        # Reuses the same award_xp() call above — a flat bonus for
+        # finishing a mission without using any hints. Generic across
+        # every mission, not just this one (YC-034.6).
+        bonus = _no_hints_bonus(runner)
+        if bonus:
+            runner.progress.xp_earned += bonus
+            _try_award_xp(user_id, bonus)
+            _state[key] = runner.save_state()
+            _sync_record(user_id, runner)
+            result["progress"] = runner.progress.to_dict()
 
     return result
+
+
+def _no_hints_bonus(runner: MissionRunner) -> int:
+    """10% of a mission's XP, awarded once on completion with zero hints used."""
+    if runner.progress.hints_used == 0:
+        return max(0, int(runner.mission.get("xp_total", 0) * 0.1))
+    return 0
 
 
 def get_hint(user_id: int, mission_id: str,

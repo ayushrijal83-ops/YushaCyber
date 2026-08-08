@@ -48,6 +48,14 @@ body.tm-body{background:var(--tm-bg);color:var(--tm-text);font-family:var(--tm-f
 .tm-progress__fill{height:100%;background:var(--tm-green);border-radius:4px;transition:width .5s}
 .tm-progress__text{font-size:.7rem;color:var(--tm-muted)}
 
+/* ── Network status (YC-034.6) ── */
+.tm-netstatus{background:var(--tm-bg);border:1px solid #1e2028;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:.7rem}
+.tm-netstatus__head{font-size:.62rem;letter-spacing:.05em;color:var(--tm-muted);margin-bottom:8px;font-weight:700}
+.tm-netstatus__row{display:flex;align-items:center;gap:6px;margin-bottom:4px;color:var(--tm-text)}
+.tm-netstatus__label{color:var(--tm-muted)}
+.tm-netstatus__dot{width:8px;height:8px;border-radius:50%;background:var(--tm-green);flex-shrink:0;box-shadow:0 0 6px var(--tm-green)}
+.tm-netstatus__dot--down{background:#f85149;box-shadow:0 0 6px #f85149}
+
 /* ── Terminal ── */
 .tm-term{display:flex;flex-direction:column;min-height:0;background:var(--tm-bg)}
 

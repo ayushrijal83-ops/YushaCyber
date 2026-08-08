@@ -256,7 +256,7 @@ class TestFullRun:
     def test_ai_context_includes_network_summary(self):
         r = MissionRunner("networking-fundamentals", 6)
         ctx = r.ai_context()
-        assert ctx["network"]["student_ip"] == "10.10.10.20"
+        assert ctx["network"]["interface_ip"] == "10.10.10.20/24"
         assert ctx["network"]["default_gateway"] == "10.10.10.1"
 
     def test_save_restore_reattaches_network(self):

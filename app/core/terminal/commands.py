@@ -315,6 +315,14 @@ def _uname(sh: Shell, args: list[str]) -> str:
 # real DNS, or touches the host's network stack.
 # ══════════════════════════════════════════════════════
 
+def _ip_arg_after(args: list[str], keyword: str) -> str | None:
+    if keyword in args:
+        idx = args.index(keyword)
+        if idx + 1 < len(args):
+            return args[idx + 1]
+    return None
+
+
 @cmd("ip")
 def _ip(sh: Shell, args: list[str]) -> str:
     if sh.network is None:
@@ -322,6 +330,35 @@ def _ip(sh: Shell, args: list[str]) -> str:
     if not args:
         return "Usage: ip {addr|route|link}"
     sub = args[0]
+
+    # ── Simulated fixes (YC-034.6) — mutate sh.network only. ──
+    if sub == "link" and len(args) >= 4 and args[1] == "set":
+        iface, state = args[2], args[3]
+        if sh.network.set_interface_state(iface, state):
+            return ""
+        return f"ip: link {iface} not found"
+
+    if sub == "addr" and len(args) >= 3 and args[1] == "add":
+        spec = args[2]
+        if "/" not in spec:
+            return "ip: usage: ip addr add IP/CIDR dev IFACE"
+        ip, _, cidr = spec.partition("/")
+        iface = _ip_arg_after(args, "dev") or "eth0"
+        if not cidr.isdigit():
+            return f"ip: invalid prefix length '{cidr}'"
+        if sh.network.set_interface_address(iface, ip, int(cidr)):
+            return ""
+        return f"ip: link {iface} not found"
+
+    if sub == "route" and len(args) >= 3 and args[1] == "add":
+        gateway = _ip_arg_after(args, "via")
+        if not gateway:
+            return "ip: usage: ip route add default via GATEWAY [dev IFACE]"
+        iface = _ip_arg_after(args, "dev") or "eth0"
+        sh.network.set_default_gateway(gateway, iface)
+        return ""
+
+    # ── Read-only inspection ──
     if sub in ("addr", "a"):
         return sh.network.interfaces_text()
     if sub in ("route", "r"):
