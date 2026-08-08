@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import time
 from collections.abc import Callable
 
@@ -617,12 +618,33 @@ def _open(sh: Shell, args: list[str]) -> str:
     method, data, url, headers = _parse_open_args(args)
     if not url:
         return 'Usage: open [-X METHOD] [-H "Key: Value"] [-d DATA] URL'
-    from app.core.terminal.web import HOST, build_request, parse_url, render_exchange
+    from app.core.terminal.web import (
+        HOST,
+        build_request,
+        parse_url,
+        render_exchange,
+        render_request,
+    )
     parsed = parse_url(url)
     if parsed.host != HOST:
+        # Out-of-scope host (YC-035.2) — never even builds a request, let
+        # alone opens a connection; the counter lets the proxy-scope
+        # objective be validated structurally instead of matching this
+        # exact rejection string.
+        sh.web_lab.proxy.blocked_count += 1
         return "External hosts are not available in the training environment."
     req = build_request(method, parsed, body=data or "", cookies=sh.web_lab.session.cookies,
                         extra_headers=headers)
+    if sh.web_lab.proxy.intercept_enabled:
+        # Intercept ON (YC-035.2): queue the request instead of handling
+        # it — the same request the student would otherwise have gotten a
+        # response for, now held for 'forward'/'drop'/'edit'. When OFF
+        # (the default, and the only state YC-035.0/YC-035.1 ever use),
+        # this branch never runs and 'open' behaves exactly as before.
+        sh.web_lab.proxy.pending = req
+        sh.web_lab.proxy.intercepted_count += 1
+        return ("Request intercepted:\n" + render_request(req) +
+                "\n\nUse 'forward', 'drop', or 'edit <field> ...' before it reaches the server.")
     resp = sh.web_lab.app.handle(req)
     sh.web_lab.session.record(req, resp)
     return render_exchange(req, resp)
@@ -650,7 +672,9 @@ def _web(sh: Shell, args: list[str]) -> str:
     return (f"Simulated site: {HOST}\n{status}\n"
            f"Routes: / /products /search /login /auth/login /profile /logout "
            f"/api/login /api/profile /api/me\n"
-           f"Type 'open URL' or 'request METHOD PATH' to make a request.")
+           f"Type 'open URL' or 'request METHOD PATH' to make a request.\n"
+           f"Proxy: 'intercept on|off', 'forward', 'drop', 'edit ...', "
+           f"'repeater [N]', 'repeater send', 'compare N M'.")
 
 
 @cmd("requests")
@@ -726,3 +750,183 @@ def _web_response(sh: Shell, args: list[str]) -> str:
         return "No request made yet. Use 'open URL' first."
     from app.core.terminal.web import render_response
     return render_response(sh.web_lab.session.last_response)
+
+
+# ══════════════════════════════════════════════════════
+# Intercepting proxy (YC-035.2 — Burp Suite Fundamentals). Reuses
+# sh.web_lab.app/session exactly like open/request above; adds a
+# pending-request queue (ProxyState, web.py) that sits between 'open'
+# and the simulated server. No new HTTP client, no new host allowlist —
+# _open's existing 'host != HOST' rejection is still the only place a
+# request can be refused, for both intercepted and direct traffic.
+# ══════════════════════════════════════════════════════
+
+@cmd("proxy")
+def _proxy_status(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "proxy: no simulated web environment configured for this session"
+    from app.core.terminal.web import HOST
+    p = sh.web_lab.proxy
+    state = "ON" if p.intercept_enabled else "OFF"
+    return (f"Browser --> Proxy --> Server\n"
+           f"Intercept: {state}\n"
+           f"Scope: {HOST}\n"
+           f"Requests outside scope are never proxied — they're rejected before "
+           f"a request object even exists.")
+
+
+@cmd("intercept")
+def _intercept(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "intercept: no simulated web environment configured for this session"
+    p = sh.web_lab.proxy
+    if not args:
+        return f"Intercept is {'ON' if p.intercept_enabled else 'OFF'}."
+    mode = args[0].lower()
+    if mode == "on":
+        p.intercept_enabled = True
+        return "Intercept is now ON. Your next request will be held before it reaches the server."
+    if mode == "off":
+        p.intercept_enabled = False
+        return "Intercept is now OFF. Requests will pass straight through."
+    return "Usage: intercept [on|off]"
+
+
+@cmd("forward")
+def _forward(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "forward: no simulated web environment configured for this session"
+    p = sh.web_lab.proxy
+    if p.pending is None:
+        return "No intercepted request to forward. Turn intercept on and make a request first."
+    from app.core.terminal.web import render_exchange
+    req = p.pending
+    resp = sh.web_lab.app.handle(req)
+    sh.web_lab.session.record(req, resp)
+    p.pending = None
+    p.forwarded_count += 1
+    return "Request forwarded.\n" + render_exchange(req, resp)
+
+
+@cmd("drop")
+def _drop(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "drop: no simulated web environment configured for this session"
+    p = sh.web_lab.proxy
+    if p.pending is None:
+        return "No intercepted request to drop. Turn intercept on and make a request first."
+    p.pending = None
+    p.dropped_count += 1
+    return "Request dropped. It never reached the simulated server."
+
+
+def _active_editable_request(sh: Shell):
+    """The request 'edit' mutates: the intercepted pending request if one
+    is queued, else the Repeater's loaded request. None if neither exists."""
+    p = sh.web_lab.proxy
+    return p.pending if p.pending is not None else p.repeater_request
+
+
+@cmd("edit")
+def _edit(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "edit: no simulated web environment configured for this session"
+    req = _active_editable_request(sh)
+    if req is None:
+        return ("Nothing to edit. Intercept a request ('intercept on', then make a request) "
+                "or load one into Repeater ('repeater') first.")
+    if len(args) < 2:
+        return "Usage: edit method|path|query|header|body ..."
+    field = args[0].lower()
+    if field == "method":
+        req.method = args[1].upper()
+        return f"Method set to {req.method}."
+    if field == "path":
+        req.path = args[1]
+        return f"Path set to {req.path}."
+    if field == "query":
+        if len(args) < 3:
+            return "Usage: edit query KEY VALUE"
+        req.query[args[1]] = args[2]
+        return f"Query parameter '{args[1]}' set to '{args[2]}'."
+    if field == "header":
+        if len(args) < 3:
+            return "Usage: edit header NAME VALUE"
+        req.headers[args[1]] = " ".join(args[2:])
+        return f"Header '{args[1]}' set to '{req.headers[args[1]]}'."
+    if field == "body":
+        req.body = " ".join(args[1:])
+        req.headers["Content-Length"] = str(len(req.body))
+        return "Body updated."
+    return "Usage: edit method|path|query|header|body ..."
+
+
+def _copy_request(req):
+    """A genuine independent copy of an HttpRequest — dataclasses.replace()
+    alone only shallow-copies, so query/headers/cookies dicts would stay
+    shared with the original (mutating a Repeater copy would silently
+    corrupt the History entry it came from). Copy the mutable fields
+    explicitly."""
+    return dataclasses.replace(req, query=dict(req.query), headers=dict(req.headers),
+                               cookies=dict(req.cookies))
+
+
+@cmd("repeater")
+def _repeater(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "repeater: no simulated web environment configured for this session"
+    p = sh.web_lab.proxy
+    hist = sh.web_lab.session.history
+    if args and args[0].lower() == "send":
+        if p.repeater_request is None:
+            return "Nothing loaded in Repeater. Use 'repeater' or 'repeater N' first."
+        from app.core.terminal.web import render_exchange
+        req = _copy_request(p.repeater_request)
+        resp = sh.web_lab.app.handle(req)
+        sh.web_lab.session.record(req, resp)
+        p.repeater_sent_count += 1
+        return "Repeater: request sent.\n" + render_exchange(req, resp)
+    if not hist:
+        return "No requests in history yet. Make a request first."
+    if args and args[0].isdigit():
+        idx = int(args[0]) - 1
+        if not (0 <= idx < len(hist)):
+            return f"repeater: entry {args[0]} not found"
+    else:
+        idx = len(hist) - 1
+    req, _ = hist[idx]
+    p.repeater_request = _copy_request(req)
+    p.repeater_loaded_count += 1
+    from app.core.terminal.web import render_request
+    return f"Sent to Repeater (from history #{idx + 1}):\n" + render_request(p.repeater_request)
+
+
+@cmd("compare")
+def _compare(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "compare: no simulated web environment configured for this session"
+    hist = sh.web_lab.session.history
+    if len(args) < 2 or not args[0].isdigit() or not args[1].isdigit():
+        return "Usage: compare N M  (history entry numbers)"
+    i, j = int(args[0]) - 1, int(args[1]) - 1
+    if not (0 <= i < len(hist)) or not (0 <= j < len(hist)):
+        return "compare: one or both entries not found in history."
+    from app.core.terminal.web import render_response
+    a_lines = render_response(hist[i][1]).split("\n")
+    b_lines = render_response(hist[j][1]).split("\n")
+    width = max(len(a_lines), len(b_lines))
+    a_lines += [""] * (width - len(a_lines))
+    b_lines += [""] * (width - len(b_lines))
+    out = [f"Comparing #{args[0]} vs #{args[1]} responses:"]
+    diff_found = False
+    for a, b in zip(a_lines, b_lines):
+        if a == b:
+            out.append(f"  {a}")
+        else:
+            diff_found = True
+            out.append(f"! #{args[0]}: {a}")
+            out.append(f"! #{args[1]}: {b}")
+    sh.web_lab.proxy.compared_count += 1
+    if not diff_found:
+        out.append("(no differences)")
+    return "\n".join(out)

@@ -502,9 +502,11 @@ class TestLoader:
     def test_chained_after_web_fundamentals(self):
         assert MISSIONS["web-fundamentals"]["next_mission"] == "http-deep-dive"
 
-    def test_terminal_mission(self):
+    def test_chained_before_burp_fundamentals(self):
+        # No longer the terminal mission in the Web Security path — YC-035.2
+        # (Burp Suite Fundamentals) now follows it.
         m = get_mission("http-deep-dive")
-        assert m["next_mission"] is None
+        assert m["next_mission"] == "burp-fundamentals"
 
     def test_web_lab_scenario_set(self):
         m = get_mission("http-deep-dive")

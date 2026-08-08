@@ -134,6 +134,66 @@
     </div>
 </div>
 
+{% if mission and mission.web_lab_status and mission.mission.id == 'burp-fundamentals' %}
+{# ── Proxy Control (YC-035.2): intercept/forward/drop/edit/Repeater/ ──
+   compare, all driven through the same terminal exec() path as the
+   Request Builder below — buttons here only ever synthesize a command
+   string ('intercept on', 'forward', 'edit query id 43', ...) and submit
+   it exactly like the student typing it themselves. Shown only for this
+   mission; every other web-lab mission's web_lab_status.proxy stays at
+   its inert defaults and this section never renders for them. #}
+<section class="tm-proxy" aria-label="Proxy Control">
+    <div class="tm-proxy__bar">
+        <span class="tm-proxy__title">🔌 Proxy Control</span>
+        <span class="tm-proxy__badge" data-proxy-badge>Intercept: OFF</span>
+        <span class="tm-proxy__scope">Scope: cybershop.training</span>
+        <button class="tm-toolbar__btn" data-proxy-toggle type="button">Turn Intercept On</button>
+    </div>
+
+    <div class="tm-proxy__grid">
+        <div class="tm-proxy__box" data-proxy-pending-box hidden>
+            <div class="tm-proxy__box-head">Intercepted Request</div>
+            <pre class="tm-proxy__pre" data-proxy-pending-text>No request intercepted.</pre>
+            <div class="tm-proxy__actions">
+                <button class="btn btn--primary" data-proxy-forward type="button">Forward</button>
+                <button class="btn btn--outline" data-proxy-drop type="button">Drop</button>
+            </div>
+            <details class="tm-inspector__builder">
+                <summary>Edit before forwarding</summary>
+                {% include "labs/_proxy_edit_fields.html" with context %}
+            </details>
+        </div>
+
+        <div class="tm-proxy__box">
+            <div class="tm-proxy__box-head">Repeater</div>
+            <pre class="tm-proxy__pre" data-proxy-repeater-text>Nothing loaded. Use 'repeater N' or a history entry's "&rarr; Repeater" button.</pre>
+            <p class="tm-proxy__note" data-proxy-repeater-note hidden>A request is currently intercepted — Edit applies to that one until it's forwarded or dropped.</p>
+            <details class="tm-inspector__builder">
+                <summary>Edit</summary>
+                {% include "labs/_proxy_edit_fields.html" with context %}
+            </details>
+            <div class="tm-proxy__actions">
+                <button class="btn btn--primary" data-proxy-repeater-send type="button">Send</button>
+            </div>
+        </div>
+
+        <div class="tm-proxy__box">
+            <div class="tm-proxy__box-head">Compare Responses</div>
+            <div class="tm-proxy__builder-row">
+                <label class="tm-inspector__field">History # A
+                    <input type="number" min="1" data-proxy-compare-a />
+                </label>
+                <label class="tm-inspector__field">History # B
+                    <input type="number" min="1" data-proxy-compare-b />
+                </label>
+                <button class="btn btn--outline" data-proxy-compare type="button">Compare</button>
+            </div>
+            <pre class="tm-proxy__pre" data-proxy-compare-result>No comparison yet.</pre>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 {% if mission and mission.web_lab_status %}
 {# ── HTTP Inspector (YC-035.1): a genuine browser-reachable panel for ──
    inspecting the student's live HTTP traffic — Request/Response/Headers/

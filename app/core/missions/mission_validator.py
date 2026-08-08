@@ -223,6 +223,49 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
             return _pass(obj_id, xp)
         return _fail(obj_id, "Make a few more requests first.")
 
+    # ── Intercepting proxy checks (YC-035.2 — Burp Suite Fundamentals).
+    # Each reads a counter/flag off WebLab.proxy (ProxyState, web.py) —
+    # structured state, not rendered text, matching every check above.
+    if check == "proxy_enabled":
+        if lab.proxy.intercept_enabled == (expected.lower() == "true"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Turn intercept on with 'intercept on'.")
+
+    if check == "request_intercepted":
+        if lab.proxy.intercepted_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Turn intercept on, then make a request to capture it.")
+
+    if check == "request_forwarded":
+        if lab.proxy.forwarded_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Intercept a request, then use 'forward'.")
+
+    if check == "request_dropped":
+        if lab.proxy.dropped_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Intercept a request, then use 'drop'.")
+
+    if check == "repeater_used":
+        if lab.proxy.repeater_loaded_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send a request to Repeater with 'repeater' or 'repeater N'.")
+
+    if check == "repeater_sent":
+        if lab.proxy.repeater_sent_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Load a request into Repeater, then use 'repeater send'.")
+
+    if check == "response_compared":
+        if lab.proxy.compared_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Compare two history entries with 'compare N M'.")
+
+    if check == "scope_blocked":
+        if lab.proxy.blocked_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Try requesting a host outside the training scope.")
+
     if check == "session_authenticated":
         # Deliberately requires the *last request* to actually be a
         # successful hit on a session-gated resource — not just "a valid

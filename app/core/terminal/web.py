@@ -133,11 +133,19 @@ class WebApp:
     control flow over deterministic canned responses — never a real
     server, never a real socket."""
 
-    def __init__(self, sessions: dict[str, str] | None = None) -> None:
+    def __init__(self, sessions: dict[str, str] | None = None,
+                 profiles: dict[str, dict[str, Any]] | None = None) -> None:
         # session_id -> username. Mutated by successful logins/logouts,
         # exactly like VirtualNetwork's interface state (YC-034.6) —
         # small, explicit, session-scoped state.
         self.sessions: dict[str, str] = dict(sessions) if sessions else {}
+        # username -> profile fields (YC-035.2) — mirrors self.sessions:
+        # small, explicit, mutable, in-memory only. Lets POST /api/profile
+        # have a real, observable effect instead of a no-op acknowledgment,
+        # so proxy request-modification objectives have something genuine
+        # to verify.
+        self.profiles: dict[str, dict[str, Any]] = (
+            dict(profiles) if profiles else {})
 
     def handle(self, req: HttpRequest) -> HttpResponse:
         if req.path == "/" and req.method == "GET":
@@ -235,17 +243,31 @@ class WebApp:
         return self._json_error(401, "Unauthorized",
                                 {"status": "error", "message": "Invalid credentials"})
 
+    def _get_profile(self, username: str) -> dict[str, Any]:
+        return self.profiles.setdefault(username, {"display_name": username})
+
     def _api_profile(self, req: HttpRequest) -> HttpResponse:
         """JSON counterpart to /profile — cookie-session protected, like
         the HTML page, to teach that a JSON API can sit behind the same
-        session cookie (distinct from the bearer-token /api/me below)."""
+        session cookie (distinct from the bearer-token /api/me below).
+
+        POST actually persists (YC-035.2), but only under the exact key
+        'display_name' — a case-mismatched key (e.g. 'Display_Name') is
+        silently ignored, matching real-world APIs that don't warn about
+        unrecognized fields. Still returns 200 either way, so the bug is
+        only visible by checking the field actually changed, not the
+        status code — the crux of the mission's final investigation."""
         username = self._session_user(req)
         if not username:
             return self._json_error(401, "Unauthorized",
                                     {"status": "error", "message": "Authentication required"})
+        profile = self._get_profile(username)
         if req.method == "POST":
-            return self._json_ok({"status": "updated"})
-        return self._json_ok({"username": username})
+            data = parse_body(req.body, req.headers.get("Content-Type", ""))
+            if "display_name" in data:
+                profile["display_name"] = data["display_name"]
+            return self._json_ok({"status": "updated", "display_name": profile["display_name"]})
+        return self._json_ok({"username": username, "display_name": profile["display_name"]})
 
     def _api_me(self, req: HttpRequest) -> HttpResponse:
         username = self._bearer_user(req)
@@ -347,9 +369,46 @@ def build_content_type_bug_log() -> list[tuple[HttpRequest, HttpResponse]]:
     return log
 
 
+def build_profile_mismatch_log() -> list[tuple[HttpRequest, HttpResponse]]:
+    """A fixed, deterministic transcript for the Burp Fundamentals final
+    objective (YC-035.2): a user ("student") logs in, then tries to update
+    their display name, but a client bug sends the field under the wrong
+    key ('Display_Name' instead of 'display_name'). The server accepts
+    the request (200 OK) but silently ignores the unrecognized field, so
+    a follow-up GET still shows the old name — "profile information not
+    displaying correctly", the fictional bug report. A benign HTTP
+    parameter mismatch, not an attack. Built once against an isolated
+    WebApp instance — never touches the student's own session state."""
+    app = WebApp()
+    log: list[tuple[HttpRequest, HttpResponse]] = []
+
+    url = parse_url(f"https://{HOST}/auth/login")
+    req = build_request("POST", url, body="username=student&password=training123", timestamp=1.0)
+    resp = app.handle(req)
+    log.append((req, resp))
+    sid = resp.cookies["session_id"]
+
+    url = parse_url(f"https://{HOST}/api/profile")
+    req = build_request("GET", url, cookies={"session_id": sid}, timestamp=2.0)
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/api/profile")
+    req = build_request("POST", url, body='{"Display_Name": "Alex Rivera"}',
+                        cookies={"session_id": sid},
+                        extra_headers={"Content-Type": "application/json"}, timestamp=3.0)
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/api/profile")
+    req = build_request("GET", url, cookies={"session_id": sid}, timestamp=4.0)
+    log.append((req, app.handle(req)))
+
+    return log
+
+
 _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResponse]]]] = {
     "login-flow": build_investigation_log,
     "content-type-bug": build_content_type_bug_log,
+    "profile-mismatch": build_profile_mismatch_log,
 }
 
 
@@ -387,22 +446,78 @@ class WebSession:
         return ws
 
 
+@dataclass
+class ProxyState:
+    """Intercepting-proxy state for a WebLab session (YC-035.2) — mirrors
+    WebSession's shape: small, explicit, mutable, in-memory only. Every
+    counter here backs a structured validator check (mission_validator.py)
+    instead of matching rendered text, per the project's established
+    'do not validate by brittle string matching' discipline."""
+    intercept_enabled: bool = False
+    pending: HttpRequest | None = None
+    intercepted_count: int = 0
+    forwarded_count: int = 0
+    dropped_count: int = 0
+    blocked_count: int = 0
+    repeater_request: HttpRequest | None = None
+    repeater_loaded_count: int = 0
+    repeater_sent_count: int = 0
+    compared_count: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "intercept_enabled": self.intercept_enabled,
+            "pending": dataclasses.asdict(self.pending) if self.pending else None,
+            "intercepted_count": self.intercepted_count,
+            "forwarded_count": self.forwarded_count,
+            "dropped_count": self.dropped_count,
+            "blocked_count": self.blocked_count,
+            "repeater_request": dataclasses.asdict(self.repeater_request)
+                if self.repeater_request else None,
+            "repeater_loaded_count": self.repeater_loaded_count,
+            "repeater_sent_count": self.repeater_sent_count,
+            "compared_count": self.compared_count,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> ProxyState:
+        ps = cls()
+        ps.intercept_enabled = d.get("intercept_enabled", False)
+        ps.pending = HttpRequest(**d["pending"]) if d.get("pending") else None
+        ps.intercepted_count = d.get("intercepted_count", 0)
+        ps.forwarded_count = d.get("forwarded_count", 0)
+        ps.dropped_count = d.get("dropped_count", 0)
+        ps.blocked_count = d.get("blocked_count", 0)
+        ps.repeater_request = HttpRequest(**d["repeater_request"]) if d.get("repeater_request") else None
+        ps.repeater_loaded_count = d.get("repeater_loaded_count", 0)
+        ps.repeater_sent_count = d.get("repeater_sent_count", 0)
+        ps.compared_count = d.get("compared_count", 0)
+        return ps
+
+
 class WebLab:
     """Everything a web-fundamentals mission session needs: the
-    simulated site, the student's own session, and the fixed
-    investigation transcript for the final objective."""
+    simulated site, the student's own session, the fixed investigation
+    transcript for the final objective, and (YC-035.2) intercepting-proxy
+    state. `proxy` costs nothing for missions that never touch it (its
+    counters simply stay at their defaults) so YC-035.0/YC-035.1 are
+    unaffected."""
 
     def __init__(self, app: WebApp, investigation_log: list[tuple[HttpRequest, HttpResponse]]) -> None:
         self.app = app
         self.session = WebSession()
         self.investigation_log = investigation_log
+        self.proxy = ProxyState()
 
     def to_dict(self) -> dict[str, Any]:
-        return {"sessions": dict(self.app.sessions), "session": self.session.to_dict()}
+        return {"sessions": dict(self.app.sessions), "profiles": dict(self.app.profiles),
+                "session": self.session.to_dict(), "proxy": self.proxy.to_dict()}
 
     def apply_state(self, snapshot: dict[str, Any]) -> None:
         self.app.sessions = dict(snapshot.get("sessions", {}))
+        self.app.profiles = dict(snapshot.get("profiles", {}))
         self.session = WebSession.from_dict(snapshot.get("session", {}))
+        self.proxy = ProxyState.from_dict(snapshot.get("proxy", {}))
 
 
 def build_web_lab(scenario: str = "login-flow") -> WebLab:

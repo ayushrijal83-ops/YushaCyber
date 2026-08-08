@@ -84,8 +84,12 @@ input.addEventListener('keydown', function(e){
     }
 });
 
-/* ── Execute ── */
-function exec(cmd){
+/* ── Execute ──
+   `onDone(d)`, if given, receives the raw parsed response after all the
+   standard side effects below have already run — lets a caller (e.g. the
+   Proxy Control Compare button) read one field of the response without
+   firing a second /execute call for the same command. */
+function exec(cmd, onDone){
     if(cmd === 'clear'){
         output.innerHTML = '';
         return;
@@ -130,12 +134,14 @@ function exec(cmd){
         if(d.web_lab_status){
             updateWebLabStatus(d.web_lab_status);
             renderInspector(d.web_lab_status);
+            renderProxy(d.web_lab_status);
         }
         /* ── Mission complete ── */
         if(d.completed){
             showComplete(d.progress);
         }
         scroll();
+        if(onDone) onDone(d);
     })
     .catch(function(){ appendErr('Network error.'); });
 }
@@ -248,12 +254,15 @@ function renderInspector(status){
             empty.textContent = 'No requests made yet.';
             historyEl.appendChild(empty);
         }
+        var isBurp = !!document.querySelector('[data-proxy-badge]');
         status.history.forEach(function(entry){
             var li = document.createElement('li');
             li.className = 'tm-inspector__history-item';
             li.tabIndex = 0;
             li.setAttribute('role', 'button');
-            li.textContent = '#' + entry.index + '  ' + entry.method + ' ' + entry.path + '  → ' + entry.status_code;
+            var label = document.createElement('span');
+            label.textContent = '#' + entry.index + '  ' + entry.method + ' ' + entry.path + '  → ' + entry.status_code;
+            li.appendChild(label);
             var openEntry = function(){
                 renderInspector({last_request: entry.request, last_response: entry.response,
                     cookies: status.cookies, history: status.history});
@@ -263,6 +272,22 @@ function renderInspector(status){
             li.addEventListener('keydown', function(e){
                 if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openEntry(); }
             });
+            /* Proxy Control (YC-035.2): a per-entry shortcut into Repeater,
+               issuing the same 'repeater N' command the terminal/Repeater
+               box already accept — not a separate code path. */
+            if(isBurp){
+                var toRepeater = document.createElement('button');
+                toRepeater.type = 'button';
+                toRepeater.className = 'btn btn--outline tm-inspector__history-repeater';
+                toRepeater.textContent = '→ Repeater';
+                toRepeater.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    var cmd = 'repeater ' + entry.index;
+                    appendCmd(currentPrompt, cmd);
+                    exec(cmd);
+                });
+                li.appendChild(toRepeater);
+            }
             historyEl.appendChild(li);
         });
     }
@@ -331,12 +356,129 @@ if(builderClear && inspectorForm){
     builderClear.addEventListener('click', function(){ inspectorForm.reset(); });
 }
 
+/* ── Proxy Control (YC-035.2) ──
+   Every button here does exactly one thing: build a command string and
+   submit it through the same exec() the terminal input uses — no new
+   endpoints, no client-side proxy logic. renderProxy() is a pure view
+   over status.proxy (part of web_lab_status(), already carried on every
+   /execute response), the same pattern as renderInspector(). */
+function renderProxy(status){
+    if(!status || !status.proxy) return;
+    var badge = document.querySelector('[data-proxy-badge]');
+    var toggle = document.querySelector('[data-proxy-toggle]');
+    if(!badge && !toggle) return; /* panel not present on this mission */
+    var p = status.proxy;
+
+    if(badge){
+        badge.textContent = 'Intercept: ' + (p.intercept_enabled ? 'ON' : 'OFF');
+        badge.classList.toggle('tm-proxy__badge--on', p.intercept_enabled);
+    }
+    if(toggle){
+        toggle.textContent = p.intercept_enabled ? 'Turn Intercept Off' : 'Turn Intercept On';
+        toggle.dataset.proxyNextMode = p.intercept_enabled ? 'off' : 'on';
+    }
+
+    var pendingBox = document.querySelector('[data-proxy-pending-box]');
+    var pendingText = document.querySelector('[data-proxy-pending-text]');
+    if(pendingBox){
+        pendingBox.hidden = !p.pending;
+        if(pendingText){
+            pendingText.textContent = p.pending
+                ? formatRequestLine(p.pending) + '\n' + formatHeaders(p.pending.headers) +
+                  (p.pending.body ? '\n\n' + p.pending.body : '')
+                : 'No request intercepted.';
+        }
+    }
+
+    var repText = document.querySelector('[data-proxy-repeater-text]');
+    if(repText){
+        repText.textContent = p.repeater_request
+            ? formatRequestLine(p.repeater_request) + '\n' + formatHeaders(p.repeater_request.headers) +
+              (p.repeater_request.body ? '\n\n' + p.repeater_request.body : '')
+            : 'Nothing loaded. Use \'repeater N\' or a history entry\'s "→ Repeater" button.';
+    }
+    var repNote = document.querySelector('[data-proxy-repeater-note]');
+    if(repNote) repNote.hidden = !p.pending;
+}
+
+var proxyToggle = document.querySelector('[data-proxy-toggle]');
+if(proxyToggle){
+    proxyToggle.addEventListener('click', function(){
+        var mode = proxyToggle.dataset.proxyNextMode || 'on';
+        var cmd = 'intercept ' + mode;
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+var proxyForward = document.querySelector('[data-proxy-forward]');
+if(proxyForward){
+    proxyForward.addEventListener('click', function(){ appendCmd(currentPrompt, 'forward'); exec('forward'); });
+}
+var proxyDrop = document.querySelector('[data-proxy-drop]');
+if(proxyDrop){
+    proxyDrop.addEventListener('click', function(){ appendCmd(currentPrompt, 'drop'); exec('drop'); });
+}
+var proxyRepeaterSend = document.querySelector('[data-proxy-repeater-send]');
+if(proxyRepeaterSend){
+    proxyRepeaterSend.addEventListener('click', function(){
+        appendCmd(currentPrompt, 'repeater send'); exec('repeater send');
+    });
+}
+var proxyCompare = document.querySelector('[data-proxy-compare]');
+if(proxyCompare){
+    proxyCompare.addEventListener('click', function(){
+        var a = document.querySelector('[data-proxy-compare-a]').value.trim();
+        var b = document.querySelector('[data-proxy-compare-b]').value.trim();
+        if(!a || !b) return;
+        var cmd = 'compare ' + a + ' ' + b;
+        appendCmd(currentPrompt, cmd);
+        exec(cmd, function(d){
+            var resultEl = document.querySelector('[data-proxy-compare-result]');
+            if(resultEl) resultEl.textContent = d.output || 'No comparison yet.';
+        });
+    });
+}
+
+/* Each 'Set' button applies exactly one field to whichever request is
+   currently editable (the intercepted one, or the Repeater one — the
+   'edit' command itself decides, per its documented priority). Scoped
+   via closest('.tm-proxy__box') since the field rows are included twice
+   (pending box + Repeater box). */
+document.querySelectorAll('[data-proxy-set]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        var box = btn.closest('.tm-proxy__box');
+        if(!box) return;
+        var field = btn.dataset.proxySet;
+        var cmd = null;
+        if(field === 'method'){
+            cmd = 'edit method ' + box.querySelector('[data-proxy-method]').value;
+        } else if(field === 'path'){
+            var path = box.querySelector('[data-proxy-path]').value.trim();
+            if(path) cmd = 'edit path ' + shQuote(path);
+        } else if(field === 'query'){
+            var qk = box.querySelector('[data-proxy-query-key]').value.trim();
+            var qv = box.querySelector('[data-proxy-query-value]').value.trim();
+            if(qk) cmd = 'edit query ' + shQuote(qk) + ' ' + shQuote(qv);
+        } else if(field === 'header'){
+            var hn = box.querySelector('[data-proxy-header-name]').value.trim();
+            var hv = box.querySelector('[data-proxy-header-value]').value.trim();
+            if(hn) cmd = 'edit header ' + shQuote(hn) + ' ' + shQuote(hv);
+        } else if(field === 'body'){
+            var bodyVal = box.querySelector('[data-proxy-body]').value;
+            cmd = 'edit body ' + shQuote(bodyVal);
+        }
+        if(cmd){ appendCmd(currentPrompt, cmd); exec(cmd); }
+    });
+});
+
 /* Initial render from server-rendered state, so the panel isn't empty
    until the student's first command. */
 var initialWebLabEl = document.getElementById('tm-web-lab-initial');
 if(initialWebLabEl){
     try{
-        renderInspector(JSON.parse(initialWebLabEl.textContent));
+        var initialWebLab = JSON.parse(initialWebLabEl.textContent);
+        renderInspector(initialWebLab);
+        renderProxy(initialWebLab);
     }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
@@ -473,6 +615,7 @@ function doReset(){
         if(d.web_lab_status){
             updateWebLabStatus(d.web_lab_status);
             renderInspector(d.web_lab_status);
+            renderProxy(d.web_lab_status);
         }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');

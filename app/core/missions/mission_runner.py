@@ -207,6 +207,24 @@ class MissionRunner:
                  "request": dataclasses.asdict(r), "response": dataclasses.asdict(s)}
                 for i, (r, s) in enumerate(lab.session.history[-20:])
             ],
+            # Intercepting-proxy state (YC-035.2) — only meaningful for
+            # missions that ever turn intercept on; every prior mission's
+            # counters simply stay at their defaults, and the frontend
+            # gates the Proxy Control panel on `pending`/counters being
+            # non-default, not on this key's mere presence.
+            "proxy": {
+                "intercept_enabled": lab.proxy.intercept_enabled,
+                "pending": dataclasses.asdict(lab.proxy.pending) if lab.proxy.pending else None,
+                "intercepted_count": lab.proxy.intercepted_count,
+                "forwarded_count": lab.proxy.forwarded_count,
+                "dropped_count": lab.proxy.dropped_count,
+                "blocked_count": lab.proxy.blocked_count,
+                "repeater_request": dataclasses.asdict(lab.proxy.repeater_request)
+                    if lab.proxy.repeater_request else None,
+                "repeater_loaded_count": lab.proxy.repeater_loaded_count,
+                "repeater_sent_count": lab.proxy.repeater_sent_count,
+                "compared_count": lab.proxy.compared_count,
+            },
         }
 
     def use_hint(self, objective_id: str) -> str:
@@ -290,6 +308,20 @@ class MissionRunner:
                     f"{h['method']} {h['path']} -> {h['status_code']}"
                     for h in web_status["history"][-5:]
                 ],
+            }
+            # Proxy summary (YC-035.2) — small and structured, not the
+            # full pending/repeater request objects, matching the same
+            # "small, useful" sizing rationale as the rest of this dict.
+            proxy = web_status["proxy"]
+            pending_req = proxy["pending"]
+            ctx["web"]["proxy"] = {
+                "intercept_enabled": proxy["intercept_enabled"],
+                "pending_request": (f"{pending_req['method']} {pending_req['path']}"
+                                    if pending_req else None),
+                "repeater_loaded": proxy["repeater_request"] is not None,
+                "intercepted_count": proxy["intercepted_count"],
+                "forwarded_count": proxy["forwarded_count"],
+                "dropped_count": proxy["dropped_count"],
             }
         return ctx
 

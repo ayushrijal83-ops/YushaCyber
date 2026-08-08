@@ -137,8 +137,9 @@ body.tm-body{background:var(--tm-bg);color:var(--tm-text);font-family:var(--tm-f
 .tm-inspector__panel[hidden]{display:none}
 .tm-inspector__panel pre{white-space:pre-wrap;word-break:break-word;font-family:var(--tm-font);font-size:.75rem;color:var(--tm-text);margin:0}
 .tm-inspector__history{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-.tm-inspector__history-item{background:var(--tm-surface);border:1px solid #1e2028;border-radius:6px;padding:6px 10px;font-size:.72rem;cursor:pointer;color:var(--tm-text)}
+.tm-inspector__history-item{background:var(--tm-surface);border:1px solid #1e2028;border-radius:6px;padding:6px 10px;font-size:.72rem;cursor:pointer;color:var(--tm-text);display:flex;align-items:center;justify-content:space-between;gap:8px}
 .tm-inspector__history-item:hover,.tm-inspector__history-item:focus-visible{border-color:var(--tm-accent);outline:none}
+.tm-inspector__history-repeater{font-size:.62rem;padding:3px 8px;flex-shrink:0}
 .tm-inspector__builder{margin-top:14px;border:1px solid #1e2028;border-radius:8px;padding:10px 14px;background:var(--tm-bg)}
 .tm-inspector__builder summary{cursor:pointer;font-size:.72rem;color:var(--tm-muted);font-weight:700}
 .tm-inspector__builder summary:focus-visible{outline:2px solid var(--tm-accent)}
@@ -156,4 +157,27 @@ body.tm-body{background:var(--tm-bg);color:var(--tm-text);font-family:var(--tm-f
 @media(max-width:1024px){
     .tm-inspector{padding:12px 14px 16px}
     .tm-inspector__builder-row{flex-direction:column}
+}
+
+/* ── Proxy Control (YC-035.2) — same visual language as tm-inspector/tm-netstatus ── */
+.tm-proxy{background:var(--tm-surface);border-top:1px solid #1e2028;padding:14px 20px}
+.tm-proxy__bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.tm-proxy__title{font-weight:700;font-size:.82rem}
+.tm-proxy__badge{font-size:.64rem;font-family:var(--tm-font);background:rgba(99,102,241,.12);color:var(--tm-accent);padding:3px 9px;border-radius:6px;font-weight:700}
+.tm-proxy__badge--on{background:rgba(34,197,94,.12);color:var(--tm-green)}
+.tm-proxy__scope{font-size:.68rem;color:var(--tm-muted);font-family:var(--tm-font)}
+.tm-proxy__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.tm-proxy__box{background:var(--tm-bg);border:1px solid #1e2028;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.tm-proxy__box-head{font-size:.68rem;letter-spacing:.05em;color:var(--tm-muted);font-weight:700}
+.tm-proxy__pre{white-space:pre-wrap;word-break:break-word;font-family:var(--tm-font);font-size:.72rem;color:var(--tm-text);margin:0;max-height:200px;overflow:auto}
+.tm-proxy__note{font-size:.66rem;color:var(--tm-muted);font-style:italic;margin:0}
+.tm-proxy__actions{display:flex;gap:8px}
+.tm-proxy__edit-rows{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.tm-proxy__edit-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.tm-proxy__builder-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+
+@media(max-width:600px){
+    .tm-proxy{padding:12px 14px}
+    .tm-proxy__grid{grid-template-columns:1fr}
+    .tm-proxy__edit-row{flex-direction:column;align-items:stretch}
 }

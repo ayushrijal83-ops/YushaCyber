@@ -1,0 +1,48 @@
+{# ── Shared edit-field rows for the Proxy Control panel (YC-035.2) ──
+   Included twice (pending-request box + Repeater box). Each row has its
+   own small "Set" button that synthesizes exactly one 'edit ...' command
+   and submits it through the terminal's existing exec() — the same
+   single code path 'edit' already enforces server-side (mutates the
+   pending intercepted request if one exists, else the Repeater request).
+   Not a <form> with one submit, since each field is applied independently
+   (matching the 'edit method|path|query|header|body' command shape). #}
+<div class="tm-proxy__edit-rows">
+    <div class="tm-proxy__edit-row">
+        <label class="tm-inspector__field">Method
+            <select data-proxy-method>
+                <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+            </select>
+        </label>
+        <button type="button" class="btn btn--outline" data-proxy-set="method">Set</button>
+    </div>
+    <div class="tm-proxy__edit-row">
+        <label class="tm-inspector__field tm-inspector__field--grow">Path
+            <input type="text" data-proxy-path placeholder="/products" />
+        </label>
+        <button type="button" class="btn btn--outline" data-proxy-set="path">Set</button>
+    </div>
+    <div class="tm-proxy__edit-row">
+        <label class="tm-inspector__field">Query key
+            <input type="text" data-proxy-query-key placeholder="id" />
+        </label>
+        <label class="tm-inspector__field">Value
+            <input type="text" data-proxy-query-value placeholder="43" />
+        </label>
+        <button type="button" class="btn btn--outline" data-proxy-set="query">Set</button>
+    </div>
+    <div class="tm-proxy__edit-row">
+        <label class="tm-inspector__field">Header name
+            <input type="text" data-proxy-header-name placeholder="User-Agent" />
+        </label>
+        <label class="tm-inspector__field">Value
+            <input type="text" data-proxy-header-value placeholder="CyberBrowser/2.0" />
+        </label>
+        <button type="button" class="btn btn--outline" data-proxy-set="header">Set</button>
+    </div>
+    <div class="tm-proxy__edit-row">
+        <label class="tm-inspector__field tm-inspector__field--grow">Body
+            <textarea data-proxy-body rows="2" placeholder='{"display_name": "CyberStudent"}'></textarea>
+        </label>
+        <button type="button" class="btn btn--outline" data-proxy-set="body">Set</button>
+    </div>
+</div>

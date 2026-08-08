@@ -1616,6 +1616,252 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "web_lab": "content-type-bug",
+        "next_mission": "burp-fundamentals",
+    },
+    "burp-fundamentals": {
+        "id": "burp-fundamentals",
+        "title": "Burp Suite Fundamentals",
+        "description": "Learn how an intercepting proxy works through a safe, fully simulated "
+                       "Burp-style workflow: intercept, forward, drop, modify requests, review "
+                       "history, use Repeater, compare responses, and understand proxy scope — "
+                       "against the same simulated training site (CyberShop). Still purely "
+                       "educational: no injection, no session hijacking, no real proxy or real "
+                       "network request ever made.",
+        "difficulty": "Intermediate",
+        "category": "Web Security",
+        "xp_total": 550,
+        "estimated_minutes": 60,
+        "learn": ["HTTP proxy architecture", "Intercept / forward / drop", "Request modification",
+                  "Header and body editing", "HTTP history", "Repeater", "Response comparison",
+                  "Proxy scope"],
+        "objectives": [
+            {
+                "id": "bf-1",
+                "title": "Understand Proxy Architecture",
+                "description": "Check the proxy status and identify the Browser -> Proxy -> "
+                               "Server flow and the current scope.",
+                "hints": [
+                    "A proxy sits between your browser and the server, able to see every request.",
+                    "There's a dedicated command that shows the proxy's current status.",
+                    "Use 'proxy'.",
+                ],
+                "validate": {"type": "command", "match": "proxy"},
+                "xp": 30,
+            },
+            {
+                "id": "bf-2",
+                "title": "Enable Interception",
+                "description": "Turn interception on so future requests are held before "
+                               "reaching the server.",
+                "hints": [
+                    "Interception is off by default — requests pass straight through.",
+                    "There's an 'intercept' command that takes on/off.",
+                    "Use 'intercept on'.",
+                ],
+                "validate": {"type": "web_state", "check": "proxy_enabled", "match": "true"},
+                "xp": 30,
+            },
+            {
+                "id": "bf-3",
+                "title": "Intercept a GET Request",
+                "description": "With intercept on, request the products page and capture it "
+                               "before it reaches the simulated server.",
+                "hints": [
+                    "Once intercept is on, any request you make gets held, not sent.",
+                    "Make a normal 'open' request like you did in earlier missions.",
+                    "Use 'open https://cybershop.training/products'.",
+                ],
+                "validate": {"type": "web_state", "check": "request_intercepted", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "bf-4",
+                "title": "Forward the Request",
+                "description": "Release the intercepted request to the simulated server and "
+                               "verify the response.",
+                "hints": [
+                    "An intercepted request needs an explicit action to continue on.",
+                    "There's a command that sends the held request through.",
+                    "Use 'forward'.",
+                ],
+                "validate": {"type": "web_state", "check": "request_forwarded", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "bf-5",
+                "title": "Drop a Request",
+                "description": "Intercept another request, then discard it instead of "
+                               "forwarding it.",
+                "hints": [
+                    "Not every intercepted request needs to reach the server.",
+                    "Intercept one (e.g. a search), then use the opposite of 'forward'.",
+                    "Use 'open https://cybershop.training/search?q=linux' then 'drop'.",
+                ],
+                "validate": {"type": "web_state", "check": "request_dropped", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "bf-6",
+                "title": "Modify a Query Parameter",
+                "description": "Intercept a request for product 42, change it to product 43, "
+                               "then forward it.",
+                "hints": [
+                    "Once a request is intercepted, you can change it before it goes out.",
+                    "There's an 'edit' command; 'edit query KEY VALUE' changes a query parameter.",
+                    ("Use 'open https://cybershop.training/products?id=42', then "
+                     "'edit query id 43', then 'forward'."),
+                ],
+                "validate": {"type": "web_state", "check": "query_param", "param": "id", "match": "43"},
+                "xp": 40,
+            },
+            {
+                "id": "bf-7",
+                "title": "Modify a Request Header",
+                "description": "Intercept a request, change its User-Agent header, then "
+                               "forward it.",
+                "hints": [
+                    "Headers can be edited the same way query parameters can.",
+                    "Use 'edit header NAME VALUE' on an intercepted request.",
+                    ("Use 'open https://cybershop.training/products', then "
+                     "'edit header User-Agent CyberBrowser/2.0', then 'forward'."),
+                ],
+                "validate": {"type": "web_state", "check": "header", "in": "request",
+                             "header": "User-Agent", "match": "CyberBrowser/2.0"},
+                "xp": 40,
+            },
+            {
+                "id": "bf-8",
+                "title": "Modify a POST Body",
+                "description": "Log in first, then intercept a profile update, change the "
+                               "display_name field, forward it, and confirm the simulated "
+                               "server accepted the change.",
+                "hints": [
+                    ("You need a session cookie before /api/profile will accept anything — log "
+                     "in first (intercept can be off for that step)."),
+                    ("Then intercept a POST to /api/profile with a JSON body, and use "
+                     "'edit body ...' to change the display_name field before forwarding."),
+                    ('Use \'open -X POST -d "username=student&password=training123" '
+                     "https://cybershop.training/auth/login' with intercept off, then "
+                     "'intercept on', then 'open -X POST -H \"Content-Type: application/json\" "
+                     '-d \'{"display_name": "Student"}\' https://cybershop.training/api/profile\', '
+                     "then 'edit body '{\"display_name\": \"CyberStudent\"}'', then 'forward'."),
+                ],
+                "validate": {"type": "web_state", "check": "body_field", "in": "request",
+                             "field": "display_name", "match": "CyberStudent"},
+                "xp": 45,
+            },
+            {
+                "id": "bf-9",
+                "title": "Inspect HTTP History",
+                "description": "Review your request history — you should have made several "
+                               "requests by now.",
+                "hints": [
+                    "Every request the proxy has forwarded (dropped ones don't count) is logged.",
+                    "There's a command that lists your history, same as earlier missions.",
+                    "Use 'requests' to see the full list.",
+                ],
+                "validate": {"type": "web_state", "check": "request_count", "match": "5"},
+                "xp": 30,
+            },
+            {
+                "id": "bf-10",
+                "title": "Send a Request to Repeater",
+                "description": "Load a request from your history into Repeater.",
+                "hints": [
+                    "Repeater lets you resend and tweak one specific request repeatedly.",
+                    "There's a 'repeater' command that takes a history entry number.",
+                    "Use 'repeater 2' (or just 'repeater' for your most recent request).",
+                ],
+                "validate": {"type": "web_state", "check": "repeater_used", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "bf-11",
+                "title": "Modify the Repeater Request",
+                "description": "Change a query parameter on the request loaded in Repeater, "
+                               "then send it.",
+                "hints": [
+                    "'edit' also works on whatever request is currently loaded in Repeater.",
+                    "Change the parameter, then use Repeater's own send command.",
+                    "Use 'edit query id 77', then 'repeater send'.",
+                ],
+                "validate": {"type": "web_state", "check": "query_param", "param": "id", "match": "77"},
+                "xp": 40,
+            },
+            {
+                "id": "bf-12",
+                "title": "Compare Two Responses",
+                "description": "Compare two responses from your history and identify what's "
+                               "different between them.",
+                "hints": [
+                    "The proxy can line up two past responses side by side.",
+                    "There's a 'compare' command that takes two history entry numbers.",
+                    "Use 'compare 2 6' (or any two entries with different product IDs).",
+                ],
+                "validate": {"type": "web_state", "check": "response_compared", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "bf-13",
+                "title": "Understand Proxy Scope",
+                "description": "Attempt to request a host outside the training scope and "
+                               "confirm the proxy blocks it.",
+                "hints": [
+                    "The proxy only ever operates against cybershop.training — nothing else.",
+                    "Try 'open'-ing a URL for a completely different host.",
+                    "Use 'open https://evil.example.com/'.",
+                ],
+                "validate": {"type": "web_state", "check": "scope_blocked", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "bf-14",
+                "title": "FINAL CHALLENGE — Proxy Investigation",
+                "description": "A user reports their profile information is not displaying "
+                               "correctly after they update it. Intercept their profile-update "
+                               "request, inspect it, identify the parameter problem, correct "
+                               "it, forward it, confirm the fix, re-send it via Repeater, "
+                               "compare the broken and fixed responses, then record your "
+                               "conclusion.",
+                "hints": [
+                    ("Something about the request's body doesn't match what the server expects "
+                     "— check the exact field name being sent versus what actually updates the "
+                     "profile."),
+                    ("Intercept a POST to /api/profile with 'Display_Name' (capital letters) in "
+                     "the JSON body — the server accepts it (200 OK) but silently ignores it. "
+                     "Fix the key, forward, then compare against the broken one."),
+                    ("Use 'open -X POST -H \"Content-Type: application/json\" -d "
+                     '\'{"Display_Name": "Alex Rivera"}\' https://cybershop.training/api/profile\' '
+                     "then 'forward' (broken — note the history number). Then repeat with "
+                     '\'{"display_name": "Alex Rivera"}\' (correct key) and \'forward\' (fixed — '
+                     "note that history number). Use 'repeater N' then 'repeater send' on the "
+                     "fixed one, then 'compare BROKEN FIXED'. Finally: "
+                     'echo "Conclusion: the POST body used the wrong field name Display_Name '
+                     "instead of display_name, so the update was silently ignored\" > "
+                     "web/proxy-investigation.txt."),
+                ],
+                "validate": {"type": "file_contains", "match": "display_name",
+                             "path": "/home/student/web/proxy-investigation.txt"},
+                "xp": 75,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": "profile-mismatch",
         "next_mission": None,
     },
 }
