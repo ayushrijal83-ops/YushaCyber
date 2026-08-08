@@ -23,19 +23,30 @@ class ValidationResult:
                 "message": self.message, "xp": self.xp}
 
 
+def _match_candidates(raw_match: Any) -> list[str]:
+    """A 'match' value is normally one string, but may be a list of
+    acceptable alternatives (YC-034.8) — e.g. "any of these three hosts
+    counts as evidence", not just one hardcoded exact command. Lets a
+    validator check the *meaning* of a result instead of one literal
+    string, while staying a plain data field (no new validator type)."""
+    if isinstance(raw_match, (list, tuple)):
+        return [str(m).strip() for m in raw_match]
+    return [str(raw_match).strip()]
+
+
 def validate(objective: dict[str, Any], shell: Shell,
              command: str = "", output: str = "") -> ValidationResult:
     """Validate an objective against the current shell state."""
     v = objective.get("validate", {})
     v_type = v.get("type", "command")
-    expected = v.get("match", "").strip()
+    candidates = _match_candidates(v.get("match", ""))
+    expected = candidates[0]
     obj_id = objective.get("id", "")
     xp = objective.get("xp", 0)
 
     if v_type == "command":
         cmd_lower = command.strip().lower()
-        exp_lower = expected.lower()
-        if cmd_lower == exp_lower or exp_lower in cmd_lower:
+        if any(cmd_lower == c.lower() or c.lower() in cmd_lower for c in candidates):
             return _pass(obj_id, xp)
         return _fail(obj_id, "Try a different command.")
 
@@ -55,13 +66,14 @@ def validate(objective: dict[str, Any], shell: Shell,
         return _fail(obj_id, f"Directory '{expected.split('/')[-1]}' not found yet.")
 
     if v_type == "file_contains":
-        content = shell.fs.read(v.get("path", "")) or ""
-        if expected.lower() in content.lower():
+        content = (shell.fs.read(v.get("path", "")) or "").lower()
+        if any(c.lower() in content for c in candidates):
             return _pass(obj_id, xp)
         return _fail(obj_id, "File doesn't contain the expected content.")
 
     if v_type == "output_contains":
-        if expected.lower() in output.lower():
+        out_lower = output.lower()
+        if any(c.lower() in out_lower for c in candidates):
             return _pass(obj_id, xp)
         return _fail(obj_id, "Output doesn't contain what's expected.")
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -10,6 +11,8 @@ from app.core.missions.mission_loader import get_mission
 from app.core.missions.mission_validator import validate
 from app.core.terminal.filesystem import VirtualFS
 from app.core.terminal.shell import Shell
+
+_IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?\b")
 
 
 @dataclass
@@ -53,10 +56,12 @@ class MissionRunner:
             mission_id=mission_id, user_id=user_id,
             total=len(self.mission["objectives"]),
             started_at=time.time())
+        self._last_output = ""
 
     def execute(self, command: str) -> dict[str, Any]:
         """Execute a command and auto-validate all pending objectives."""
         output = self.shell.execute(command)
+        self._last_output = output
         self.progress.attempts += 1
 
         validations: list[dict[str, Any]] = []
@@ -130,6 +135,19 @@ class MissionRunner:
                 return obj
         return None
 
+    def _scanned_targets(self) -> list[str]:
+        """IPv4 targets seen in nmap commands so far — derived from the
+        existing shell history rather than a new tracking structure, so
+        it works for any networking mission without per-mission wiring."""
+        targets: list[str] = []
+        for line in self.shell.history:
+            if not line.strip().lower().startswith("nmap"):
+                continue
+            for m in _IPV4_RE.findall(line):
+                if m not in targets:
+                    targets.append(m)
+        return targets
+
     def ai_context(self) -> dict[str, Any]:
         cur = self.current_objective()
         ctx: dict[str, Any] = {
@@ -141,11 +159,13 @@ class MissionRunner:
             "progress_pct": self.progress.pct,
             "hints_used": self.progress.hints_used,
             "last_command": self.shell.history[-1] if self.shell.history else "",
+            "last_output": self._last_output,
             "cwd": self.shell.fs.cwd,
         }
         net_status = self.network_status()
         if net_status is not None:
             ctx["network"] = net_status
+            ctx["scanned_targets"] = self._scanned_targets()
         return ctx
 
     def to_dict(self) -> dict[str, Any]:

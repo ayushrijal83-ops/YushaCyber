@@ -875,6 +875,201 @@ MISSIONS: dict[str, dict[str, Any]] = {
                 {"hostname": "example.local", "ip": "10.10.10.10"},
             ],
         },
+        "next_mission": "network-reconnaissance",
+    },
+    "network-reconnaissance": {
+        "id": "network-reconnaissance",
+        "title": "Network Reconnaissance",
+        "description": "You are operating inside an authorized simulated training network. "
+                       "Perform structured reconnaissance against the YushaCyber training "
+                       "network to discover hosts, enumerate services, and identify the "
+                       "primary target — building a documented, evidence-based conclusion "
+                       "rather than a single lucky guess. Entirely simulated; nothing here "
+                       "touches a real host or network.",
+        "difficulty": "Intermediate",
+        "category": "networking",
+        "xp_total": 450,
+        "estimated_minutes": 50,
+        "learn": ["Host discovery", "Port enumeration", "Service identification",
+                  "Version detection", "Attack-surface comparison", "Finding prioritization",
+                  "Reconnaissance documentation", "Evidence-based conclusions"],
+        "objectives": [
+            {
+                "id": "rn-1",
+                "title": "Discover Hosts",
+                "description": "Sweep the training network to see which hosts are alive.",
+                "hint": "Use 'nmap -sn 10.10.10.0/24'.",
+                "validate": {"type": "command", "match": "-sn 10.10.10.0/24"},
+                "xp": 50,
+            },
+            {
+                "id": "rn-2",
+                "title": "Identify Interesting Hosts",
+                "description": "Not every discovered host is equally interesting. Investigate "
+                               "one of the real servers more closely (not the gateway).",
+                "hint": "Try 'nmap 10.10.10.10', 'nmap 10.10.10.30', or 'nmap 10.10.10.40'.",
+                "validate": {"type": "command", "match": ["nmap 10.10.10.10",
+                                                          "nmap 10.10.10.30",
+                                                          "nmap 10.10.10.40"]},
+                "xp": 30,
+            },
+            {
+                "id": "rn-3",
+                "title": "Enumerate Target Ports",
+                "description": "Do a full port sweep of the training server.",
+                "hint": "Use 'nmap -p- 10.10.10.40'.",
+                "validate": {"type": "command", "match": "-p- 10.10.10.40"},
+                "xp": 35,
+            },
+            {
+                "id": "rn-4",
+                "title": "Identify Open Services",
+                "description": "Confirm which services are running behind the open ports.",
+                "hint": "Look for the MySQL entry in your port sweep.",
+                "validate": {"type": "output_contains", "match": "3306/tcp open mysql"},
+                "xp": 35,
+            },
+            {
+                "id": "rn-5",
+                "title": "Perform Service Detection",
+                "description": "Identify the exact service versions running on the training server.",
+                "hint": "Use 'nmap -sV 10.10.10.40'.",
+                "validate": {"type": "output_contains", "match": "MySQL 8.x"},
+                "xp": 40,
+            },
+            {
+                "id": "rn-6",
+                "title": "Compare Hosts",
+                "description": "Compare the training server against another host to gauge "
+                               "relative attack surface.",
+                "hint": "Use 'nmap -sV 10.10.10.10' or 'nmap -sV 10.10.10.30'.",
+                "validate": {"type": "command", "match": ["nmap -sv 10.10.10.10",
+                                                          "nmap -sv 10.10.10.30"]},
+                "xp": 35,
+            },
+            {
+                "id": "rn-7",
+                "title": "Identify High-Interest Ports",
+                "description": "Some services deserve extra attention during recon: SSH, FTP, "
+                               "MySQL, SMB, and exposed HTTP. Confirm the file server's SMB port.",
+                "hint": "Use 'nmap -sV 10.10.10.30' and look for microsoft-ds.",
+                "validate": {"type": "output_contains", "match": "445/tcp open microsoft-ds"},
+                "xp": 35,
+            },
+            {
+                "id": "rn-8",
+                "title": "Build an Attack-Surface Inventory",
+                "description": "Record the training server's findings in your recon notes.",
+                "hint": 'Use echo "Host: 10.10.10.40 (training-server) - Ports: 22,3306,8080 - '
+                       'Services: SSH,MySQL,HTTP" > recon/findings.txt.',
+                "validate": {"type": "file_contains", "match": "3306",
+                             "path": "/home/student/recon/findings.txt"},
+                "xp": 40,
+            },
+            {
+                "id": "rn-9",
+                "title": "Identify the Primary Target",
+                "description": "Based on your evidence, conclude which host is the primary "
+                               "reconnaissance target and record it.",
+                "hint": 'Use echo "TARGET: 10.10.10.40" >> recon/findings.txt.',
+                "validate": {"type": "file_contains", "match": "TARGET: 10.10.10.40",
+                             "path": "/home/student/recon/findings.txt"},
+                "xp": 45,
+            },
+            {
+                "id": "rn-10",
+                "title": "Document Findings",
+                "description": "Write a structured summary of the services you identified.",
+                "hint": 'Use echo "Services: SSH,MySQL,HTTP" >> recon/findings.txt.',
+                "validate": {"type": "file_contains", "match": "Services: SSH,MySQL,HTTP",
+                             "path": "/home/student/recon/findings.txt"},
+                "xp": 45,
+            },
+            {
+                "id": "rn-11",
+                "title": "Final Reconnaissance Challenge",
+                "description": "Confirm your conclusion with a final justification based on "
+                               "the full body of evidence you've gathered.",
+                "hint": 'Use echo "PRIMARY TARGET CONFIRMED: 10.10.10.40 exposes SSH, MySQL, '
+                       'and HTTP - highest service diversity" >> recon/findings.txt.',
+                "validate": {"type": "file_contains", "match": "PRIMARY TARGET CONFIRMED",
+                             "path": "/home/student/recon/findings.txt"},
+                "xp": 60,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "recon": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+                "hosts": "127.0.0.1 localhost\n"
+                        "10.10.10.20 student-pc\n"
+                        "10.10.10.1 gateway\n"
+                        "10.10.10.10 web-server\n"
+                        "10.10.10.30 file-server\n"
+                        "10.10.10.40 training-server\n"
+                        "10.10.10.53 dns-server\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "network": {
+            "student_ip": "10.10.10.20",
+            "dns_server_ip": "10.10.10.53",
+            "hosts": {
+                "10.10.10.20": {
+                    "hostname": "student-machine",
+                    "interfaces": [
+                        {"name": "eth0", "ip": "10.10.10.20", "cidr": 24, "state": "UP"},
+                        {"name": "lo", "ip": "127.0.0.1", "cidr": 8, "state": "UP"},
+                    ],
+                    "routes": [
+                        {"destination": "default", "via": "10.10.10.1",
+                         "dev": "eth0", "is_default": True},
+                        {"destination": "10.10.10.0/24", "dev": "eth0"},
+                    ],
+                },
+                "10.10.10.1": {"hostname": "gateway", "reachable": True},
+                "10.10.10.10": {
+                    "hostname": "web-server", "reachable": True,
+                    "services": [
+                        {"port": 22, "proto": "tcp", "name": "ssh", "version": "OpenSSH 9.x"},
+                        {"port": 80, "proto": "tcp", "name": "http", "version": "nginx"},
+                        {"port": 443, "proto": "tcp", "name": "https", "version": "nginx"},
+                    ],
+                },
+                "10.10.10.30": {
+                    "hostname": "file-server", "reachable": True,
+                    "services": [
+                        {"port": 21, "proto": "tcp", "name": "ftp", "version": "vsftpd 3.x"},
+                        {"port": 22, "proto": "tcp", "name": "ssh", "version": "OpenSSH 9.x"},
+                        {"port": 445, "proto": "tcp", "name": "microsoft-ds", "version": "Samba 4.x"},
+                    ],
+                },
+                "10.10.10.40": {
+                    "hostname": "training-server", "reachable": True,
+                    "services": [
+                        {"port": 22, "proto": "tcp", "name": "ssh", "version": "OpenSSH 8.x"},
+                        {"port": 8080, "proto": "tcp", "name": "http", "version": "Apache 2.x"},
+                        {"port": 3306, "proto": "tcp", "name": "mysql", "version": "MySQL 8.x"},
+                    ],
+                },
+                "10.10.10.53": {
+                    "hostname": "dns-server", "reachable": True,
+                    "services": [{"port": 53, "proto": "udp", "name": "dns", "version": "BIND 9.x"}],
+                },
+            },
+            "dns_records": [
+                {"hostname": "example.local", "ip": "10.10.10.10"},
+            ],
+        },
         "next_mission": None,
     },
 }

@@ -443,6 +443,7 @@ def _nmap(sh: Shell, args: list[str]) -> str:
     service_detection = False
     os_detection = False
     skip_discovery = False
+    host_discovery = False  # -sn (YC-034.8)
     positional: list[str] = []
 
     i = 0
@@ -453,6 +454,8 @@ def _nmap(sh: Shell, args: list[str]) -> str:
             i += 1
         elif t == "-p-":
             scan_all_ports = True
+        elif t == "-sn":
+            host_discovery = True
         elif t == "-sV":
             service_detection = True
         elif t == "-sU":
@@ -472,6 +475,11 @@ def _nmap(sh: Shell, args: list[str]) -> str:
     if not positional:
         return "nmap: no target specified"
     target = positional[0]
+
+    if host_discovery:
+        results = sh.network.discover(target)
+        return sh.network.format_discovery(target, results)
+
     if scan_all_ports:
         ports = None  # default scan already covers every known port on the host
 

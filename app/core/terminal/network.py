@@ -19,10 +19,16 @@ YC-034.7 (Nmap Fundamentals) adds a deterministic port-scan engine
 (`VirtualNetwork.scan()` / `format_nmap()`) over the same VirtualHost
 services — still pure data lookups and string formatting, no socket,
 subprocess, or shell invocation anywhere in this module.
+
+YC-034.8 (Network Reconnaissance) adds host discovery (`discover()` /
+`format_discovery()`, simulating `nmap -sn <cidr>`) using the stdlib
+`ipaddress` module purely for CIDR arithmetic — no socket, ARP, or
+ICMP traffic of any kind, real or otherwise.
 """
 
 from __future__ import annotations
 
+import ipaddress
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -284,6 +290,44 @@ class VirtualNetwork:
             lines.append(f"OS guess: {result.os_guess or 'unavailable (try -Pn or scan more ports)'}")
         lines.append("")
         lines.append("Nmap done.")
+        return "\n".join(lines)
+
+    # ── Host discovery / -sn (YC-034.8) ──
+    def discover(self, cidr: str) -> list[dict[str, Any]]:
+        """Simulated `nmap -sn <cidr>` — pure membership test over the
+        known virtual hosts. Never sends an ARP/ICMP probe of any kind."""
+        try:
+            net = ipaddress.ip_network(cidr, strict=False)
+        except ValueError:
+            return []
+        results: list[dict[str, Any]] = []
+        for ip, host in self.hosts.items():
+            try:
+                addr = ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            if addr not in net:
+                continue
+            # -sn relies on ICMP-style probes, so an ICMP-blocking host
+            # reports down here too — same host that needs -Pn in a real
+            # port scan (see VirtualHost.blocks_icmp).
+            up = host.reachable and not host.blocks_icmp
+            results.append({"ip": ip, "up": up})
+        return sorted(results, key=lambda r: tuple(int(p) for p in r["ip"].split(".")))
+
+    @staticmethod
+    def format_discovery(cidr: str, results: list[dict[str, Any]]) -> str:
+        lines = ["Starting Nmap"]
+        up_count = 0
+        for r in results:
+            if not r["up"]:
+                continue
+            up_count += 1
+            lines.append("")
+            lines.append(f"Nmap scan report for {r['ip']}")
+            lines.append("Host is up.")
+        lines.append("")
+        lines.append(f"Nmap done: {len(results)} IP addresses ({up_count} hosts up) scanned.")
         return "\n".join(lines)
 
 
