@@ -131,6 +131,10 @@ function exec(cmd){
             updateWebLabStatus(d.web_lab_status);
             renderInspector(d.web_lab_status);
         }
+        /* ── Update Proxy Dashboard (YC-035.2) ── */
+        if(d.proxy_lab_status){
+            renderProxy(d.proxy_lab_status);
+        }
         /* ── Mission complete ── */
         if(d.completed){
             showComplete(d.progress);
@@ -340,6 +344,308 @@ if(initialWebLabEl){
     }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
+/* ── Proxy Dashboard (YC-035.2) ──
+   Every button here just builds the same terminal command a student
+   could type by hand ('browse'/'intercept'/'forward'/'drop'/'modify'/
+   'send-to-repeater'/'repeater-edit'/'repeater-send'/'compare') and runs
+   it through the existing exec() pipeline — no separate API path, so
+   "only the simulated proxy, never a real request" is enforced exactly
+   once, server-side. Rendering reuses formatHeaders/formatQuery/
+   formatRequestLine/formatStatusLine/shQuote already defined above for
+   the HTTP Inspector. */
+function renderProxy(status){
+    if(!status) return;
+
+    var toggle = document.querySelector('[data-proxy-intercept-toggle]');
+    var stateEl = document.querySelector('[data-proxy-intercept-state]');
+    if(toggle) toggle.setAttribute('aria-pressed', status.intercept_enabled ? 'true' : 'false');
+    if(stateEl) stateEl.textContent = status.intercept_enabled ? 'ON' : 'OFF';
+
+    var pendingEl = document.querySelector('[data-proxy-pending]');
+    if(pendingEl){
+        var p = status.pending_request;
+        pendingEl.textContent = p
+            ? formatRequestLine(p) + '\n' + formatHeaders(p.headers) + (p.body ? '\n\n' + p.body : '')
+            : 'No request intercepted.';
+    }
+
+    var req = status.last_request, resp = status.last_response;
+    var reqEl = document.querySelector('[data-proxy-request]');
+    if(reqEl){
+        reqEl.textContent = req
+            ? formatRequestLine(req) + '\n' + formatHeaders(req.headers) + (req.body ? '\n\n' + req.body : '')
+            : 'No request forwarded yet.';
+    }
+    var respEl = document.querySelector('[data-proxy-response]');
+    if(respEl){
+        respEl.textContent = resp
+            ? formatStatusLine(resp) + '\n' + formatHeaders(resp.headers) + (resp.body ? '\n\n' + resp.body : '')
+            : 'No response yet.';
+    }
+    var headersEl = document.querySelector('[data-proxy-headers]');
+    if(headersEl){
+        var hLines = [];
+        if(req){ hLines.push('Request headers:'); hLines.push(formatHeaders(req.headers) || '(none)'); }
+        if(resp){ hLines.push(''); hLines.push('Response headers:'); hLines.push(formatHeaders(resp.headers) || '(none)'); }
+        headersEl.textContent = hLines.length ? hLines.join('\n') : 'No headers yet.';
+    }
+    var bodyEl = document.querySelector('[data-proxy-body]');
+    if(bodyEl){
+        var bParts = [];
+        if(req && req.body) bParts.push('Request body:\n' + req.body);
+        if(resp && resp.body) bParts.push((bParts.length ? '\n\n' : '') + 'Response body:\n' + resp.body);
+        bodyEl.textContent = bParts.length ? bParts.join('') : 'No body yet.';
+    }
+    var cookiesEl = document.querySelector('[data-proxy-cookies]');
+    if(cookiesEl){
+        var cKeys = Object.keys(status.cookies || {});
+        cookiesEl.textContent = cKeys.length
+            ? cKeys.map(function(k){ return k + '=' + status.cookies[k]; }).join('\n')
+            : 'No cookies stored.';
+    }
+
+    var historyEl = document.querySelector('[data-proxy-history]');
+    if(historyEl){
+        historyEl.innerHTML = '';
+        var hist = status.history || [];
+        if(!hist.length){
+            var emptyLi = document.createElement('li');
+            emptyLi.className = 'tm-inspector__history-item';
+            emptyLi.textContent = 'No requests forwarded yet.';
+            historyEl.appendChild(emptyLi);
+        }
+        hist.forEach(function(entry){
+            var li = document.createElement('li');
+            li.className = 'tm-inspector__history-item';
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.alignItems = 'center';
+            li.style.gap = '8px';
+
+            var label = document.createElement('span');
+            label.tabIndex = 0;
+            label.setAttribute('role', 'button');
+            label.style.cursor = 'pointer';
+            label.textContent = '#' + entry.index + '  ' + entry.method + ' ' + entry.path + '  → ' + entry.status_code;
+            var openEntry = function(){
+                renderProxy(Object.assign({}, status, {last_request: entry.request, last_response: entry.response}));
+                selectProxyTab('request');
+            };
+            label.addEventListener('click', openEntry);
+            label.addEventListener('keydown', function(e){
+                if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openEntry(); }
+            });
+
+            var sendBtn = document.createElement('button');
+            sendBtn.type = 'button';
+            sendBtn.className = 'tm-toolbar__btn';
+            sendBtn.textContent = '→ Repeater';
+            sendBtn.addEventListener('click', function(){
+                var cmd = 'send-to-repeater ' + entry.index;
+                appendCmd(currentPrompt, cmd);
+                exec(cmd);
+            });
+
+            li.appendChild(label);
+            li.appendChild(sendBtn);
+            historyEl.appendChild(li);
+        });
+    }
+
+    var repReqEl = document.querySelector('[data-repeater-request]');
+    if(repReqEl){
+        var rr = status.repeater_request;
+        repReqEl.textContent = rr
+            ? formatRequestLine(rr) + '\n' + formatHeaders(rr.headers) + (rr.body ? '\n\n' + rr.body : '')
+            : 'Repeater is empty. Send a request from History first.';
+    }
+
+    var repLog = status.repeater_log || [];
+    var repRespEl = document.querySelector('[data-repeater-response]');
+    if(repRespEl){
+        if(repLog.length){
+            var lastSend = repLog[repLog.length - 1];
+            repRespEl.textContent = formatStatusLine(lastSend.response) + '\n'
+                + formatHeaders(lastSend.response.headers)
+                + (lastSend.response.body ? '\n\n' + lastSend.response.body : '');
+        } else {
+            repRespEl.textContent = 'No response yet.';
+        }
+    }
+    var repLogEl = document.querySelector('[data-repeater-log]');
+    if(repLogEl){
+        repLogEl.innerHTML = '';
+        if(!repLog.length){
+            var repEmpty = document.createElement('li');
+            repEmpty.className = 'tm-inspector__history-item';
+            repEmpty.textContent = 'No Repeater sends yet.';
+            repLogEl.appendChild(repEmpty);
+        }
+        repLog.forEach(function(entry){
+            var li = document.createElement('li');
+            li.className = 'tm-inspector__history-item';
+            li.textContent = '#' + entry.index + '  ' + entry.method + ' ' + entry.path
+                + formatQuery(entry.request.query) + '  → ' + entry.status_code;
+            repLogEl.appendChild(li);
+        });
+    }
+
+    var compareEl = document.querySelector('[data-compare-result]');
+    if(compareEl){
+        compareEl.textContent = status.compared ? (status.last_comparison || '') : '';
+    }
+
+    var scopeLog = document.querySelector('[data-scope-log]');
+    if(scopeLog){
+        var blocked = status.blocked_hosts || [];
+        scopeLog.textContent = blocked.length
+            ? blocked.length + ' blocked attempt(s) outside scope: ' + blocked.join(', ')
+            : '';
+    }
+}
+
+function selectProxyTab(name){
+    document.querySelectorAll('[data-proxy-tab]').forEach(function(btn){
+        var active = btn.dataset.proxyTab === name;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('[data-proxy-panel]').forEach(function(panel){
+        panel.hidden = panel.dataset.proxyPanel !== name;
+    });
+}
+document.querySelectorAll('[data-proxy-tab]').forEach(function(btn){
+    btn.addEventListener('click', function(){ selectProxyTab(btn.dataset.proxyTab); });
+});
+
+/* Scenario buttons — the "simulated browser" triggering a request. */
+document.querySelectorAll('[data-scenario-url]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        var method = btn.dataset.scenarioMethod || 'GET';
+        var url = btn.dataset.scenarioUrl;
+        var body = btn.dataset.scenarioBody;
+        var headers = btn.dataset.scenarioHeaders;
+        var cmd = 'browse -X ' + method;
+        if(headers) cmd += ' -H ' + shQuote(headers);
+        if(body) cmd += ' -d ' + shQuote(body);
+        cmd += ' ' + url;
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+});
+
+var proxyCustomForm = document.querySelector('[data-proxy-custom-form]');
+if(proxyCustomForm){
+    proxyCustomForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var url = document.querySelector('[data-custom-url]').value.trim();
+        if(!url) return;
+        var cmd = 'browse ' + url;
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+var interceptToggle = document.querySelector('[data-proxy-intercept-toggle]');
+if(interceptToggle){
+    interceptToggle.addEventListener('click', function(){
+        var isOn = interceptToggle.getAttribute('aria-pressed') === 'true';
+        var cmd = 'intercept ' + (isOn ? 'off' : 'on');
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+var forwardBtn = document.querySelector('[data-proxy-forward]');
+if(forwardBtn) forwardBtn.addEventListener('click', function(){
+    appendCmd(currentPrompt, 'forward');
+    exec('forward');
+});
+
+var dropBtn = document.querySelector('[data-proxy-drop]');
+if(dropBtn) dropBtn.addEventListener('click', function(){
+    appendCmd(currentPrompt, 'drop');
+    exec('drop');
+});
+
+/* Shared builder for 'modify'/'repeater-edit' — only includes flags for
+   fields the student actually filled in, leaving everything else on the
+   paused/draft request untouched. */
+function buildEditCommand(base, methodSel, pathInput, queryInput, headersArea, bodyArea){
+    var cmd = base;
+    var method = methodSel.value.trim();
+    var path = pathInput.value.trim();
+    var query = queryInput.value.trim();
+    var headersRaw = headersArea.value.trim();
+    var body = bodyArea.value;
+    if(method) cmd += ' -X ' + method;
+    if(path) cmd += ' -P ' + shQuote(path);
+    if(query) cmd += ' -Q ' + shQuote(query);
+    if(headersRaw){
+        headersRaw.split('\n').forEach(function(line){
+            line = line.trim();
+            if(line) cmd += ' -H ' + shQuote(line);
+        });
+    }
+    if(body.trim()) cmd += ' -d ' + shQuote(body);
+    return cmd;
+}
+
+var editForm = document.querySelector('[data-proxy-edit-form]');
+if(editForm){
+    editForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var cmd = buildEditCommand('modify',
+            document.querySelector('[data-edit-method]'),
+            document.querySelector('[data-edit-path]'),
+            document.querySelector('[data-edit-query]'),
+            document.querySelector('[data-edit-headers]'),
+            document.querySelector('[data-edit-body]'));
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+var repeaterEditForm = document.querySelector('[data-repeater-edit-form]');
+if(repeaterEditForm){
+    repeaterEditForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var cmd = buildEditCommand('repeater-edit',
+            document.querySelector('[data-repeater-edit-method]'),
+            document.querySelector('[data-repeater-edit-path]'),
+            document.querySelector('[data-repeater-edit-query]'),
+            document.querySelector('[data-repeater-edit-headers]'),
+            document.querySelector('[data-repeater-edit-body]'));
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+var repeaterSendBtn = document.querySelector('[data-repeater-send]');
+if(repeaterSendBtn) repeaterSendBtn.addEventListener('click', function(){
+    appendCmd(currentPrompt, 'repeater-send');
+    exec('repeater-send');
+});
+
+var compareBtn = document.querySelector('[data-compare-btn]');
+if(compareBtn){
+    compareBtn.addEventListener('click', function(){
+        var a = document.querySelector('[data-compare-a]').value || '1';
+        var b = document.querySelector('[data-compare-b]').value || '2';
+        var cmd = 'compare ' + a + ' ' + b;
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+/* Initial render from server-rendered state. */
+var initialProxyLabEl = document.getElementById('tm-proxy-lab-initial');
+if(initialProxyLabEl){
+    try{
+        renderProxy(JSON.parse(initialProxyLabEl.textContent));
+    }catch(err){ /* absent/malformed — dashboard keeps its placeholder text */ }
+}
+
 function markObjectiveDone(objId){
     var objEl = document.querySelector('[data-obj-id="'+objId+'"]');
     if(!objEl) return;
@@ -473,6 +779,9 @@ function doReset(){
         if(d.web_lab_status){
             updateWebLabStatus(d.web_lab_status);
             renderInspector(d.web_lab_status);
+        }
+        if(d.proxy_lab_status){
+            renderProxy(d.proxy_lab_status);
         }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');

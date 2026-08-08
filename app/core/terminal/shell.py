@@ -18,6 +18,7 @@ from app.core.terminal.commands import autocomplete, get_commands
 from app.core.terminal.filesystem import VirtualFS
 from app.core.terminal.network import VirtualNetwork
 from app.core.terminal.packets import PacketLab
+from app.core.terminal.proxy import ProxyLab
 from app.core.terminal.web import WebLab
 
 _ASSIGN_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
@@ -81,6 +82,11 @@ class Shell:
         # None (the default) leaves every other session unaffected.
         self.web_lab: WebLab | None = None
         self._pending_web_lab_state: dict[str, Any] | None = None
+        # Attached by MissionRunner for the Burp Suite Fundamentals
+        # mission (YC-035.2); None (the default) leaves every other
+        # session unaffected.
+        self.proxy_lab: ProxyLab | None = None
+        self._pending_proxy_lab_state: dict[str, Any] | None = None
 
     @property
     def prompt(self) -> str:
@@ -257,6 +263,8 @@ class Shell:
             d["packet_lab"] = self.packet_lab.to_dict()
         if self.web_lab is not None:
             d["web_lab"] = self.web_lab.to_dict()
+        if self.proxy_lab is not None:
+            d["proxy_lab"] = self.proxy_lab.to_dict()
         return d
 
     @classmethod
@@ -276,4 +284,7 @@ class Shell:
         # Same idea for the web session's cookie jar / history / server-
         # side login state (see MissionRunner._attach_web_lab).
         sh._pending_web_lab_state = d.get("web_lab")
+        # Same idea for the proxy's intercept/history/Repeater state (see
+        # MissionRunner._attach_proxy_lab).
+        sh._pending_proxy_lab_state = d.get("proxy_lab")
         return sh

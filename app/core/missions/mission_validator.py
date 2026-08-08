@@ -95,6 +95,9 @@ def validate(objective: dict[str, Any], shell: Shell,
     if v_type == "web_state":
         return _validate_web_state(v, shell, obj_id, xp, expected)
 
+    if v_type == "proxy_state":
+        return _validate_proxy_state(v, shell, obj_id, xp, expected)
+
     return _fail(obj_id, "Unknown validation type.")
 
 
@@ -239,6 +242,106 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
         return _fail(obj_id, "Request a session-protected page while logged in.")
 
     return _fail(obj_id, "Unknown web check.")
+
+
+def _validate_proxy_state(v: dict[str, Any], shell: Shell, obj_id: str,
+                          xp: int, expected: str) -> ValidationResult:
+    """Checks structured intercepting-proxy state (YC-035.2) — the Burp
+    Suite Fundamentals counterpart to _validate_web_state. Every check
+    reads app.core.terminal.proxy.ProxyLab's structured fields (intercept
+    toggle, pending/last-intercepted request, forwarded history, Repeater
+    workspace, comparison flag, scope-violation log) rather than any
+    rendered text, so an objective can't be passed by output that merely
+    *looks* right."""
+    lab = getattr(shell, "proxy_lab", None)
+    if lab is None:
+        return _fail(obj_id, "No simulated proxy available.")
+    check = v.get("check")
+
+    if check == "intercept_enabled":
+        if lab.intercept_enabled == (expected.lower() == "true"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Toggle Intercept first.")
+
+    if check == "intercepted":
+        req = lab.last_intercepted
+        if req is not None and f"{req.method} {req.path}" == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Turn Intercept ON and browse to trigger this request.")
+
+    if check == "forwarded":
+        req = lab.last_request
+        if req is not None and f"{req.method} {req.path}" == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Forward this request through the proxy.")
+
+    if check == "dropped_count":
+        if lab.dropped_count >= int(expected):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Intercept a request and click Drop.")
+
+    if check == "query_param":
+        param = v.get("param", "")
+        req = lab.last_request
+        if req is not None and req.query.get(param) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Check the '{param}' query parameter on the forwarded request.")
+
+    if check == "header":
+        name = v.get("header", "")
+        in_ = v.get("in", "request")
+        source = lab.last_request if in_ == "request" else lab.last_response
+        value = source.headers.get(name) if source else None
+        if value is not None and value.lower() == expected.lower():
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Check the '{name}' {in_} header on the forwarded exchange.")
+
+    if check == "body_field":
+        field_name = v.get("field", "")
+        in_ = v.get("in", "request")
+        source = lab.last_request if in_ == "request" else lab.last_response
+        if source is None:
+            return _fail(obj_id, "No forwarded exchange to inspect yet.")
+        from app.core.terminal.web import parse_body
+        data = parse_body(source.body, source.headers.get("Content-Type", ""))
+        if str(data.get(field_name, "")) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Check the '{field_name}' field in the {in_} body.")
+
+    if check == "history_contains":
+        method, _, path = expected.partition(" ")
+        if lab.history_contains(method, path):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "That request hasn't been forwarded yet — check HTTP History.")
+
+    if check == "repeater_loaded":
+        if (lab.repeater_request is not None) == (expected.lower() == "true"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send a request from History to the Repeater first.")
+
+    if check == "repeater_query_param":
+        param = v.get("param", "")
+        req = lab.repeater_request
+        if req is not None and req.query.get(param) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Edit the Repeater request's '{param}' query parameter.")
+
+    if check == "repeater_used":
+        if len(lab.repeater_log) >= int(expected):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send the Repeater request at least once.")
+
+    if check == "response_compared":
+        if lab.compared == (expected.lower() == "true"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send two Repeater responses, then use 'compare A B'.")
+
+    if check == "scope_blocked":
+        if len(lab.blocked_hosts) >= int(expected):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Try browsing to a host outside the training scope.")
+
+    return _fail(obj_id, "Unknown proxy check.")
 
 
 def _pass(obj_id: str, xp: int) -> ValidationResult:

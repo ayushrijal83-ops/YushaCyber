@@ -56,6 +56,7 @@ class MissionRunner:
         self._attach_network(self.shell)
         self._attach_packet_lab(self.shell)
         self._attach_web_lab(self.shell)
+        self._attach_proxy_lab(self.shell)
         self.progress = MissionProgress(
             mission_id=mission_id, user_id=user_id,
             total=len(self.mission["objectives"]),
@@ -92,6 +93,7 @@ class MissionRunner:
             "network_status": self.network_status(),
             "packet_lab_status": self.packet_lab_status(),
             "web_lab_status": self.web_lab_status(),
+            "proxy_lab_status": self.proxy_lab_status(),
         }
 
     def _attach_network(self, shell: Shell) -> None:
@@ -209,6 +211,57 @@ class MissionRunner:
             ],
         }
 
+    def _attach_proxy_lab(self, shell: Shell) -> None:
+        """Attach a simulated intercepting proxy (YC-035.2), if this
+        mission wants one. Mirrors _attach_web_lab: the simulated site is
+        always rebuilt fresh and deterministically; a saved session
+        snapshot (intercept toggle, forwarded history, Repeater workspace,
+        cookie jar, server-side login state) is replayed on top so a
+        resumed session picks up exactly where it left off.
+        """
+        if not self.mission.get("proxy_lab"):
+            return
+        from app.core.terminal.proxy import ProxyLab, build_proxy_lab
+        shell.proxy_lab = build_proxy_lab()
+        pending = getattr(shell, "_pending_proxy_lab_state", None)
+        if pending:
+            shell.proxy_lab = ProxyLab.from_dict(pending)
+        shell._pending_proxy_lab_state = None
+
+    def proxy_lab_status(self) -> dict[str, Any] | None:
+        """Live proxy-session summary for the mission UI / AI mentor
+        context — the same shape web_lab_status() carries, plus the
+        intercept-specific fields the Proxy Dashboard panel needs
+        (pending request, Repeater draft, scope violations)."""
+        lab = self.shell.proxy_lab
+        if lab is None:
+            return None
+        req, resp = lab.last_request, lab.last_response
+        return {
+            "intercept_enabled": lab.intercept_enabled,
+            "pending_request": dataclasses.asdict(lab.pending_request) if lab.pending_request else None,
+            "last_request": dataclasses.asdict(req) if req else None,
+            "last_response": dataclasses.asdict(resp) if resp else None,
+            "cookies": dict(lab.cookies),
+            "dropped_count": lab.dropped_count,
+            "history": [
+                {"index": i + 1, "method": r.method, "path": r.path,
+                 "status_code": s.status_code,
+                 "request": dataclasses.asdict(r), "response": dataclasses.asdict(s)}
+                for i, (r, s) in enumerate(lab.history[-30:])
+            ],
+            "repeater_request": dataclasses.asdict(lab.repeater_request) if lab.repeater_request else None,
+            "repeater_log": [
+                {"index": i + 1, "method": r.method, "path": r.path,
+                 "status_code": s.status_code,
+                 "request": dataclasses.asdict(r), "response": dataclasses.asdict(s)}
+                for i, (r, s) in enumerate(lab.repeater_log[-20:])
+            ],
+            "compared": lab.compared,
+            "last_comparison": lab.last_comparison,
+            "blocked_hosts": list(lab.blocked_hosts),
+        }
+
     def use_hint(self, objective_id: str) -> str:
         """Return the hint for an objective.
 
@@ -291,6 +344,29 @@ class MissionRunner:
                     for h in web_status["history"][-5:]
                 ],
             }
+        proxy_status = self.proxy_lab_status()
+        if proxy_status is not None:
+            # Same trimming principle as "web" above: the mentor needs to
+            # know intercept state, what's currently paused, what was last
+            # forwarded, and a short history summary — not every raw body
+            # in the Repeater log.
+            pending = proxy_status["pending_request"]
+            last_req = proxy_status["last_request"]
+            ctx["proxy"] = {
+                "intercept_enabled": proxy_status["intercept_enabled"],
+                "pending_request": (f"{pending['method']} {pending['path']}"
+                                    if pending else None),
+                "last_forwarded": (f"{last_req['method']} {last_req['path']}"
+                                   if last_req else None),
+                "dropped_count": proxy_status["dropped_count"],
+                "repeater_loaded": proxy_status["repeater_request"] is not None,
+                "repeater_sends": len(proxy_status["repeater_log"]),
+                "compared": proxy_status["compared"],
+                "recent_history": [
+                    f"{h['method']} {h['path']} -> {h['status_code']}"
+                    for h in proxy_status["history"][-5:]
+                ],
+            }
         return ctx
 
     def to_dict(self) -> dict[str, Any]:
@@ -315,6 +391,7 @@ class MissionRunner:
             "network_status": self.network_status(),
             "packet_lab_status": self.packet_lab_status(),
             "web_lab_status": self.web_lab_status(),
+            "proxy_lab_status": self.proxy_lab_status(),
         }
 
     @classmethod
@@ -336,6 +413,7 @@ class MissionRunner:
             runner._attach_network(runner.shell)
             runner._attach_packet_lab(runner.shell)
             runner._attach_web_lab(runner.shell)
+            runner._attach_proxy_lab(runner.shell)
         return runner
 
     def save_state(self) -> dict[str, Any]:

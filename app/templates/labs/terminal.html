@@ -235,6 +235,179 @@
 <script type="application/json" id="tm-web-lab-initial">{{ mission.web_lab_status | tojson }}</script>
 {% endif %}
 
+{% if mission and mission.proxy_lab_status %}
+{# ── Proxy Dashboard (YC-035.2): a genuine browser-reachable Burp-style ──
+   intercepting-proxy simulator — Intercept/Forward/Drop/Edit, HTTP
+   History, and Repeater, all driven by clicking real buttons that submit
+   the same terminal commands ('browse'/'intercept'/'forward'/'drop'/
+   'modify'/'send-to-repeater'/'repeater-edit'/'repeater-send'/'compare')
+   through the existing exec() pipeline — no new API endpoint, same
+   pattern as the HTTP Inspector's Request Builder above. #}
+<section class="tm-proxy" aria-label="Proxy Dashboard">
+    <div class="tm-proxy__header">
+        <span class="tm-proxy__title">🔧 Burp Fundamentals — Proxy Dashboard</span>
+        <span class="tm-proxy__badge tm-proxy__badge--on">Proxy: ON</span>
+        <span class="tm-proxy__badge">Scope: cybershop.training</span>
+    </div>
+
+    <div class="tm-proxy__grid">
+        {# ── Simulated Browser: the only way traffic enters the proxy ── #}
+        <div class="tm-proxy__panel" aria-label="Simulated Browser">
+            <div class="tm-proxy__panel-head">SIMULATED BROWSER</div>
+            <div class="tm-proxy__scenarios" data-proxy-scenarios>
+                <button type="button" class="tm-toolbar__btn" data-scenario-method="GET" data-scenario-url="https://cybershop.training/products">GET /products</button>
+                <button type="button" class="tm-toolbar__btn" data-scenario-method="GET" data-scenario-url="https://cybershop.training/products?id=42">GET /products?id=42</button>
+                <button type="button" class="tm-toolbar__btn" data-scenario-method="GET" data-scenario-url="https://cybershop.training/search?q=linux">GET /search?q=linux</button>
+                <button type="button" class="tm-toolbar__btn" data-scenario-method="POST" data-scenario-url="https://cybershop.training/login" data-scenario-body="username=student&amp;password=training123">POST /login</button>
+                <button type="button" class="tm-toolbar__btn" data-scenario-method="GET" data-scenario-url="https://cybershop.training/profile">GET /profile</button>
+                <button type="button" class="tm-toolbar__btn" data-scenario-method="POST" data-scenario-url="https://cybershop.training/api/profile" data-scenario-body='{"display_name": "Student"}' data-scenario-headers="Content-Type: application/json">POST /api/profile</button>
+            </div>
+            <form class="tm-proxy__custom" data-proxy-custom-form>
+                <label class="tm-proxy__field tm-proxy__field--grow">Custom URL (try an external host to test scope)
+                    <input type="text" data-custom-url placeholder="https://google.com/" />
+                </label>
+                <button type="submit" class="btn btn--outline">Browse</button>
+            </form>
+            <p class="tm-proxy__hint" data-scope-log aria-live="polite"></p>
+        </div>
+
+        {# ── Intercept panel ── #}
+        <div class="tm-proxy__panel" aria-label="Intercept">
+            <div class="tm-proxy__panel-head">
+                INTERCEPT
+                <button type="button" class="tm-proxy__toggle" data-proxy-intercept-toggle
+                        aria-pressed="false" aria-label="Toggle interception">
+                    Intercept: <span data-proxy-intercept-state>OFF</span>
+                </button>
+            </div>
+            <pre class="tm-proxy__pre" data-proxy-pending>No request intercepted.</pre>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-proxy-forward>Forward</button>
+                <button type="button" class="btn btn--outline" data-proxy-drop>Drop</button>
+            </div>
+            <details class="tm-proxy__edit">
+                <summary>Edit intercepted request</summary>
+                <form data-proxy-edit-form>
+                    <div class="tm-proxy__field-row">
+                        <label class="tm-proxy__field">Method
+                            <select data-edit-method>
+                                <option value="">(unchanged)</option>
+                                <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+                            </select>
+                        </label>
+                        <label class="tm-proxy__field tm-proxy__field--grow">Path
+                            <input type="text" data-edit-path placeholder="(unchanged)" />
+                        </label>
+                    </div>
+                    <label class="tm-proxy__field">Query parameter (key=value)
+                        <input type="text" data-edit-query placeholder="id=43" />
+                    </label>
+                    <label class="tm-proxy__field">Header (Name: Value, one per line)
+                        <textarea data-edit-headers rows="2" placeholder="User-Agent: CyberBrowser/2.0"></textarea>
+                    </label>
+                    <label class="tm-proxy__field">Body (replaces the whole body)
+                        <textarea data-edit-body rows="2" placeholder='{"display_name": "CyberStudent"}'></textarea>
+                    </label>
+                    <button type="submit" class="btn btn--outline">Save Edit</button>
+                </form>
+            </details>
+        </div>
+
+        {# ── Request / Response tabs ── #}
+        <div class="tm-proxy__panel tm-proxy__panel--wide" aria-label="Request and Response">
+            <div class="tm-proxy__panel-head">REQUEST / RESPONSE</div>
+            <div class="tm-inspector__tabs" role="tablist" aria-label="Proxy exchange view">
+                <button class="tm-inspector__tab is-active" role="tab" aria-selected="true"
+                        id="tm-ptab-request" aria-controls="tm-ppanel-request" data-proxy-tab="request">Request</button>
+                <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                        id="tm-ptab-response" aria-controls="tm-ppanel-response" data-proxy-tab="response">Response</button>
+                <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                        id="tm-ptab-headers" aria-controls="tm-ppanel-headers" data-proxy-tab="headers">Headers</button>
+                <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                        id="tm-ptab-body" aria-controls="tm-ppanel-body" data-proxy-tab="body">Body</button>
+                <button class="tm-inspector__tab" role="tab" aria-selected="false"
+                        id="tm-ptab-cookies" aria-controls="tm-ppanel-cookies" data-proxy-tab="cookies">Cookies</button>
+            </div>
+            <div class="tm-inspector__panel" data-proxy-panel="request" role="tabpanel"
+                 id="tm-ppanel-request" aria-labelledby="tm-ptab-request">
+                <pre data-proxy-request>No request forwarded yet.</pre>
+            </div>
+            <div class="tm-inspector__panel" data-proxy-panel="response" role="tabpanel" hidden
+                 id="tm-ppanel-response" aria-labelledby="tm-ptab-response">
+                <pre data-proxy-response>No response yet.</pre>
+            </div>
+            <div class="tm-inspector__panel" data-proxy-panel="headers" role="tabpanel" hidden
+                 id="tm-ppanel-headers" aria-labelledby="tm-ptab-headers">
+                <pre data-proxy-headers>No headers yet.</pre>
+            </div>
+            <div class="tm-inspector__panel" data-proxy-panel="body" role="tabpanel" hidden
+                 id="tm-ppanel-body" aria-labelledby="tm-ptab-body">
+                <pre data-proxy-body>No body yet.</pre>
+            </div>
+            <div class="tm-inspector__panel" data-proxy-panel="cookies" role="tabpanel" hidden
+                 id="tm-ppanel-cookies" aria-labelledby="tm-ptab-cookies">
+                <pre data-proxy-cookies>No cookies stored.</pre>
+            </div>
+        </div>
+
+        {# ── HTTP History ── #}
+        <div class="tm-proxy__panel" aria-label="HTTP History">
+            <div class="tm-proxy__panel-head">HTTP HISTORY</div>
+            <ul class="tm-inspector__history" data-proxy-history aria-label="Forwarded request history"></ul>
+        </div>
+
+        {# ── Repeater ── #}
+        <div class="tm-proxy__panel tm-proxy__panel--wide" aria-label="Repeater">
+            <div class="tm-proxy__panel-head">REPEATER</div>
+            <pre class="tm-proxy__pre" data-repeater-request>Repeater is empty. Send a request from History first.</pre>
+            <details class="tm-proxy__edit" open>
+                <summary>Edit Repeater request</summary>
+                <form data-repeater-edit-form>
+                    <div class="tm-proxy__field-row">
+                        <label class="tm-proxy__field">Method
+                            <select data-repeater-edit-method>
+                                <option value="">(unchanged)</option>
+                                <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+                            </select>
+                        </label>
+                        <label class="tm-proxy__field tm-proxy__field--grow">Path
+                            <input type="text" data-repeater-edit-path placeholder="(unchanged)" />
+                        </label>
+                    </div>
+                    <label class="tm-proxy__field">Query parameter (key=value)
+                        <input type="text" data-repeater-edit-query placeholder="id=44" />
+                    </label>
+                    <label class="tm-proxy__field">Header (Name: Value, one per line)
+                        <textarea data-repeater-edit-headers rows="2"></textarea>
+                    </label>
+                    <label class="tm-proxy__field">Body (replaces the whole body)
+                        <textarea data-repeater-edit-body rows="2"></textarea>
+                    </label>
+                    <button type="submit" class="btn btn--outline">Save Edit</button>
+                </form>
+            </details>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-repeater-send>Send</button>
+            </div>
+            <pre class="tm-proxy__pre" data-repeater-response>No response yet.</pre>
+            <div class="tm-proxy__panel-head">SENT RESPONSES</div>
+            <ul class="tm-inspector__history" data-repeater-log aria-label="Repeater send log"></ul>
+            <div class="tm-proxy__compare">
+                <label class="tm-proxy__field">Compare A
+                    <input type="number" min="1" data-compare-a value="1" />
+                </label>
+                <label class="tm-proxy__field">Compare B
+                    <input type="number" min="1" data-compare-b value="2" />
+                </label>
+                <button type="button" class="btn btn--outline" data-compare-btn>Compare</button>
+            </div>
+            <pre class="tm-proxy__pre" data-compare-result></pre>
+        </div>
+    </div>
+</section>
+<script type="application/json" id="tm-proxy-lab-initial">{{ mission.proxy_lab_status | tojson }}</script>
+{% endif %}
+
 {% if mission %}
 {# ── Completion overlay (shown by JS at 100%) ── #}
 <div class="tm-complete" data-tm-complete hidden role="dialog" aria-modal="true" aria-labelledby="tm-complete-title">

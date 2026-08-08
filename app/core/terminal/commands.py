@@ -726,3 +726,197 @@ def _web_response(sh: Shell, args: list[str]) -> str:
         return "No request made yet. Use 'open URL' first."
     from app.core.terminal.web import render_response
     return render_response(sh.web_lab.session.last_response)
+
+
+# ══════════════════════════════════════════════════════
+# Simulated intercepting proxy (YC-035.2) — reads/writes sh.proxy_lab only.
+# Every request still ends up in the same in-memory WebApp.handle() as the
+# web-fundamentals commands above; a host outside the training scope is
+# rejected here before any request object is built, exactly like 'open'.
+# ══════════════════════════════════════════════════════
+
+def _parse_edit_args(args: list[str]) -> tuple[str | None, str | None, dict[str, str], dict[str, str], str | None]:
+    """Parse `[-X METHOD] [-P PATH] [-Q "key=value"] [-H "Key: Value"] [-d DATA]`
+    — the shared editing grammar for both 'modify' (the intercepted
+    request) and 'repeater-edit' (the Repeater draft). -Q and -H are each
+    repeatable, mirroring 'open'/'-H'."""
+    method: str | None = None
+    path: str | None = None
+    query: dict[str, str] = {}
+    headers: dict[str, str] = {}
+    body: str | None = None
+    i = 0
+    while i < len(args):
+        t = args[i]
+        if t == "-X" and i + 1 < len(args):
+            method = args[i + 1]
+            i += 1
+        elif t == "-P" and i + 1 < len(args):
+            path = args[i + 1]
+            i += 1
+        elif t == "-Q" and i + 1 < len(args):
+            pair = args[i + 1]
+            if "=" in pair:
+                k, _, v = pair.partition("=")
+                query[k.strip()] = v.strip()
+            i += 1
+        elif t == "-H" and i + 1 < len(args):
+            header_str = args[i + 1]
+            if ":" in header_str:
+                name, _, value = header_str.partition(":")
+                headers[name.strip()] = value.strip()
+            i += 1
+        elif t == "-d" and i + 1 < len(args):
+            body = args[i + 1]
+            i += 1
+        i += 1
+    return method, path, query, headers, body
+
+
+@cmd("proxy")
+def _proxy_info(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "proxy: no simulated proxy configured for this session"
+    from app.core.terminal.web import HOST
+    lab = sh.proxy_lab
+    state = "ON" if lab.intercept_enabled else "OFF"
+    return ("Simulated intercepting proxy\n"
+           "Browser -> Proxy -> Server -> Proxy -> Browser\n"
+           "Proxy: ON (always active in this simulator)\n"
+           f"Intercept: {state}\n"
+           f"Scope: {HOST}\n"
+           f"Pending request: {'yes' if lab.pending_request else 'none'}\n"
+           f"History: {len(lab.history)} request(s)")
+
+
+@cmd("intercept")
+def _intercept(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "intercept: no simulated proxy configured for this session"
+    if not args or args[0].lower() not in ("on", "off"):
+        return "Usage: intercept on|off"
+    sh.proxy_lab.intercept_enabled = args[0].lower() == "on"
+    return f"Intercept is now {'ON' if sh.proxy_lab.intercept_enabled else 'OFF'}."
+
+
+@cmd("browse")
+def _browse(sh: Shell, args: list[str]) -> str:
+    """Simulated browser navigation through the proxy — the 'Browser'
+    side of Browser -> Proxy -> Server. Uses the same curl-like flags as
+    'open' (web-fundamentals), but the request may be intercepted instead
+    of dispatched immediately, depending on sh.proxy_lab.intercept_enabled."""
+    if sh.proxy_lab is None:
+        return "browse: no simulated proxy configured for this session"
+    method, data, url, headers = _parse_open_args(args)
+    if not url:
+        return 'Usage: browse [-X METHOD] [-H "Key: Value"] [-d DATA] URL'
+    from app.core.terminal.web import build_request, parse_url, render_exchange
+    parsed = parse_url(url)
+    lab = sh.proxy_lab
+    if not lab.in_scope(parsed.host):
+        lab.blocked_hosts.append(parsed.host)
+        return (f"Outside training scope ({parsed.host}). "
+               f"Request blocked. No network request occurs.")
+    req = build_request(method, parsed, body=data or "", cookies=lab.cookies,
+                        extra_headers=headers)
+    if lab.intercept_enabled:
+        lab.intercept(req)
+        from app.core.terminal.web import render_request
+        return ("Request intercepted:\n" + render_request(req)
+               + "\n\nUse 'forward', 'drop', or 'modify' before it continues.")
+    resp = lab.dispatch(req)
+    return render_exchange(req, resp)
+
+
+@cmd("forward")
+def _forward(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "forward: no simulated proxy configured for this session"
+    if sh.proxy_lab.pending_request is None:
+        return "No intercepted request waiting. Nothing to forward."
+    req = sh.proxy_lab.pending_request
+    resp = sh.proxy_lab.forward_pending()
+    from app.core.terminal.web import render_exchange
+    return render_exchange(req, resp)
+
+
+@cmd("drop")
+def _drop(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "drop: no simulated proxy configured for this session"
+    if not sh.proxy_lab.drop_pending():
+        return "No intercepted request waiting. Nothing to drop."
+    return "Request dropped."
+
+
+@cmd("modify")
+def _modify(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "modify: no simulated proxy configured for this session"
+    if sh.proxy_lab.pending_request is None:
+        return "No intercepted request waiting. Turn Intercept ON and browse first."
+    method, path, query, headers, body = _parse_edit_args(args)
+    sh.proxy_lab.edit_pending(method=method, path=path, query=query, headers=headers, body=body)
+    from app.core.terminal.web import render_request
+    return "Intercepted request updated:\n" + render_request(sh.proxy_lab.pending_request)
+
+
+@cmd("proxy-history")
+def _proxy_history(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "proxy-history: no simulated proxy configured for this session"
+    hist = sh.proxy_lab.history
+    if not hist:
+        return "No requests forwarded yet."
+    lines = ["HTTP History:"]
+    for i, (req, resp) in enumerate(hist, start=1):
+        lines.append(f"  #{i}  {req.method} {req.path}  -> {resp.status_code} {resp.reason}")
+    return "\n".join(lines)
+
+
+@cmd("send-to-repeater")
+def _send_to_repeater(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "send-to-repeater: no simulated proxy configured for this session"
+    if not args or not args[0].isdigit():
+        return "Usage: send-to-repeater N (use an index from 'proxy-history')"
+    if not sh.proxy_lab.send_to_repeater(int(args[0])):
+        return f"send-to-repeater: entry {args[0]} not found in history"
+    from app.core.terminal.web import render_request
+    return "Sent to Repeater:\n" + render_request(sh.proxy_lab.repeater_request)
+
+
+@cmd("repeater-edit")
+def _repeater_edit(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "repeater-edit: no simulated proxy configured for this session"
+    if sh.proxy_lab.repeater_request is None:
+        return "Repeater is empty. Use 'send-to-repeater N' first."
+    method, path, query, headers, body = _parse_edit_args(args)
+    sh.proxy_lab.edit_repeater(method=method, path=path, query=query, headers=headers, body=body)
+    from app.core.terminal.web import render_request
+    return "Repeater request updated:\n" + render_request(sh.proxy_lab.repeater_request)
+
+
+@cmd("repeater-send")
+def _repeater_send(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "repeater-send: no simulated proxy configured for this session"
+    if sh.proxy_lab.repeater_request is None:
+        return "Repeater is empty. Use 'send-to-repeater N' first."
+    req = sh.proxy_lab.repeater_request
+    resp = sh.proxy_lab.send_repeater()
+    from app.core.terminal.web import render_exchange
+    return render_exchange(req, resp)
+
+
+@cmd("compare")
+def _compare(sh: Shell, args: list[str]) -> str:
+    if sh.proxy_lab is None:
+        return "compare: no simulated proxy configured for this session"
+    if len(args) < 2 or not (args[0].isdigit() and args[1].isdigit()):
+        return "Usage: compare A B (Repeater response indices)"
+    result = sh.proxy_lab.compare(int(args[0]), int(args[1]))
+    if result is None:
+        return "compare: one or both Repeater responses not found. Use 'repeater-send' first."
+    return result
