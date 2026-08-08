@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ mission.title }} — YushaCyber</title>
+    <script>(function(){try{var t=localStorage.getItem("yc-theme")||"dark";
+      document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/missions.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neo.css') }}">
+</head>
+<body class="dash-body">
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+{% from "dashboard/_icons.html" import icon %}
+<div class="dash">
+    <div class="dash__main">
+        {% include "dashboard/topbar.html" %}
+        <main id="main-content" class="dash__content">
+            <div class="im-detail">
+                <a href="{{ url_for('missions_ui.discover') }}" class="im-detail__back">{{ icon("chevron", 14) }} All missions</a>
+
+                <h1 class="im-detail__title">{{ mission.title }}</h1>
+                <p class="im-detail__desc">{{ mission.description }}</p>
+
+                <div class="im-detail__stats">
+                    <div class="im-detail__stat">
+                        <span class="im-detail__stat-v">{{ mission.difficulty }}</span>
+                        <span class="im-detail__stat-l">Difficulty</span>
+                    </div>
+                    <div class="im-detail__stat">
+                        <span class="im-detail__stat-v">{{ mission.estimated_minutes }} min</span>
+                        <span class="im-detail__stat-l">Estimated time</span>
+                    </div>
+                    <div class="im-detail__stat">
+                        <span class="im-detail__stat-v">{{ mission.xp_total }}</span>
+                        <span class="im-detail__stat-l">XP</span>
+                    </div>
+                    <div class="im-detail__stat">
+                        <span class="im-detail__stat-v">{{ card.pct if card else 0 }}%</span>
+                        <span class="im-detail__stat-l">Progress</span>
+                    </div>
+                </div>
+
+                {% if mission.get("learn") %}
+                <section class="im-detail__section">
+                    <h2>What you'll learn</h2>
+                    <ul class="im-learn">
+                        {% for item in mission.learn %}
+                        <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endif %}
+
+                <section class="im-detail__section">
+                    <h2>Objectives ({{ mission.objectives|length }})</h2>
+                    <ol class="im-objectives">
+                        {% for obj in mission.objectives %}
+                        <li class="im-objective">
+                            <span class="im-objective__marker" aria-hidden="true"></span>
+                            <span>
+                                <span class="im-objective__title">{{ obj.title }}</span>
+                                <span class="im-objective__desc">{{ obj.description }}</span>
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                </section>
+
+                <div class="im-detail__cta">
+                    {% if card and card.status == "locked" %}
+                    <span class="im-locked-note">{{ icon("lock", 14) }} Complete the prerequisite mission to unlock this one.</span>
+                    {% elif card and card.status == "completed" %}
+                    <a href="{{ url_for('terminal.mission_page', slug=mission.id) }}" class="btn btn--outline">Review Mission</a>
+                    {% elif card and card.status == "in_progress" %}
+                    <a href="{{ url_for('terminal.mission_page', slug=mission.id) }}" class="btn btn--primary">Continue Mission →</a>
+                    {% else %}
+                    <a href="{{ url_for('terminal.mission_page', slug=mission.id) }}" class="btn btn--primary">Start Mission</a>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% include "dashboard/footer.html" %}
+        </main>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+{% include "components/ai_chat.html" %}
+</body>
+</html>

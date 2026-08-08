@@ -42,9 +42,11 @@ class MissionRunner:
         self.mission = get_mission(mission_id)
         if self.mission is None:
             raise ValueError(f"Mission '{mission_id}' not found.")
-        # Build shell with mission-specific filesystem.
+        # Build shell with mission-specific filesystem (+ optional
+        # initial permission/ownership metadata for permissions missions).
         fs_tree = self.mission.get("filesystem")
-        fs = VirtualFS(tree=fs_tree) if fs_tree else VirtualFS()
+        fs_perms = self.mission.get("permissions")
+        fs = VirtualFS(tree=fs_tree, permissions=fs_perms)
         self.shell = Shell(fs=fs)
         self.progress = MissionProgress(
             mission_id=mission_id, user_id=user_id,

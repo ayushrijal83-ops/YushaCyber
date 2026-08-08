@@ -90,7 +90,7 @@ def mission_page(slug: str):
         return redirect(url_for("terminal.terminal_page"))
     return render_template("labs/terminal.html",
                            lab_slug=slug, mission=data,
-                           user=current_user)
+                           user=current_user, current_lab=slug)
 
 
 @terminal_bp.route("/api/terminal/mission/start", methods=["POST"])

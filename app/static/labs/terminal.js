@@ -1,4 +1,4 @@
-/* YC-034.1 — Browser Linux Terminal */
+/* YC-034.1 — Browser Linux Terminal (+ YC-034.3 Mission UI) */
 (function(){
 'use strict';
 
@@ -16,12 +16,32 @@ var currentPrompt = 'student@lab:~$ ';
 var isMission = !!document.querySelector('[data-mission-objectives]');
 var apiBase = isMission ? '/api/terminal/mission' : '/api/terminal';
 
+/* ── Mission timer ── */
+var timerEl = document.querySelector('[data-tm-timer]');
+var timerStart = Date.now();
+var timerHandle = null;
+if(isMission && timerEl){
+    timerHandle = setInterval(function(){
+        var secs = Math.floor((Date.now() - timerStart) / 1000);
+        timerEl.textContent = fmtTime(secs);
+    }, 1000);
+}
+function fmtTime(totalSeconds){
+    var m = Math.floor(totalSeconds / 60);
+    var s = totalSeconds % 60;
+    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+}
+
 /* ── Init ── */
-var initUrl = isMission ? apiBase+'/start' : apiBase+'/start';
-fetch(initUrl, {method:'POST', headers:{'Content-Type':'application/json'},
+fetch(apiBase+'/start', {method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({slug:slug})})
 .then(function(r){return r.json()})
-.then(function(d){ updatePrompt(d.prompt || currentPrompt); })
+.then(function(d){
+    updatePrompt(d.prompt || currentPrompt);
+    if(isMission && d.progress && d.progress.started_at){
+        timerStart = Date.now() - (d.progress.elapsed||0)*1000;
+    }
+})
 .catch(function(){});
 
 appendSystem('YushaCyber Interactive Terminal v1.0');
@@ -70,8 +90,7 @@ function exec(cmd){
         output.innerHTML = '';
         return;
     }
-    var execUrl = isMission ? apiBase+'/execute' : apiBase+'/execute';
-    fetch(execUrl, {method:'POST', headers:{'Content-Type':'application/json'},
+    fetch(apiBase+'/execute', {method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({slug:slug, command:cmd})})
     .then(function(r){return r.json()})
     .then(function(d){
@@ -90,35 +109,78 @@ function exec(cmd){
                     div.className = 'tm-line tm-line--success';
                     div.textContent = '✓ ' + (v.message || 'Objective completed!') + ' (+' + (v.xp||0) + ' XP)';
                     output.appendChild(div);
-                    /* Mark objective as done in sidebar */
-                    var objEl = document.querySelector('[data-obj-id="'+v.objective_id+'"]');
-                    if(objEl){
-                        objEl.classList.add('tm-obj--done');
-                        var titleEl = objEl.querySelector('.tm-obj__title');
-                        if(titleEl && !titleEl.querySelector('.tm-obj__check')){
-                            titleEl.insertAdjacentHTML('afterbegin','<span class="tm-obj__check">✓</span> ');
-                        }
-                    }
+                    markObjectiveDone(v.objective_id);
                 }
             });
+            advanceCurrentObjective();
         }
-        /* ── Update progress bar ── */
+        /* ── Update progress bars (header + sidebar) ── */
         if(d.progress){
-            var bar = document.querySelector('[data-progress-bar]');
-            var txt = document.querySelector('[data-progress-text]');
-            if(bar) bar.style.width = d.progress.pct + '%';
-            if(txt) txt.textContent = d.progress.pct + '% complete';
+            updateProgress(d.progress);
         }
         /* ── Mission complete ── */
         if(d.completed){
-            var cdiv = document.createElement('div');
-            cdiv.className = 'tm-line tm-line--success';
-            cdiv.textContent = '\n🎉 MISSION COMPLETE! Total XP earned: ' + (d.progress?d.progress.xp_earned:0);
-            output.appendChild(cdiv);
+            showComplete(d.progress);
         }
         scroll();
     })
     .catch(function(){ appendErr('Network error.'); });
+}
+
+function markObjectiveDone(objId){
+    var objEl = document.querySelector('[data-obj-id="'+objId+'"]');
+    if(!objEl) return;
+    objEl.classList.remove('tm-obj--current');
+    objEl.classList.add('tm-obj--done');
+    objEl.setAttribute('aria-current', 'false');
+    var titleEl = objEl.querySelector('.tm-obj__title');
+    if(titleEl && !titleEl.querySelector('.tm-obj__check')){
+        titleEl.insertAdjacentHTML('afterbegin','<span class="tm-obj__check" aria-hidden="true">✓</span> ');
+    }
+}
+
+function advanceCurrentObjective(){
+    var all = document.querySelectorAll('[data-mission-objectives] [data-obj-id]');
+    for(var i=0;i<all.length;i++){
+        if(!all[i].classList.contains('tm-obj--done')){
+            all[i].classList.add('tm-obj--current');
+            all[i].setAttribute('aria-current', 'true');
+            break;
+        }
+    }
+}
+
+function updateProgress(progress){
+    document.querySelectorAll('[data-progress-bar], [data-progress-bar-side]').forEach(function(bar){
+        bar.style.width = progress.pct + '%';
+    });
+    var header = document.querySelector('[data-progress-text]');
+    if(header){
+        header.textContent = progress.completed_ids.length + '/' + progress.total + ' · ' + progress.pct + '%';
+    }
+    var side = document.querySelector('[data-progress-text-side]');
+    if(side){
+        side.textContent = progress.pct + '% complete';
+    }
+    var barWrap = document.querySelector('.tm-mhead__bar');
+    if(barWrap) barWrap.setAttribute('aria-valuenow', progress.pct);
+}
+
+function showComplete(progress){
+    if(timerHandle){ clearInterval(timerHandle); timerHandle = null; }
+    var overlay = document.querySelector('[data-tm-complete]');
+    if(!overlay) return;
+    var xpEl = overlay.querySelector('[data-tm-complete-xp]');
+    var objEl = overlay.querySelector('[data-tm-complete-obj]');
+    var timeEl = overlay.querySelector('[data-tm-complete-time]');
+    var hintsEl = overlay.querySelector('[data-tm-complete-hints]');
+    if(xpEl) xpEl.textContent = '+' + (progress.xp_earned||0);
+    if(objEl) objEl.textContent = progress.completed_ids.length + '/' + progress.total;
+    if(timeEl) timeEl.textContent = fmtTime(progress.elapsed||0);
+    if(hintsEl) hintsEl.textContent = progress.hints_used||0;
+    overlay.hidden = false;
+    var heading = overlay.querySelector('h2');
+    if(heading){ heading.setAttribute('tabindex','-1'); heading.focus(); }
 }
 
 /* ── Tab complete ── */
@@ -186,14 +248,46 @@ function scroll(){
 var clearBtn = document.querySelector('[data-tm-clear]');
 if(clearBtn) clearBtn.addEventListener('click', function(){ output.innerHTML = ''; });
 
-var resetBtn = document.querySelector('[data-tm-reset]');
-if(resetBtn) resetBtn.addEventListener('click', function(){
-    var resetUrl = isMission ? apiBase+'/reset' : apiBase+'/reset';
-    fetch(resetUrl, {method:'POST', headers:{'Content-Type':'application/json'},
+function doReset(){
+    fetch(apiBase+'/reset', {method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({slug:slug})})
     .then(function(r){return r.json()})
-    .then(function(d){ output.innerHTML = ''; appendSystem('Lab reset. Fresh environment loaded.\n'); updatePrompt(d.prompt||currentPrompt); })
+    .then(function(d){
+        output.innerHTML = '';
+        appendSystem('Lab reset. Fresh environment loaded.\n');
+        updatePrompt(d.prompt||currentPrompt);
+        if(d.progress) updateProgress(d.progress);
+        document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
+            el.classList.remove('tm-obj--done', 'tm-obj--current');
+            el.setAttribute('aria-current', 'false');
+            var check = el.querySelector('.tm-obj__check');
+            if(check) check.remove();
+        });
+        advanceCurrentObjective();
+        timerStart = Date.now();
+        var overlay = document.querySelector('[data-tm-complete]');
+        if(overlay) overlay.hidden = true;
+        if(isMission && timerEl && !timerHandle){
+            timerHandle = setInterval(function(){
+                timerEl.textContent = fmtTime(Math.floor((Date.now()-timerStart)/1000));
+            }, 1000);
+        }
+    })
     .catch(function(){});
+}
+
+var resetBtn = document.querySelector('[data-tm-reset]');
+if(resetBtn) resetBtn.addEventListener('click', doReset);
+
+var restartBtn = document.querySelector('[data-tm-restart]');
+if(restartBtn) restartBtn.addEventListener('click', function(){
+    if(window.confirm('Restart this mission? Your progress on it will reset.')) doReset();
+});
+
+var mentorBtn = document.querySelector('[data-tm-mentor]');
+if(mentorBtn) mentorBtn.addEventListener('click', function(){
+    var fab = document.querySelector('.mentor-fab');
+    if(fab) fab.click();
 });
 
 var fullBtn = document.querySelector('[data-tm-full]');
@@ -201,6 +295,25 @@ if(fullBtn) fullBtn.addEventListener('click', function(){
     var layout = document.querySelector('.tm-layout');
     if(layout) layout.classList.toggle('tm-layout--full');
 });
+
+/* ── Mobile objectives drawer ── */
+var drawerBtn = document.querySelector('[data-tm-drawer-toggle]');
+var drawerBackdrop = document.querySelector('[data-tm-drawer-backdrop]');
+var side = document.getElementById('tm-side');
+function closeDrawer(){
+    if(side) side.classList.remove('tm-side--open');
+    if(drawerBackdrop) drawerBackdrop.hidden = true;
+    if(drawerBtn) drawerBtn.setAttribute('aria-expanded', 'false');
+}
+function openDrawer(){
+    if(side) side.classList.add('tm-side--open');
+    if(drawerBackdrop) drawerBackdrop.hidden = false;
+    if(drawerBtn) drawerBtn.setAttribute('aria-expanded', 'true');
+}
+if(drawerBtn) drawerBtn.addEventListener('click', function(){
+    if(side && side.classList.contains('tm-side--open')) closeDrawer(); else openDrawer();
+});
+if(drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
 
 /* ── Focus ── */
 output.addEventListener('click', function(){ input.focus(); });

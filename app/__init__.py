@@ -86,15 +86,15 @@ def _init_extensions(app: Flask) -> None:
 
 def _register_blueprints(app: Flask) -> None:
     """Attach feature blueprints."""
-    from app.auth import auth_bp
-    from app.dashboard import dashboard_bp
-    from app.roadmap import roadmap_bp
-    from app.ctf import ctf_bp
     from app.admin import admin_bp
+    from app.auth import auth_bp
+    from app.ctf import ctf_bp
+    from app.dashboard import dashboard_bp
     from app.labs import labs_bp
-    from app.resources import resources_bp
     from app.leaderboard import leaderboard_bp
     from app.profiles import profiles_bp
+    from app.resources import resources_bp
+    from app.roadmap import roadmap_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
@@ -113,7 +113,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(community_bp)  # /teams, /classrooms, /notifications
 
     # YC-032.1 — CyberMentor AI.
-    from app.core.ai.routes import ai_bp, _register_csrf_exempt
+    from app.core.ai.routes import _register_csrf_exempt, ai_bp
     app.register_blueprint(ai_bp)  # /api/ai/chat, /api/ai/health, /api/ai/models
     _register_csrf_exempt(app)
 
@@ -122,9 +122,14 @@ def _register_blueprints(app: Flask) -> None:
 
     # YC-034.0 — Interactive Cyber Labs.
     # YC-034.1 — Browser Terminal API.
-    from app.core.terminal.routes import terminal_bp, _register_csrf_exempt as _term_csrf
+    from app.core.terminal.routes import _register_csrf_exempt as _term_csrf
+    from app.core.terminal.routes import terminal_bp
     app.register_blueprint(terminal_bp)
     _term_csrf(app)
+
+    # YC-034.3 — Interactive Missions discovery + detail UI.
+    from app.core.missions.routes import missions_ui_bp
+    app.register_blueprint(missions_ui_bp)
 
 
 def _register_routes(app: Flask) -> None:
@@ -167,24 +172,29 @@ def _register_models() -> None:
     metadata against the database and ``flask db upgrade`` applies it.
     db.create_all() is intentionally absent from the project.
     """
-    from app.auth import models  # noqa: F401
-    from app.roadmap import models as roadmap_models  # noqa: F401
     from app.achievement import models as achievement_models  # noqa: F401
+
+    # YC-033.0 — Live Classroom models.
+    # Live models removed (YC-033.x)
+    from app.analytics import models as analytics_models  # noqa: F401
+    from app.auth import models  # noqa: F401
     from app.certificates import models as certificate_models  # noqa: F401
+    from app.community import models as community_models  # noqa: F401
+
+    # YC-034.3 — Interactive Missions progress ledger.
+    from app.core.missions import models as mission_models  # noqa: F401
     from app.ctf import models as ctf_models  # noqa: F401
+
+    # YC-031.0 — register universal engine validators.
+    from app.engines import validation_engine  # noqa: F401
     from app.labs import models as labs_models  # noqa: F401
     from app.labs.ad import models as ad_models  # noqa: F401
     from app.labs.cloud import models as cloud_models  # noqa: F401
     from app.labs.forensics import models as forensics_models  # noqa: F401
-    from app.simulators.soc import models as soc_models  # noqa: F401
-    # YC-031.0 — register universal engine validators.
-    from app.engines import validation_engine  # noqa: F401
-    # YC-033.0 — Live Classroom models.
-    # Live models removed (YC-033.x)
-    from app.analytics import models as analytics_models  # noqa: F401
-    from app.community import models as community_models  # noqa: F401
-    from app.resources import models as resources_models  # noqa: F401
     from app.profiles import models as profiles_models  # noqa: F401
+    from app.resources import models as resources_models  # noqa: F401
+    from app.roadmap import models as roadmap_models  # noqa: F401
+    from app.simulators.soc import models as soc_models  # noqa: F401
 
 
 def _register_cli(app: Flask) -> None:

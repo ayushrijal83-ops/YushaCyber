@@ -65,6 +65,18 @@ def validate(objective: dict[str, Any], shell: Shell,
             return _pass(obj_id, xp)
         return _fail(obj_id, "Output doesn't contain what's expected.")
 
+    if v_type == "file_mode":
+        path = v.get("path", "")
+        if shell.fs.get_mode(path) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"'{path.split('/')[-1]}' doesn't have the expected permissions yet.")
+
+    if v_type == "file_owner":
+        path = v.get("path", "")
+        if shell.fs.get_owner(path) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"'{path.split('/')[-1]}' isn't owned by the expected user yet.")
+
     return _fail(obj_id, "Unknown validation type.")
 
 

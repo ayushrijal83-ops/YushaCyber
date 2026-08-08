@@ -54,24 +54,35 @@ def _pwd(sh: Shell, args: list[str]) -> str:
     return sh.fs.cwd
 
 
+def _ls_long_line(fs: VirtualFS, full: str, name: str) -> str:
+    is_dir = fs.isdir(full)
+    perm = fs.mode_to_symbolic(fs.get_mode(full), is_dir)
+    owner = fs.get_owner(full)
+    group = fs.get_group(full)
+    size = 4096 if is_dir else len(fs.read(full) or "")
+    return f"{perm}  1 {owner} {group}  {size:>5}  Jan  5 08:00  {name}"
+
+
 @cmd("ls")
 def _ls(sh: Shell, args: list[str]) -> str:
-    show_all = any(a in args for a in ("-a", "-la", "-al", "-l"))
+    show_all = any(a in args for a in ("-a", "-la", "-al"))
+    long_fmt = any(a in args for a in ("-l", "-la", "-al"))
     path_args = [a for a in args if not a.startswith("-")]
     path = path_args[0] if path_args else "."
-    if not sh.fs.isdir(sh.fs.abspath(path)):
+    full = sh.fs.abspath(path)
+    if not sh.fs.exists(path):
         return f"ls: cannot access '{path}': No such file or directory"
+    if sh.fs.isfile(full):
+        name = path.rstrip("/").split("/")[-1] or path
+        return _ls_long_line(sh.fs, full, name) if long_fmt else name
     items = sh.fs.listdir(path)
     if show_all:
         items = [".", ".."] + items
-    if any(a in args for a in ("-l", "-la", "-al")):
+    if long_fmt:
         lines = [f"total {len(items)}"]
         for item in items:
-            full = sh.fs.abspath(path + "/" + item) if item not in (".", "..") else sh.fs.abspath(path)
-            is_dir = sh.fs.isdir(full) if item not in (".", "..") else True
-            perm = "drwxr-xr-x" if is_dir else "-rw-r--r--"
-            size = len(sh.fs.read(full) or "") if not is_dir else 4096
-            lines.append(f"{perm}  1 student student  {size:>5}  Jan  5 08:00  {item}")
+            item_full = full if item in (".", "..") else sh.fs.abspath(path.rstrip("/") + "/" + item)
+            lines.append(_ls_long_line(sh.fs, item_full, item))
         return "\n".join(lines)
     return "  ".join(items)
 
@@ -93,10 +104,12 @@ def _cat(sh: Shell, args: list[str]) -> str:
     path = args[0]
     if sh.fs.isdir(sh.fs.abspath(path)):
         return f"cat: {path}: Is a directory"
-    content = sh.fs.read(path)
-    if content is None:
+    if not sh.fs.exists(path):
         return f"cat: {path}: No such file or directory"
-    return content.rstrip("\n")
+    if not sh.fs.can_read(path, sh.env.get("USER", "student")):
+        return f"cat: {path}: Permission denied"
+    content = sh.fs.read(path)
+    return content.rstrip("\n") if content else ""
 
 
 @cmd("echo")
@@ -224,6 +237,37 @@ def _find_r(fs: VirtualFS, path: str, filt: str, out: list[str]) -> None:
 @cmd("id")
 def _id(sh: Shell, args: list[str]) -> str:
     return "uid=1000(student) gid=1000(student) groups=1000(student),27(sudo)"
+
+
+@cmd("groups")
+def _groups(sh: Shell, args: list[str]) -> str:
+    return "student sudo"
+
+
+@cmd("chmod")
+def _chmod(sh: Shell, args: list[str]) -> str:
+    args = [a for a in args if not a.startswith("--")]
+    if len(args) < 2:
+        return "chmod: missing operand"
+    mode, target = args[0], args[1]
+    if not mode.isdigit() or not (1 <= len(mode) <= 4):
+        return f"chmod: invalid mode: '{mode}'"
+    if not sh.fs.exists(target):
+        return f"chmod: cannot access '{target}': No such file or directory"
+    sh.fs.set_mode(target, mode)
+    return ""
+
+
+@cmd("chown")
+def _chown(sh: Shell, args: list[str]) -> str:
+    if len(args) < 2:
+        return "chown: missing operand"
+    spec, target = args[0], args[1]
+    owner, _, group = spec.partition(":")
+    if not sh.fs.exists(target):
+        return f"chown: cannot access '{target}': No such file or directory"
+    sh.fs.set_owner(target, owner, group or None)
+    return ""
 
 
 @cmd("uname")

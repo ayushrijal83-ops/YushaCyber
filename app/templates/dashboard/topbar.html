@@ -11,6 +11,7 @@
     ("Dashboard",    url_for('dashboard.index'),        "grid",   path.startswith('/dashboard/') and 'achievements' not in path and 'certificates' not in path and 'profile' not in path),
     ("Roadmaps",     url_for('roadmap.index'),          "map",    path.startswith('/roadmap')),
     ("Labs",         url_for('labs.index'),             "cpu",    path.startswith('/labs')),
+    ("Missions",     url_for('missions_ui.discover'),   "terminal", path.startswith('/interactive-labs') or path.startswith('/terminal')),
     ("CTF",          url_for('ctf.index'),              "flag",   path.startswith('/ctf') and 'leaderboard' not in path),
     ("Resources",    url_for('resources.index'),        "book",   path.startswith('/resources')),
     ("Teams",        url_for('community.teams'),        "users",  path.startswith('/teams')),
@@ -155,6 +156,10 @@
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Roadmaps", None)] %}
     {% elif path.startswith('/labs') %}
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Labs", None)] %}
+    {% elif path.startswith('/interactive-labs') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Missions", url_for('missions_ui.discover'))] %}
+    {% elif path.startswith('/terminal') %}
+        {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Missions", url_for('missions_ui.discover')), ("Terminal", None)] %}
     {% elif path.startswith('/leaderboard') %}
         {% set crumbs = [("Dashboard", url_for('dashboard.index')), ("Leaderboard", None)] %}
     {% elif 'leaderboard' in path %}

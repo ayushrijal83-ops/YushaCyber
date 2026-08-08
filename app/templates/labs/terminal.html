@@ -3,16 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Linux Terminal — YushaCyber</title>
+    <title>{% if mission %}{{ mission.mission.title }} — {% endif %}Linux Terminal — YushaCyber</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='labs/terminal.css') }}">
 </head>
 <body class="tm-body">
-<div class="tm-layout" data-lab-slug="{{ lab_slug }}">
+<a class="skip-link" href="#tm-main">Skip to terminal</a>
+
+{% if mission %}
+{# ── Mission header: name, difficulty, XP, progress, timer, exit/restart/mentor ── #}
+<header class="tm-mhead" role="banner">
+    <div class="tm-mhead__left">
+        <button class="tm-mhead__drawer" data-tm-drawer-toggle type="button"
+                aria-label="Toggle objectives panel" aria-expanded="false" aria-controls="tm-side">
+            {{ "☰" }}
+        </button>
+        <span class="tm-mhead__title">🐧 {{ mission.mission.title }}</span>
+        <span class="tm-mhead__diff">{{ mission.mission.difficulty }}</span>
+    </div>
+    <div class="tm-mhead__mid">
+        <div class="tm-mhead__bar" role="progressbar" aria-label="Mission progress"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ mission.progress.pct }}">
+            <div class="tm-mhead__fill" data-progress-bar style="width:{{ mission.progress.pct }}%"></div>
+        </div>
+        <span class="tm-mhead__pct" data-progress-text>{{ mission.progress.completed_ids|length }}/{{ mission.mission.objectives|length }} · {{ mission.progress.pct }}%</span>
+    </div>
+    <div class="tm-mhead__right">
+        <span class="tm-mhead__xp">+{{ mission.mission.xp_total }} XP</span>
+        <span class="tm-mhead__timer" data-tm-timer aria-label="Elapsed time" title="Elapsed time">00:00</span>
+        <button class="tm-toolbar__btn" data-tm-mentor type="button">🤖 AI Mentor</button>
+        <button class="tm-toolbar__btn" data-tm-restart type="button">↺ Restart</button>
+        <a href="{{ url_for('missions_ui.discover') }}" class="tm-toolbar__btn" data-tm-exit>✕ Exit Mission</a>
+    </div>
+</header>
+{% endif %}
+
+<div class="tm-layout" data-lab-slug="{{ lab_slug }}" data-mission-total="{{ mission.mission.objectives|length if mission else 0 }}">
 
     {# ── Sidebar: Objectives ── #}
-    <aside class="tm-side">
+    <aside class="tm-side" id="tm-side" aria-label="Mission objectives">
         {% if mission %}
         <div class="tm-side__head">🐧 {{ mission.mission.title }}</div>
         <div style="font-size:.72rem;color:#484f58;margin-bottom:12px;padding:0 2px">{{ mission.mission.description }}</div>
@@ -20,10 +52,16 @@
             <span style="background:rgba(34,197,94,.1);color:#22c55e;padding:2px 8px;border-radius:6px">{{ mission.mission.difficulty }}</span>
             <span style="color:#6366f1">+{{ mission.mission.xp_total }} XP</span>
         </div>
-        <div data-mission-objectives>
+        <div data-mission-objectives role="list" aria-label="Objectives">
         {% for obj in mission.mission.objectives %}
-        <div class="tm-obj{% if obj.completed %} tm-obj--done{% endif %}" data-obj-id="{{ obj.id }}">
-            <div class="tm-obj__title">{% if obj.completed %}<span class="tm-obj__check">✓</span>{% else %}{{ loop.index }}.{% endif %} {{ obj.title }}</div>
+        <div class="tm-obj{% if obj.completed %} tm-obj--done{% elif mission.current_objective and obj.id == mission.current_objective.id %} tm-obj--current{% endif %}"
+             data-obj-id="{{ obj.id }}" role="listitem"
+             aria-current="{{ 'true' if (mission.current_objective and obj.id == mission.current_objective.id and not obj.completed) else 'false' }}">
+            <div class="tm-obj__title">
+                {% if obj.completed %}<span class="tm-obj__check" aria-hidden="true">✓</span><span class="sr-only">Completed:</span>
+                {% else %}<span aria-hidden="true">{{ loop.index }}.</span><span class="sr-only">{% if mission.current_objective and obj.id == mission.current_objective.id %}Current objective:{% else %}Upcoming:{% endif %}</span>
+                {% endif %} {{ obj.title }}
+            </div>
             <div class="tm-obj__desc">{{ obj.description }}</div>
             <div class="tm-obj__xp">+{{ obj.xp }} XP</div>
         </div>
@@ -35,34 +73,60 @@
         {% endif %}
 
         <div class="tm-progress">
-            <div class="tm-progress__bar"><div class="tm-progress__fill" data-progress-bar style="width:{{ mission.progress.pct if mission else 0 }}%"></div></div>
-            <div class="tm-progress__text" data-progress-text>{{ mission.progress.pct if mission else 0 }}% complete</div>
+            <div class="tm-progress__bar"><div class="tm-progress__fill" data-progress-bar-side style="width:{{ mission.progress.pct if mission else 0 }}%"></div></div>
+            <div class="tm-progress__text" data-progress-text-side>{{ mission.progress.pct if mission else 0 }}% complete</div>
         </div>
     </aside>
+    <div class="tm-side-backdrop" data-tm-drawer-backdrop hidden></div>
 
     {# ── Terminal ── #}
-    <div class="tm-term">
+    <div class="tm-term" id="tm-main">
         <div class="tm-toolbar">
-            <div class="tm-toolbar__dots">
+            <div class="tm-toolbar__dots" aria-hidden="true">
                 <span class="tm-toolbar__dot tm-toolbar__dot--red"></span>
                 <span class="tm-toolbar__dot tm-toolbar__dot--yellow"></span>
                 <span class="tm-toolbar__dot tm-toolbar__dot--green"></span>
             </div>
             <span class="tm-toolbar__title">student@yushacyber-lab: ~</span>
             <button class="tm-toolbar__btn" data-tm-clear>Clear</button>
-            <button class="tm-toolbar__btn" data-tm-reset>Reset Lab</button>
+            {% if not mission %}<button class="tm-toolbar__btn" data-tm-reset>Reset Lab</button>{% endif %}
             <button class="tm-toolbar__btn" data-tm-full>⛶ Fullscreen</button>
-            <a href="/dashboard/" class="tm-toolbar__btn" style="text-decoration:none">← Back</a>
+            {% if not mission %}<a href="/dashboard/" class="tm-toolbar__btn" style="text-decoration:none">← Back</a>{% endif %}
         </div>
-        <div class="tm-output" data-tm-output tabindex="0" role="log" aria-label="Terminal output"></div>
+        <div class="tm-output" data-tm-output tabindex="0" role="log" aria-live="polite" aria-label="Terminal output"></div>
         <div class="tm-input">
             <span class="tm-input__prompt" data-tm-prompt>student@lab:~$ </span>
             <input class="tm-input__field" data-tm-input type="text"
                    placeholder="Type a command..." autocomplete="off"
-                   aria-label="Terminal input" autofocus>
+                   aria-label="Terminal command input" autofocus>
         </div>
     </div>
 </div>
+
+{% if mission %}
+{# ── Completion overlay (shown by JS at 100%) ── #}
+<div class="tm-complete" data-tm-complete hidden role="dialog" aria-modal="true" aria-labelledby="tm-complete-title">
+    <div class="tm-complete__card">
+        <div class="tm-complete__emoji" aria-hidden="true">🎉</div>
+        <h2 id="tm-complete-title">Mission Complete</h2>
+        <p class="tm-complete__sub">{{ mission.mission.title }}</p>
+        <div class="tm-complete__stats">
+            <div class="tm-complete__stat"><span data-tm-complete-xp>0</span><label>XP earned</label></div>
+            <div class="tm-complete__stat"><span data-tm-complete-obj>0/0</span><label>Objectives</label></div>
+            <div class="tm-complete__stat"><span data-tm-complete-time>00:00</span><label>Time</label></div>
+            <div class="tm-complete__stat"><span data-tm-complete-hints>0</span><label>Hints used</label></div>
+        </div>
+        <div class="tm-complete__actions">
+            {% if mission.mission.next_mission %}
+            <a href="{{ url_for('terminal.mission_page', slug=mission.mission.next_mission) }}" class="btn btn--primary">Continue →</a>
+            {% endif %}
+            <a href="{{ url_for('missions_ui.detail', slug=lab_slug) }}" class="btn btn--outline">Review</a>
+            <a href="{{ url_for('missions_ui.discover') }}" class="btn btn--outline">Back to Missions</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script src="{{ url_for('static', filename='labs/terminal.js') }}"></script>
 {% include "components/ai_chat.html" %}
 </body>

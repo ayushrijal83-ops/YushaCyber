@@ -5,15 +5,30 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+_DEFAULT_FILE_MODE = "644"
+_DEFAULT_DIR_MODE = "755"
+_DEFAULT_OWNER = "student"
+_DEFAULT_GROUP = "student"
+_PERM_BITS = {"7": "rwx", "6": "rw-", "5": "r-x", "4": "r--",
+              "3": "-wx", "2": "-w-", "1": "--x", "0": "---"}
+
 
 class VirtualFS:
     """Simulated filesystem. No real OS access."""
 
     def __init__(self, tree: dict[str, Any] | None = None,
-                 home: str = "/home/student") -> None:
-        self._tree: dict[str, Any] = tree or self._default()
+                 home: str = "/home/student",
+                 permissions: dict[str, dict[str, str]] | None = None) -> None:
+        # Deep-copy: callers pass shared mission-template dicts (mission_loader
+        # .MISSIONS). Without copying, mutating commands (touch/mkdir/chmod/
+        # chown) would edit the shared template in place and leak state
+        # across every future session for that mission.
+        self._tree: dict[str, Any] = copy.deepcopy(tree) if tree else self._default()
         self.cwd = home
         self.home = home
+        # Per-path permission/ownership metadata: {abspath: {mode, owner, group}}.
+        # Paths with no entry fall back to the defaults below.
+        self._meta: dict[str, dict[str, str]] = copy.deepcopy(permissions) if permissions else {}
 
     @staticmethod
     def _default() -> dict[str, Any]:
@@ -123,6 +138,49 @@ class VirtualFS:
             return True
         return False
 
+    # ── Permissions / ownership ──
+    def get_mode(self, path: str) -> str:
+        entry = self._meta.get(self.abspath(path))
+        if entry and "mode" in entry:
+            return entry["mode"]
+        return _DEFAULT_DIR_MODE if self.isdir(path) else _DEFAULT_FILE_MODE
+
+    def set_mode(self, path: str, mode: str) -> bool:
+        if not self.exists(path):
+            return False
+        self._meta.setdefault(self.abspath(path), {})["mode"] = mode
+        return True
+
+    def get_owner(self, path: str) -> str:
+        entry = self._meta.get(self.abspath(path))
+        return (entry or {}).get("owner", _DEFAULT_OWNER)
+
+    def get_group(self, path: str) -> str:
+        entry = self._meta.get(self.abspath(path))
+        return (entry or {}).get("group", _DEFAULT_GROUP)
+
+    def set_owner(self, path: str, owner: str, group: str | None = None) -> bool:
+        if not self.exists(path):
+            return False
+        entry = self._meta.setdefault(self.abspath(path), {})
+        entry["owner"] = owner
+        entry["group"] = group or owner
+        return True
+
+    def can_read(self, path: str, user: str = "student") -> bool:
+        """Whether ``user`` can read this node, per its mode/owner bits."""
+        if not self.exists(path):
+            return False
+        mode = self.get_mode(path).rjust(3, "0")[-3:]
+        bit = mode[0] if self.get_owner(path) == user else mode[-1]
+        return bit.isdigit() and int(bit) & 4 != 0
+
+    @staticmethod
+    def mode_to_symbolic(mode: str, is_dir: bool) -> str:
+        mode = mode.rjust(3, "0")[-3:]
+        return ("d" if is_dir else "-") + "".join(
+            _PERM_BITS.get(c, "---") for c in mode)
+
     def tree(self, path: str = ".", depth: int = 3, _indent: int = 0) -> str:
         parts = self._resolve(path)
         node = self._get(parts)
@@ -144,10 +202,12 @@ class VirtualFS:
         return "\n".join(l for l in lines if l)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"tree": copy.deepcopy(self._tree), "cwd": self.cwd, "home": self.home}
+        return {"tree": copy.deepcopy(self._tree), "cwd": self.cwd, "home": self.home,
+                "meta": copy.deepcopy(self._meta)}
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> VirtualFS:
-        fs = cls(tree=d.get("tree"), home=d.get("home", "/home/student"))
+        fs = cls(tree=d.get("tree"), home=d.get("home", "/home/student"),
+                  permissions=d.get("meta"))
         fs.cwd = d.get("cwd", fs.home)
         return fs
