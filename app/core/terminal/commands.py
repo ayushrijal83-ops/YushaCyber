@@ -412,3 +412,70 @@ def _host(sh: Shell, args: list[str]) -> str:
     if ip is None:
         return f"Host {hostname} not found: 3(NXDOMAIN)"
     return f"{hostname} has address {ip}"
+
+
+def _parse_port_spec(spec: str) -> list[int]:
+    """Parse an nmap-style -p spec: '22,80,443' or '20-25' or a mix."""
+    ports: list[int] = []
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            lo, _, hi = part.partition("-")
+            if lo.isdigit() and hi.isdigit():
+                ports.extend(range(int(lo), int(hi) + 1))
+        elif part.isdigit():
+            ports.append(int(part))
+    return ports
+
+
+@cmd("nmap")
+def _nmap(sh: Shell, args: list[str]) -> str:
+    """Simulated Nmap (YC-034.7) — reads sh.network only. Never invokes
+    the real nmap binary, a subprocess, or a socket of any kind."""
+    if sh.network is None:
+        return "nmap: no network configured for this session"
+    if not args:
+        return "Usage: nmap [options] target"
+
+    ports: list[int] | None = None
+    scan_all_ports = False
+    proto = "tcp"
+    service_detection = False
+    os_detection = False
+    skip_discovery = False
+    positional: list[str] = []
+
+    i = 0
+    while i < len(args):
+        t = args[i]
+        if t == "-p" and i + 1 < len(args):
+            ports = _parse_port_spec(args[i + 1])
+            i += 1
+        elif t == "-p-":
+            scan_all_ports = True
+        elif t == "-sV":
+            service_detection = True
+        elif t == "-sU":
+            proto = "udp"
+        elif t == "-sT":
+            proto = "tcp"
+        elif t == "-O":
+            os_detection = True
+        elif t == "-Pn":
+            skip_discovery = True
+        elif t == "-sC" or t.startswith("-"):
+            pass  # accepted (or silently ignored if unrecognized) — no extra simulated behavior
+        else:
+            positional.append(t)
+        i += 1
+
+    if not positional:
+        return "nmap: no target specified"
+    target = positional[0]
+    if scan_all_ports:
+        ports = None  # default scan already covers every known port on the host
+
+    result = sh.network.scan(target, ports=ports, proto=proto,
+                             service_detection=service_detection,
+                             skip_discovery=skip_discovery)
+    return sh.network.format_nmap(result, show_version=service_detection, show_os=os_detection)

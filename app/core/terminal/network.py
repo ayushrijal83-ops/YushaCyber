@@ -14,6 +14,11 @@ simulated "fix" commands (`ip link set`, `ip addr add`, `ip route add`)
 change interface/route state on the student's own host so a broken
 topology can be diagnosed and repaired within one session. Everything
 mutated stays inside this in-memory object graph — never the real OS.
+
+YC-034.7 (Nmap Fundamentals) adds a deterministic port-scan engine
+(`VirtualNetwork.scan()` / `format_nmap()`) over the same VirtualHost
+services — still pure data lookups and string formatting, no socket,
+subprocess, or shell invocation anywhere in this module.
 """
 
 from __future__ import annotations
@@ -44,6 +49,7 @@ class Service:
     proto: str
     name: str
     state: str = "LISTEN"
+    version: str | None = None
 
 
 @dataclass
@@ -60,6 +66,23 @@ class VirtualHost:
     routes: list[Route] = field(default_factory=list)
     services: list[Service] = field(default_factory=list)
     reachable: bool = True
+    # YC-034.7 — Nmap Fundamentals.
+    filtered_ports: list[int] = field(default_factory=list)
+    os_guess: str | None = None
+    # True simulates a host-based firewall dropping ICMP: `nmap <ip>`
+    # reports it down; `nmap -Pn <ip>` (skip host discovery) still scans
+    # its ports, exactly like real nmap's actual use case for that flag.
+    blocks_icmp: bool = False
+
+
+@dataclass
+class ScanResult:
+    """Structured result of a simulated scan — never a real network call."""
+    target: str
+    proto: str
+    host_up: bool
+    ports: list[dict[str, Any]] = field(default_factory=list)
+    os_guess: str | None = None
 
 
 class VirtualNetwork:
@@ -148,7 +171,7 @@ class VirtualNetwork:
                 "routes": [{"destination": r.destination, "via": r.via, "dev": r.dev,
                            "is_default": r.is_default} for r in host.routes],
                 "services": [{"port": s.port, "proto": s.proto, "name": s.name,
-                             "state": s.state} for s in host.services],
+                             "state": s.state, "version": s.version} for s in host.services],
             }
             for ip, host in self.hosts.items()
         }
@@ -199,6 +222,70 @@ class VirtualNetwork:
             lines.append(f"{s.state}  {self.student_ip}:{s.port}  ({s.proto}/{s.name})")
         return "\n".join(lines)
 
+    # ── Simulated Nmap (YC-034.7) ──
+    def scan(self, target: str, ports: list[int] | None = None, proto: str = "tcp",
+             service_detection: bool = False, skip_discovery: bool = False) -> ScanResult:
+        """Deterministic simulated port scan — pure lookup over VirtualHost
+        services/filtered_ports. Never opens a socket or shells out."""
+        host = self.hosts.get(target)
+        if host is None:
+            return ScanResult(target=target, proto=proto, host_up=False)
+        if host.blocks_icmp and not skip_discovery:
+            return ScanResult(target=target, proto=proto, host_up=False)
+
+        if ports is None:
+            known = {s.port for s in host.services if s.proto == proto}
+            known |= set(host.filtered_ports)
+            ports = sorted(known)
+
+        entries: list[dict[str, Any]] = []
+        for p in ports:
+            svc = next((s for s in host.services if s.port == p and s.proto == proto), None)
+            if svc is not None:
+                state = "open"
+            elif p in host.filtered_ports:
+                state = "filtered"
+            else:
+                state = "closed"
+            entries.append({
+                "port": p, "proto": proto, "state": state,
+                "service": svc.name if svc else "unknown",
+                "version": (svc.version if svc and service_detection else None),
+            })
+        return ScanResult(target=target, proto=proto, host_up=True, ports=entries,
+                          os_guess=host.os_guess)
+
+    @staticmethod
+    def format_nmap(result: ScanResult, show_version: bool = False,
+                    show_os: bool = False) -> str:
+        """Render a ScanResult as nmap-style terminal output."""
+        if not result.host_up:
+            return (
+                "Starting Nmap\n"
+                "Note: Host seems down. If it is really up, but blocking pings, "
+                "try -Pn\n"
+                "Nmap done: 0 hosts up."
+            )
+        lines = ["Starting Nmap", "", f"Nmap scan report for {result.target}", ""]
+        if not result.ports:
+            lines.append("No ports scanned.")
+        else:
+            header = "PORT     STATE    SERVICE"
+            if show_version:
+                header += "    VERSION"
+            lines.append(header)
+            for e in result.ports:
+                row = f"{e['port']}/{e['proto']} {e['state']} {e['service']}"
+                if show_version and e.get("version"):
+                    row += f" {e['version']}"
+                lines.append(row)
+        if show_os:
+            lines.append("")
+            lines.append(f"OS guess: {result.os_guess or 'unavailable (try -Pn or scan more ports)'}")
+        lines.append("")
+        lines.append("Nmap done.")
+        return "\n".join(lines)
+
 
 def build_network(config: dict[str, Any]) -> VirtualNetwork:
     """Build a VirtualNetwork from a mission's declarative 'network' dict.
@@ -215,6 +302,9 @@ def build_network(config: dict[str, Any]) -> VirtualNetwork:
             routes=[Route(**r) for r in hc.get("routes", [])],
             services=[Service(**s) for s in hc.get("services", [])],
             reachable=hc.get("reachable", True),
+            filtered_ports=list(hc.get("filtered_ports", [])),
+            os_guess=hc.get("os_guess"),
+            blocks_icmp=hc.get("blocks_icmp", False),
         )
     dns_records = [DNSRecord(**d) for d in config.get("dns_records", [])]
     return VirtualNetwork(

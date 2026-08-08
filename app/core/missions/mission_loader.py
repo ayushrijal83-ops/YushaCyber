@@ -701,6 +701,180 @@ MISSIONS: dict[str, dict[str, Any]] = {
                 {"hostname": "example.local", "ip": "10.10.10.10"},
             ],
         },
+        "next_mission": "nmap-fundamentals",
+    },
+    "nmap-fundamentals": {
+        "id": "nmap-fundamentals",
+        "title": "Nmap Fundamentals",
+        "description": "Learn network reconnaissance with Nmap on a fully simulated LAN. "
+                       "Only ever scan systems you own or have explicit permission to "
+                       "test — this mission is entirely simulated and never touches a "
+                       "real host; never scan public IP addresses without authorization.",
+        "difficulty": "Intermediate",
+        "category": "networking",
+        "xp_total": 400,
+        "estimated_minutes": 45,
+        "learn": ["Host discovery", "Port scanning", "TCP vs UDP ports",
+                  "Open / closed / filtered states", "Service discovery",
+                  "Version detection", "Basic OS detection", "Scan interpretation",
+                  "Responsible reconnaissance"],
+        "objectives": [
+            {
+                "id": "nm-1",
+                "title": "Perform a Basic Scan",
+                "description": "Run a default Nmap scan against the web server.",
+                "hint": "Use 'nmap 10.10.10.10'.",
+                "validate": {"type": "command", "match": "nmap 10.10.10.10"},
+                "xp": 35,
+            },
+            {
+                "id": "nm-2",
+                "title": "Identify the Open SSH Port",
+                "description": "Find the open SSH port in the scan results.",
+                "hint": "Look for port 22 in the PORT/STATE/SERVICE table.",
+                "validate": {"type": "output_contains", "match": "22/tcp open ssh"},
+                "xp": 30,
+            },
+            {
+                "id": "nm-3",
+                "title": "Identify the HTTP Port",
+                "description": "Find the open HTTP port in the scan results.",
+                "hint": "Look for port 80 in the PORT/STATE/SERVICE table.",
+                "validate": {"type": "output_contains", "match": "80/tcp open http"},
+                "xp": 30,
+            },
+            {
+                "id": "nm-4",
+                "title": "Perform a Targeted Port Scan",
+                "description": "Scan only the ports you care about instead of the full default set.",
+                "hint": "Use 'nmap -p 22,80,443 10.10.10.10'.",
+                "validate": {"type": "command", "match": "-p 22,80,443"},
+                "xp": 40,
+            },
+            {
+                "id": "nm-5",
+                "title": "Perform Service/Version Detection",
+                "description": "Find out what software is actually running behind each open port.",
+                "hint": "Use 'nmap -sV 10.10.10.10'.",
+                "validate": {"type": "command", "match": "-sv"},
+                "xp": 40,
+            },
+            {
+                "id": "nm-6",
+                "title": "Identify the Web Server Service",
+                "description": "Identify the web server software from your version scan.",
+                "hint": "Check the VERSION column for the HTTP/HTTPS ports.",
+                "validate": {"type": "output_contains", "match": "nginx"},
+                "xp": 35,
+            },
+            {
+                "id": "nm-7",
+                "title": "Perform a TCP Connect Scan",
+                "description": "Perform an explicit TCP connect scan against the web server.",
+                "hint": "Use 'nmap -sT 10.10.10.10'.",
+                "validate": {"type": "command", "match": "-st"},
+                "xp": 35,
+            },
+            {
+                "id": "nm-8",
+                "title": "Perform a UDP Scan",
+                "description": "Scan the DNS server's UDP service.",
+                "hint": "Use 'nmap -sU 10.10.10.53'.",
+                "validate": {"type": "output_contains", "match": "53/udp open dns"},
+                "xp": 40,
+            },
+            {
+                "id": "nm-9",
+                "title": "Detect the OS on a Ping-Blocking Host",
+                "description": "The training server blocks ICMP, so a normal scan reports it "
+                               "down. Skip host discovery and attempt OS detection.",
+                "hint": "Use 'nmap -Pn -O 10.10.10.40'.",
+                "validate": {"type": "output_contains", "match": "Linux 5.X"},
+                "xp": 45,
+            },
+            {
+                "id": "nm-10",
+                "title": "Final Reconnaissance Challenge",
+                "description": "Run a full version scan against the file server and identify "
+                               "every open, closed, and filtered port on it.",
+                "hint": "Use 'nmap -sV 10.10.10.30'.",
+                "validate": {"type": "output_contains", "match": "25/tcp filtered"},
+                "xp": 70,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+                "hosts": "127.0.0.1 localhost\n"
+                        "10.10.10.20 student-pc\n"
+                        "10.10.10.1 gateway\n"
+                        "10.10.10.10 example.local web01\n"
+                        "10.10.10.30 fileserver\n"
+                        "10.10.10.40 training\n"
+                        "10.10.10.53 dns01\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "network": {
+            "student_ip": "10.10.10.20",
+            "dns_server_ip": "10.10.10.53",
+            "hosts": {
+                "10.10.10.20": {
+                    "hostname": "student-pc",
+                    "interfaces": [
+                        {"name": "eth0", "ip": "10.10.10.20", "cidr": 24, "state": "UP"},
+                        {"name": "lo", "ip": "127.0.0.1", "cidr": 8, "state": "UP"},
+                    ],
+                    "routes": [
+                        {"destination": "default", "via": "10.10.10.1",
+                         "dev": "eth0", "is_default": True},
+                        {"destination": "10.10.10.0/24", "dev": "eth0"},
+                    ],
+                },
+                "10.10.10.1": {"hostname": "gateway", "reachable": True},
+                "10.10.10.10": {
+                    "hostname": "web01", "reachable": True,
+                    "services": [
+                        {"port": 22, "proto": "tcp", "name": "ssh", "version": "OpenSSH 9.x"},
+                        {"port": 80, "proto": "tcp", "name": "http", "version": "nginx"},
+                        {"port": 443, "proto": "tcp", "name": "https", "version": "nginx"},
+                    ],
+                },
+                "10.10.10.30": {
+                    "hostname": "fileserver", "reachable": True,
+                    "services": [
+                        {"port": 21, "proto": "tcp", "name": "ftp", "version": "vsftpd 3.x"},
+                        {"port": 22, "proto": "tcp", "name": "ssh", "version": "OpenSSH 9.x"},
+                        {"port": 445, "proto": "tcp", "name": "microsoft-ds", "version": "Samba 4.x"},
+                    ],
+                    "filtered_ports": [25],
+                },
+                "10.10.10.53": {
+                    "hostname": "dns01", "reachable": True,
+                    "services": [{"port": 53, "proto": "udp", "name": "dns", "version": "BIND 9.x"}],
+                },
+                "10.10.10.40": {
+                    "hostname": "training", "reachable": True, "blocks_icmp": True,
+                    "os_guess": "Linux 5.X (embedded)",
+                    "services": [
+                        {"port": 22, "proto": "tcp", "name": "ssh", "version": "OpenSSH 8.x"},
+                        {"port": 8080, "proto": "tcp", "name": "http-proxy", "version": "Squid 5.x"},
+                    ],
+                },
+            },
+            "dns_records": [
+                {"hostname": "example.local", "ip": "10.10.10.10"},
+            ],
+        },
         "next_mission": None,
     },
 }
