@@ -175,6 +175,14 @@ class VirtualFS:
         bit = mode[0] if self.get_owner(path) == user else mode[-1]
         return bit.isdigit() and int(bit) & 4 != 0
 
+    def can_execute(self, path: str, user: str = "student") -> bool:
+        """Whether ``user`` can execute this node, per its mode/owner bits."""
+        if not self.exists(path):
+            return False
+        mode = self.get_mode(path).rjust(3, "0")[-3:]
+        bit = mode[0] if self.get_owner(path) == user else mode[-1]
+        return bit.isdigit() and int(bit) & 1 != 0
+
     @staticmethod
     def mode_to_symbolic(mode: str, is_dir: bool) -> str:
         mode = mode.rjust(3, "0")[-3:]

@@ -42,7 +42,9 @@ class Shell:
     """Minimal shell reference for command functions."""
     fs: VirtualFS
     env: dict[str, str]
+    vars: dict[str, str]
     history: list[str]
+    _pipe_input: str | None
 
 
 # ══════════════════════════════════════════════════════
@@ -84,7 +86,8 @@ def _ls(sh: Shell, args: list[str]) -> str:
             item_full = full if item in (".", "..") else sh.fs.abspath(path.rstrip("/") + "/" + item)
             lines.append(_ls_long_line(sh.fs, item_full, item))
         return "\n".join(lines)
-    return "  ".join(items)
+    # One entry per line — makes `ls | grep ...` filter meaningfully.
+    return "\n".join(items)
 
 
 @cmd("cd")
@@ -202,12 +205,17 @@ def _tree(sh: Shell, args: list[str]) -> str:
 
 @cmd("grep")
 def _grep(sh: Shell, args: list[str]) -> str:
-    if len(args) < 2:
-        return "Usage: grep PATTERN FILE"
-    pattern, filepath = args[0], args[1]
-    content = sh.fs.read(filepath)
-    if content is None:
-        return f"grep: {filepath}: No such file or directory"
+    if not args:
+        return "Usage: grep PATTERN [FILE]"
+    pattern = args[0]
+    if len(args) >= 2:
+        content = sh.fs.read(args[1])
+        if content is None:
+            return f"grep: {args[1]}: No such file or directory"
+    elif getattr(sh, "_pipe_input", None) is not None:
+        content = sh._pipe_input
+    else:
+        return "Usage: grep PATTERN [FILE]"
     matches = [l for l in content.splitlines() if pattern.lower() in l.lower()]
     return "\n".join(matches) if matches else ""
 
@@ -250,11 +258,33 @@ def _chmod(sh: Shell, args: list[str]) -> str:
     if len(args) < 2:
         return "chmod: missing operand"
     mode, target = args[0], args[1]
-    if not mode.isdigit() or not (1 <= len(mode) <= 4):
-        return f"chmod: invalid mode: '{mode}'"
     if not sh.fs.exists(target):
         return f"chmod: cannot access '{target}': No such file or directory"
+    if mode in ("+x", "-x"):
+        current = sh.fs.get_mode(target).rjust(3, "0")[-3:]
+        new_digits = []
+        for d in current:
+            n = int(d) if d.isdigit() else 0
+            n = (n | 1) if mode == "+x" else (n & ~1)
+            new_digits.append(str(n))
+        sh.fs.set_mode(target, "".join(new_digits))
+        return ""
+    if not mode.isdigit() or not (1 <= len(mode) <= 4):
+        return f"chmod: invalid mode: '{mode}'"
     sh.fs.set_mode(target, mode)
+    return ""
+
+
+@cmd("export")
+def _export(sh: Shell, args: list[str]) -> str:
+    if not args:
+        return "export: usage: export NAME=VALUE"
+    for a in args:
+        if "=" in a:
+            name, _, value = a.partition("=")
+            sh.env[name] = value
+        elif a in sh.vars:
+            sh.env[a] = sh.vars[a]
     return ""
 
 
