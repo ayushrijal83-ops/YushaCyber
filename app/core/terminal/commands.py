@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 from app.core.terminal.filesystem import VirtualFS
 from app.core.terminal.network import VirtualNetwork
+from app.core.terminal.packets import PacketLab
 
 CommandFn = Callable[["Shell", list[str]], str]
 _COMMANDS: dict[str, CommandFn] = {}
@@ -47,6 +48,7 @@ class Shell:
     history: list[str]
     _pipe_input: str | None
     network: VirtualNetwork | None
+    packet_lab: PacketLab | None
 
 
 # ══════════════════════════════════════════════════════
@@ -487,3 +489,81 @@ def _nmap(sh: Shell, args: list[str]) -> str:
                              service_detection=service_detection,
                              skip_discovery=skip_discovery)
     return sh.network.format_nmap(result, show_version=service_detection, show_os=os_detection)
+
+
+# ══════════════════════════════════════════════════════
+# Packet analysis (YC-034.9) — reads sh.packet_lab only. Every capture is
+# a fixed, deterministic in-memory dataset (see packets.py); nothing here
+# opens a socket, captures traffic, or shells out to a real tool.
+# ══════════════════════════════════════════════════════
+
+@cmd("capture")
+def _capture(sh: Shell, args: list[str]) -> str:
+    if sh.packet_lab is None:
+        return "capture: no packet lab configured for this session"
+    if not args:
+        names = ", ".join(sorted(sh.packet_lab.captures.keys())) or "(none)"
+        active = sh.packet_lab.active.name if sh.packet_lab.active else "none"
+        return f"Available captures: {names}\nActive capture: {active}"
+    name = args[0]
+    if sh.packet_lab.open_capture(name):
+        cap = sh.packet_lab.active
+        return f"{len(cap.packets)} packets loaded from '{name}'.\nType 'packets' to list them."
+    return f"capture: unknown capture '{name}'"
+
+
+@cmd("packets")
+def _packets(sh: Shell, args: list[str]) -> str:
+    if sh.packet_lab is None or sh.packet_lab.active is None:
+        return "No capture loaded. Use 'capture NAME' first."
+    return sh.packet_lab.active.list_text()
+
+
+@cmd("show")
+def _show_packet(sh: Shell, args: list[str]) -> str:
+    if sh.packet_lab is None or sh.packet_lab.active is None:
+        return "No capture loaded. Use 'capture NAME' first."
+    if not args or not args[0].isdigit():
+        return "Usage: show PACKET_NUMBER"
+    pkt = sh.packet_lab.active.get(int(args[0]))
+    if pkt is None:
+        return f"show: packet {args[0]} not found"
+    sh.packet_lab.selected_packet = pkt.number
+    return sh.packet_lab.active.detail_text(pkt)
+
+
+@cmd("follow")
+def _follow(sh: Shell, args: list[str]) -> str:
+    if sh.packet_lab is None or sh.packet_lab.active is None:
+        return "No capture loaded. Use 'capture NAME' first."
+    if not args:
+        return "Usage: follow CONVERSATION_ID (or a packet number)"
+    cap = sh.packet_lab.active
+    token = args[0]
+    conv_id = token
+    if token.isdigit():
+        pkt = cap.get(int(token))
+        if pkt is None or not pkt.conversation_id:
+            return f"follow: packet {token} has no conversation"
+        conv_id = pkt.conversation_id
+    matched = cap.conversation(conv_id)
+    if not matched:
+        return f"follow: no conversation '{conv_id}' found"
+    return cap.conversation_text(conv_id, matched)
+
+
+@cmd("filter")
+def _filter(sh: Shell, args: list[str]) -> str:
+    if sh.packet_lab is None or sh.packet_lab.active is None:
+        return "No capture loaded. Use 'capture NAME' first."
+    if not args:
+        return "Usage: filter EXPRESSION"
+    expr = " ".join(args)
+    sh.packet_lab.last_filter = expr
+    results = sh.packet_lab.active.filter(expr)
+    if not results:
+        return f"No packets matched filter '{expr}'."
+    return sh.packet_lab.active.list_text(results)
+
+
+_COMMANDS["packet"] = _show_packet  # alias, matches the ticket's 'packet <n>' form too

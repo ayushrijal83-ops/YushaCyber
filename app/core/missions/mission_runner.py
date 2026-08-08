@@ -52,6 +52,7 @@ class MissionRunner:
         fs = VirtualFS(tree=fs_tree, permissions=fs_perms)
         self.shell = Shell(fs=fs)
         self._attach_network(self.shell)
+        self._attach_packet_lab(self.shell)
         self.progress = MissionProgress(
             mission_id=mission_id, user_id=user_id,
             total=len(self.mission["objectives"]),
@@ -86,6 +87,7 @@ class MissionRunner:
             "progress": self.progress.to_dict(),
             "completed": self.progress.completed,
             "network_status": self.network_status(),
+            "packet_lab_status": self.packet_lab_status(),
         }
 
     def _attach_network(self, shell: Shell) -> None:
@@ -119,6 +121,37 @@ class MissionRunner:
             "interface_ip": f"{eth0.ip}/{eth0.cidr}" if eth0 else None,
             "default_gateway": net.default_gateway(),
             "dns_server": net.dns_server_ip,
+        }
+
+    def _attach_packet_lab(self, shell: Shell) -> None:
+        """Attach the mission's declarative packet-capture list (if any).
+
+        Mirrors _attach_network: captures are always rebuilt fresh and
+        deterministically from the mission's capture names (see
+        packets.py); if a saved session state is pending (which capture
+        was open, which packet was selected, the last filter typed), it's
+        replayed on top so a resumed session picks up where it left off.
+        """
+        capture_names = self.mission.get("packet_captures")
+        if not capture_names:
+            return
+        from app.core.terminal.packets import build_packet_lab
+        shell.packet_lab = build_packet_lab(capture_names)
+        pending = getattr(shell, "_pending_packet_lab_state", None)
+        if pending:
+            shell.packet_lab.apply_state(pending)
+        shell._pending_packet_lab_state = None
+
+    def packet_lab_status(self) -> dict[str, Any] | None:
+        """Live packet-lab summary for the mission UI / AI mentor context."""
+        lab = self.shell.packet_lab
+        if lab is None:
+            return None
+        return {
+            "active_capture": lab.active.name if lab.active else None,
+            "total_packets": len(lab.active.packets) if lab.active else 0,
+            "selected_packet": lab.selected_packet,
+            "last_filter": lab.last_filter,
         }
 
     def use_hint(self, objective_id: str) -> str:
@@ -166,6 +199,9 @@ class MissionRunner:
         if net_status is not None:
             ctx["network"] = net_status
             ctx["scanned_targets"] = self._scanned_targets()
+        pkt_status = self.packet_lab_status()
+        if pkt_status is not None:
+            ctx["packet_lab"] = pkt_status
         return ctx
 
     def to_dict(self) -> dict[str, Any]:
@@ -188,6 +224,7 @@ class MissionRunner:
             "prompt": self.shell.prompt,
             "current_objective": self.current_objective(),
             "network_status": self.network_status(),
+            "packet_lab_status": self.packet_lab_status(),
         }
 
     @classmethod
@@ -206,6 +243,7 @@ class MissionRunner:
         if "shell" in state:
             runner.shell = Shell.from_dict(state["shell"])
             runner._attach_network(runner.shell)
+            runner._attach_packet_lab(runner.shell)
         return runner
 
     def save_state(self) -> dict[str, Any]:

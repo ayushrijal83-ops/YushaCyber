@@ -122,6 +122,10 @@ function exec(cmd){
         if(d.network_status){
             updateNetStatus(d.network_status);
         }
+        /* ── Update packet lab status panel (YC-034.9) ── */
+        if(d.packet_lab_status){
+            updatePacketLabStatus(d.packet_lab_status);
+        }
         /* ── Mission complete ── */
         if(d.completed){
             showComplete(d.progress);
@@ -145,6 +149,19 @@ function updateNetStatus(net){
     if(ip) ip.textContent = net.interface_ip || '—';
     if(gw) gw.textContent = net.default_gateway || '—';
     if(dns) dns.textContent = net.dns_server || '—';
+}
+
+function updatePacketLabStatus(pkt){
+    var panel = document.querySelector('[data-pkt-status]');
+    if(!panel) return;
+    var capture = panel.querySelector('[data-pkt-capture]');
+    var count = panel.querySelector('[data-pkt-count]');
+    var selected = panel.querySelector('[data-pkt-selected]');
+    var filter = panel.querySelector('[data-pkt-filter]');
+    if(capture) capture.textContent = pkt.active_capture || 'none open';
+    if(count) count.textContent = pkt.total_packets || 0;
+    if(selected) selected.textContent = pkt.selected_packet || '—';
+    if(filter) filter.textContent = pkt.last_filter || '—';
 }
 
 function markObjectiveDone(objId){

@@ -17,6 +17,7 @@ from typing import Any
 from app.core.terminal.commands import autocomplete, get_commands
 from app.core.terminal.filesystem import VirtualFS
 from app.core.terminal.network import VirtualNetwork
+from app.core.terminal.packets import PacketLab
 
 _ASSIGN_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 _REDIR_RE = re.compile(r"(>>|>)\s*(\S+)\s*$")
@@ -70,6 +71,11 @@ class Shell:
         # Set by from_dict() when resuming; consumed by
         # MissionRunner._attach_network() to replay saved mutations.
         self._pending_network_state: dict[str, Any] | None = None
+        # Attached by MissionRunner for packet-analysis missions; None
+        # (the default) leaves every other mission/free-play session
+        # unaffected.
+        self.packet_lab: PacketLab | None = None
+        self._pending_packet_lab_state: dict[str, Any] | None = None
 
     @property
     def prompt(self) -> str:
@@ -242,6 +248,8 @@ class Shell:
         }
         if self.network is not None:
             d["network"] = self.network.to_dict()
+        if self.packet_lab is not None:
+            d["packet_lab"] = self.packet_lab.to_dict()
         return d
 
     @classmethod
@@ -255,4 +263,7 @@ class Shell:
         # rebuilds the static topology from the mission config and then
         # replays this onto it (see MissionRunner._attach_network).
         sh._pending_network_state = d.get("network")
+        # Same idea for which capture was open / selected / last filtered
+        # (see MissionRunner._attach_packet_lab).
+        sh._pending_packet_lab_state = d.get("packet_lab")
         return sh

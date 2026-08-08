@@ -1070,6 +1070,148 @@ MISSIONS: dict[str, dict[str, Any]] = {
                 {"hostname": "example.local", "ip": "10.10.10.10"},
             ],
         },
+        "next_mission": "wireshark-fundamentals",
+    },
+    "wireshark-fundamentals": {
+        "id": "wireshark-fundamentals",
+        "title": "Wireshark Fundamentals",
+        "description": "Learn packet analysis on a fully simulated capture environment — "
+                       "read Ethernet/IPv4/TCP/UDP layers, recognize the TCP three-way "
+                       "handshake, analyze DNS and HTTP traffic, follow conversations, "
+                       "apply display filters, and investigate a capture for unusual "
+                       "traffic. Entirely simulated; no real packet is ever captured, "
+                       "inspected, or transmitted.",
+        "difficulty": "Intermediate",
+        "category": "networking",
+        "xp_total": 450,
+        "estimated_minutes": 50,
+        "learn": ["Packet structure", "Ethernet frames", "IPv4 headers", "TCP vs UDP",
+                  "Source/destination ports", "TCP flags", "TCP three-way handshake",
+                  "DNS analysis", "HTTP analysis", "Following conversations",
+                  "Display filters", "Investigating suspicious traffic"],
+        "objectives": [
+            {
+                "id": "wf-1",
+                "title": "Open the Packet Capture",
+                "description": "Load the TCP handshake capture to begin your analysis.",
+                "hint": "Use 'capture handshake'.",
+                "validate": {"type": "command", "match": "capture handshake"},
+                "xp": 35,
+            },
+            {
+                "id": "wf-2",
+                "title": "Identify Source and Destination IPs",
+                "description": "Inspect the first packet's IP layer.",
+                "hint": "Use 'show 1'.",
+                "validate": {"type": "output_contains", "match": "Source: 10.10.10.20"},
+                "xp": 30,
+            },
+            {
+                "id": "wf-3",
+                "title": "Identify TCP Traffic",
+                "description": "Filter the capture to show only TCP packets.",
+                "hint": "Use 'filter tcp'.",
+                "validate": {"type": "command", "match": "filter tcp"},
+                "xp": 25,
+            },
+            {
+                "id": "wf-4",
+                "title": "Identify the Three-Way Handshake",
+                "description": "Recognize the SYN, SYN-ACK, ACK sequence that opens a "
+                               "TCP connection.",
+                "hint": "Use 'follow 1' to see the full sequence.",
+                "validate": {"type": "output_contains", "match": "SYN, ACK"},
+                "xp": 45,
+            },
+            {
+                "id": "wf-5",
+                "title": "Identify Source and Destination Ports",
+                "description": "Find the port numbers involved in the handshake.",
+                "hint": "Use 'show 1' and check the TCP layer.",
+                "validate": {"type": "output_contains", "match": "Destination Port: 80"},
+                "xp": 30,
+            },
+            {
+                "id": "wf-6",
+                "title": "Filter DNS Traffic",
+                "description": "Switch to the mixed capture and isolate the DNS lookup.",
+                "hint": "Use 'capture mixed' then 'filter dns'.",
+                "validate": {"type": "output_contains", "match": "example.training"},
+                "xp": 35,
+            },
+            {
+                "id": "wf-7",
+                "title": "Analyze an HTTP Request",
+                "description": "Load the HTTP capture and identify the request method and path.",
+                "hint": "Use 'capture http' then 'filter http'.",
+                "validate": {"type": "output_contains", "match": "GET /index.html"},
+                "xp": 45,
+            },
+            {
+                "id": "wf-8",
+                "title": "Follow a TCP Conversation",
+                "description": "Follow the full sequence of packets belonging to one exchange.",
+                "hint": "Use 'follow 1' (or any packet number in the current capture).",
+                "validate": {"type": "output_contains", "match": "Conversation:"},
+                "xp": 30,
+            },
+            {
+                "id": "wf-9",
+                "title": "Use an IP Filter",
+                "description": "Filter packets by a specific IP address.",
+                "hint": "Use 'filter ip.addr == 10.10.10.10'.",
+                "validate": {"type": "command", "match": "ip.addr == 10.10.10.10"},
+                "xp": 30,
+            },
+            {
+                "id": "wf-10",
+                "title": "Use a Port Filter",
+                "description": "Filter packets by TCP port 80.",
+                "hint": "Use 'filter tcp.port == 80'.",
+                "validate": {"type": "command", "match": "tcp.port == 80"},
+                "xp": 30,
+            },
+            {
+                "id": "wf-11",
+                "title": "Analyze Mixed Traffic",
+                "description": "Review the mixed capture and recognize the different "
+                               "protocols in play, including background UDP traffic.",
+                "hint": "Use 'capture mixed' then 'packets'.",
+                "validate": {"type": "output_contains", "match": "UDP"},
+                "xp": 45,
+            },
+            {
+                "id": "wf-12",
+                "title": "Final Investigation",
+                "description": "A training workstation is behaving strangely. Load the "
+                               "investigation capture, find the unusual connection, and "
+                               "record which host and port it involves.",
+                "hint": 'Use "capture investigation", find the odd connection, then '
+                       'echo "Source: 10.10.10.20, Destination: 10.10.10.77, Port: 4444, '
+                       'Protocol: TCP, Reason: uncommon destination and port not part '
+                       'of normal training traffic" > wireshark/investigation.txt.',
+                "validate": {"type": "file_contains", "match": "10.10.10.77",
+                             "path": "/home/student/wireshark/investigation.txt"},
+                "xp": 70,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "wireshark": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "packet_captures": ["handshake", "dns", "http", "icmp", "mixed", "investigation"],
         "next_mission": None,
     },
 }

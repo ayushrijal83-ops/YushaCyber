@@ -65,6 +65,15 @@
             <div class="tm-netstatus__row"><span class="tm-netstatus__label">DNS:</span> <span data-net-dns>{{ mission.network_status.dns_server or "—" }}</span></div>
         </div>
         {% endif %}
+        {% if mission.packet_lab_status %}
+        <div class="tm-netstatus" data-pkt-status aria-label="Packet lab status">
+            <div class="tm-netstatus__head">PACKET LAB</div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Capture:</span> <span data-pkt-capture>{{ mission.packet_lab_status.active_capture or "none open" }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Packets:</span> <span data-pkt-count>{{ mission.packet_lab_status.total_packets }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Selected:</span> <span data-pkt-selected>{{ mission.packet_lab_status.selected_packet or "—" }}</span></div>
+            <div class="tm-netstatus__row"><span class="tm-netstatus__label">Filter:</span> <span data-pkt-filter>{{ mission.packet_lab_status.last_filter or "—" }}</span></div>
+        </div>
+        {% endif %}
         <div data-mission-objectives role="list" aria-label="Objectives">
         {% for obj in mission.mission.objectives %}
         <div class="tm-obj{% if obj.completed %} tm-obj--done{% elif mission.current_objective and obj.id == mission.current_objective.id %} tm-obj--current{% endif %}"
