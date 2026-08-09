@@ -262,6 +262,21 @@ class MissionRunner:
             # here so the frontend has a single source of truth instead of
             # duplicating DB_SCHEMA in the template.
             "db_schema": DB_SCHEMA,
+            # XSS Fundamentals state (YC-035.5) — only ever meaningful for
+            # that mission; every other web-lab mission's flags simply
+            # stay at their defaults, same as `sqli`/`proxy` above.
+            "xss": {
+                "reflected_seen": lab.xss.reflected_seen,
+                "stored_seen": lab.xss.stored_seen,
+                "dom_seen": lab.xss.dom_seen,
+                "secure_search_tested": lab.xss.secure_search_tested,
+                "secure_feedback_tested": lab.xss.secure_feedback_tested,
+            },
+            # Stored training comments (YC-035.5) — small and structured,
+            # for the Comments panel to render without a second command
+            # round trip, mirroring `db_schema`'s "single source of truth"
+            # rationale above.
+            "comments": [dataclasses.asdict(c) for c in lab.app.comments],
         }
 
     def use_hint(self, objective_id: str) -> str:
@@ -389,6 +404,26 @@ class MissionRunner:
                 "secure_search_tested": sqli["secure_search_tested"],
                 "secure_login_tested": sqli["secure_login_tested"],
                 "auth_bypass_triggered": sqli["auth_bypass_triggered"],
+            }
+            # XSS Fundamentals summary (YC-035.5) — small and structured,
+            # so CyberMentor can explain *why* something is reflected vs.
+            # stored vs. DOM-based from actual mission state, without
+            # repeating full response bodies (which may contain the
+            # simulated-event panel text) on every turn.
+            xss = web_status["xss"]
+            last_xss_kind = (web_status["last_response"]["headers"].get("X-Sim-XSS-Kind")
+                             if web_status["last_response"] else None)
+            last_xss_context = (web_status["last_response"]["headers"].get("X-Sim-XSS-Context")
+                                if web_status["last_response"] else None)
+            ctx["web"]["xss"] = {
+                "last_xss_kind": last_xss_kind,
+                "last_xss_context": last_xss_context,
+                "reflected_seen": xss["reflected_seen"],
+                "stored_seen": xss["stored_seen"],
+                "dom_seen": xss["dom_seen"],
+                "secure_search_tested": xss["secure_search_tested"],
+                "secure_feedback_tested": xss["secure_feedback_tested"],
+                "stored_comment_count": len(web_status["comments"]),
             }
         return ctx
 

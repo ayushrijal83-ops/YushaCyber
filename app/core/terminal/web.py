@@ -18,6 +18,7 @@ outbound call even if that check were bypassed.
 from __future__ import annotations
 
 import dataclasses
+import html
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -54,6 +55,9 @@ DB_SCHEMA: dict[str, list[tuple[str, str]]] = {
                ("product_id", "INTEGER"), ("quantity", "INTEGER")],
     "reviews": [("id", "INTEGER"), ("product_id", "INTEGER"),
                 ("username", "TEXT"), ("rating", "INTEGER")],
+    # Added for XSS Fundamentals (YC-035.5) — the feedback/comment store.
+    "comments": [("id", "INTEGER"), ("author", "TEXT"), ("content", "TEXT"),
+                 ("created_at", "TEXT")],
 }
 
 # Fixed, deterministic training payloads (YC-035.4). The simulator never
@@ -70,6 +74,69 @@ TRAINING_ERROR_PAYLOAD = "'"
 TRAINING_COMMENT_PAYLOAD = "' --"
 TRAINING_UNION_PAYLOAD = "' UNION SELECT NULL, NULL --"
 TRAINING_AUTH_BYPASS_USERNAME = "admin'--"
+
+# Fixed, deterministic training markers for XSS Fundamentals (YC-035.5) —
+# same discipline as the SQLi payloads above: 'has_xss_marker' only ever
+# compares input against this exact, fixed set of strings, case-
+# insensitively. There is no HTML/JS parser anywhere in this module and
+# nothing here is ever rendered by a real browser or executed as
+# JavaScript — an unrecognized, even realistic-looking, XSS-shaped string
+# (e.g. "<img src=x onerror=alert(1)>") is never treated specially; it is
+# just literal text, exactly like any other search term or comment.
+TRAINING_XSS_MARKERS = (
+    "<TRAINING_XSS>",
+    "<TRAINING_ALERT>",
+    "<TRAINING_MARKER>",
+    "<script>TRAINING_XSS</script>",
+)
+
+# A realistic-looking but fixed, non-secret Content-Security-Policy value
+# (YC-035.5) — informational only; nothing in this simulator enforces it
+# against anything, since no real script ever runs here regardless.
+CSP_POLICY = "default-src 'self'; script-src 'self'"
+
+
+def has_xss_marker(text: str) -> bool:
+    """True if `text` is *exactly* one of the fixed training markers
+    above (YC-035.5), case-insensitively. Public (unlike the SQLi
+    classifiers) because mission_validator.py never needs it — every XSS
+    validator check reads the structured 'X-Sim-XSS-Kind' response header
+    this module already sets, not raw text — but commands.py's
+    '_track_xss_response' and this module's own route handlers both need
+    it, so it lives here once rather than being duplicated."""
+    s = text.strip().lower()
+    return any(s == m.lower() for m in TRAINING_XSS_MARKERS)
+
+
+def _simulated_xss_panel(source: str, sink: str) -> str:
+    """The 'SIMULATED BROWSER EVENT' box (YC-035.5) — pure text
+    formatting appended to a response body when a training marker
+    reaches a simulated sink. Never a real DOM event, never real
+    JavaScript — the disclaimer line says so explicitly, every time."""
+    return (
+        "┌─────────────────────────────────┐\n"
+        "│ SIMULATED BROWSER EVENT          │\n"
+        "├─────────────────────────────────┤\n"
+        "│ XSS marker detected              │\n"
+        "└─────────────────────────────────┘\n"
+        f"Source: {source}\n"
+        f"Sink: {sink}\n"
+        "Result: simulated execution\n"
+        "Simulation only — no JavaScript executed in YushaCyber."
+    )
+
+
+@dataclass
+class Comment:
+    """A single stored training comment (YC-035.5) — 'sink' records
+    whether it was submitted through the vulnerable or secure feedback
+    endpoint, so /comments can render each one according to its own
+    origin without a second storage table."""
+    id: int
+    author: str
+    content: str
+    sink: str  # "vulnerable" | "secure"
+    created_at: str = "simulated"
 
 
 @dataclass
@@ -230,7 +297,8 @@ class WebApp:
     server, never a real socket."""
 
     def __init__(self, sessions: dict[str, str] | None = None,
-                 profiles: dict[str, dict[str, Any]] | None = None) -> None:
+                 profiles: dict[str, dict[str, Any]] | None = None,
+                 comments: list[Comment] | None = None) -> None:
         # session_id -> username. Mutated by successful logins/logouts,
         # exactly like VirtualNetwork's interface state (YC-034.6) —
         # small, explicit, session-scoped state.
@@ -242,8 +310,22 @@ class WebApp:
         # to verify.
         self.profiles: dict[str, dict[str, Any]] = (
             dict(profiles) if profiles else {})
+        # Stored training feedback (YC-035.5) — mirrors self.profiles:
+        # small, explicit, mutable, in-memory only. Populated by POST
+        # /feedback and /secure-feedback, rendered by GET /comments.
+        self.comments: list[Comment] = list(comments) if comments else []
 
     def handle(self, req: HttpRequest) -> HttpResponse:
+        """Dispatches to a route handler, then applies the one
+        cross-cutting concern every response shares (YC-035.5): a fixed,
+        informational Content-Security-Policy header. Centralized here so
+        every current and future route gets it automatically instead of
+        every handler repeating it."""
+        resp = self._route(req)
+        resp.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+        return resp
+
+    def _route(self, req: HttpRequest) -> HttpResponse:
         if req.path == "/" and req.method == "GET":
             return self._ok("Welcome to CyberShop — a simulated training storefront.")
         if req.path == "/products" and req.method == "GET":
@@ -256,6 +338,16 @@ class WebApp:
             return self._training_login(req)
         if req.path == "/secure-login" and req.method == "POST":
             return self._secure_login(req)
+        if req.path == "/feedback" and req.method == "GET":
+            return self._feedback_get(req)
+        if req.path == "/feedback" and req.method == "POST":
+            return self._feedback_post(req, sink="vulnerable")
+        if req.path == "/secure-feedback" and req.method == "POST":
+            return self._feedback_post(req, sink="secure")
+        if req.path == "/comments" and req.method == "GET":
+            return self._comments_get(req)
+        if req.path == "/dom-demo" and req.method == "GET":
+            return self._dom_demo_get(req)
         if req.path == "/login" and req.method == "GET":
             return self._redirect("/auth/login")
         if req.path == "/auth/login" and req.method == "GET":
@@ -320,7 +412,11 @@ class WebApp:
         q = req.query.get("q", "")
         kind = _classify_query_pattern(q)
         query_repr = _search_query_repr(q)
-        base_headers = {"X-Sim-Query-Kind": kind, "X-Sim-Query": query_repr}
+        # XSS reflection (YC-035.5) — independent of the SQLi kind above;
+        # both concerns coexist on the same endpoint via separate headers.
+        xss_kind = "reflected" if has_xss_marker(q) else "none"
+        base_headers = {"X-Sim-Query-Kind": kind, "X-Sim-Query": query_repr,
+                        "X-Sim-XSS-Kind": xss_kind, "X-Sim-XSS-Context": "html_text"}
 
         if kind == "error":
             body = "Database error: Unexpected quote in training query."
@@ -347,6 +443,8 @@ class WebApp:
             note = ""
 
         body = self._render_products(q, matches, note)
+        if xss_kind == "reflected":
+            body += "\n\n" + _simulated_xss_panel(source="search?q=", sink="reflected HTML")
         headers = {"Content-Type": "text/html", "Content-Length": str(len(body)),
                   "Server": SERVER_HEADER, "Cache-Control": "no-store", **base_headers}
         return HttpResponse(status_code=200, reason="OK", body=body,
@@ -362,10 +460,16 @@ class WebApp:
         q = req.query.get("q", "")
         matches = ([p for p in PRODUCTS if q.strip().lower() in p["name"].lower()]
                   if q.strip() else [])
-        body = self._render_products(q, matches, "")
+        # Output encoding (YC-035.5): the value shown in the body is
+        # HTML-escaped — '<'/'>'/etc. become '&lt;'/'&gt;'/etc. — so a
+        # training marker is displayed as inert text, never as markup.
+        escaped_q = html.escape(q, quote=True)
+        body = self._render_products(escaped_q, matches, "")
+        xss_kind = "encoded" if has_xss_marker(q) else "none"
         headers = {"Content-Type": "text/html", "Content-Length": str(len(body)),
                   "Server": SERVER_HEADER, "Cache-Control": "no-store",
-                  "X-Sim-Query-Kind": "parameterized", "X-Sim-Query": _secure_search_query_repr()}
+                  "X-Sim-Query-Kind": "parameterized", "X-Sim-Query": _secure_search_query_repr(),
+                  "X-Sim-XSS-Kind": xss_kind, "X-Sim-XSS-Context": "html_text"}
         return HttpResponse(status_code=200, reason="OK", body=body,
                             content_type="text/html", headers=headers)
 
@@ -409,6 +513,89 @@ class WebApp:
         return self._json_error(401, "Unauthorized",
                                 {"status": "error", "message": "Invalid training credentials"},
                                 extra_headers=base_headers)
+
+    def _feedback_get(self, req: HttpRequest) -> HttpResponse:
+        body = ("Submit training feedback:\n"
+               "POST /feedback (vulnerable) or POST /secure-feedback (secure) with "
+               "'name' and 'comment' form fields.\n"
+               "View stored comments at GET /comments.")
+        return self._ok(body, content_type="text/plain")
+
+    def _feedback_post(self, req: HttpRequest, sink: str) -> HttpResponse:
+        """Stores a training comment (YC-035.5) — 'sink' distinguishes
+        the vulnerable endpoint (rendered raw by /comments, later) from
+        the secure one (always rendered HTML-escaped). The vulnerable
+        submission's own response never shows a simulated execution
+        panel — that only appears when the comment is later *rendered*
+        by GET /comments, preserving the reflected-vs-stored distinction
+        (immediate vs. delayed). The secure endpoint's encoding is
+        provable immediately, since nothing unsafe ever happens either way."""
+        data = parse_body(req.body, req.headers.get("Content-Type", ""))
+        author = data.get("name", "anonymous")
+        content = data.get("comment", "")
+        comment = Comment(id=len(self.comments) + 1, author=author,
+                          content=content, sink=sink,
+                          created_at=f"training-entry-{len(self.comments) + 1}")
+        self.comments.append(comment)
+        if sink == "secure":
+            kind = "encoded" if has_xss_marker(content) else "none"
+        else:
+            kind = "stored" if has_xss_marker(content) else "none"
+        return self._json_ok({"status": "stored", "id": comment.id, "sink": sink},
+                             extra_headers={"X-Sim-XSS-Kind": kind})
+
+    def _comments_get(self, req: HttpRequest) -> HttpResponse:
+        lines = ["Stored training comments:"]
+        stored_event = False
+        if not self.comments:
+            lines.append("  (no comments yet)")
+        for c in self.comments:
+            if c.sink == "vulnerable":
+                lines.append(f"  #{c.id} {c.author}: {c.content}")
+                if has_xss_marker(c.content):
+                    stored_event = True
+                    lines.append("")
+                    lines.append(_simulated_xss_panel(
+                        source=f"stored comment #{c.id}", sink="rendered HTML (unsafe)"))
+                    lines.append("")
+            else:
+                escaped = html.escape(c.content, quote=True)
+                lines.append(f"  #{c.id} {c.author}: {escaped} (HTML-escaped)")
+        body = "\n".join(lines)
+        kind = "stored" if stored_event else "none"
+        headers = {"Content-Type": "text/html", "Content-Length": str(len(body)),
+                  "Server": SERVER_HEADER, "Cache-Control": "no-store",
+                  "X-Sim-XSS-Kind": kind, "X-Sim-XSS-Context": "html_text"}
+        return HttpResponse(status_code=200, reason="OK", body=body,
+                            content_type="text/html", headers=headers)
+
+    def _dom_demo_get(self, req: HttpRequest) -> HttpResponse:
+        """A conceptual DOM-XSS demo (YC-035.5): text describing a
+        simulated client-side source->sink flow. No real JavaScript runs
+        here — the 'processing'/'sink' lines are a description, not
+        code, and the only thing that changes with 'input' is which
+        branch of Python string formatting below executes."""
+        user_input = req.query.get("input", "")
+        triggered = has_xss_marker(user_input)
+        lines = [
+            "DOM XSS Demo (simulated client-side sink — no real JavaScript runs here)",
+            "",
+            "Source: the 'input' URL parameter (location.search)",
+            "Processing: simulated client-side JavaScript reads the parameter",
+            "Sink: simulated element.innerHTML assignment",
+            f"Current input: {user_input or '(none)'}",
+        ]
+        if triggered:
+            lines.append("")
+            lines.append(_simulated_xss_panel(
+                source="URL parameter 'input'", sink="simulated innerHTML DOM sink"))
+        body = "\n".join(lines)
+        kind = "dom" if triggered else "none"
+        headers = {"Content-Type": "text/html", "Content-Length": str(len(body)),
+                  "Server": SERVER_HEADER, "Cache-Control": "no-store",
+                  "X-Sim-XSS-Kind": kind, "X-Sim-XSS-Context": "dom"}
+        return HttpResponse(status_code=200, reason="OK", body=body,
+                            content_type="text/html", headers=headers)
 
     def _check_credentials(self, req: HttpRequest) -> str | None:
         """Returns the matched training username, or None if invalid.
@@ -767,12 +954,54 @@ def build_sqli_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
     return log
 
 
+def build_xss_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
+    """A fixed, deterministic transcript for the XSS Fundamentals final
+    objective (YC-035.5): a bug report says "our search bar and comments
+    section might be exposing us to script injection." The five-request
+    transcript shows a normal search (no marker), the same search with
+    the fixed training marker (reflected, immediately visible), a
+    feedback submission carrying the marker (stored, not yet visible),
+    viewing /comments (the delayed, stored reflection — the actual
+    moment the simulated event fires), and the same training marker
+    against /secure-search (HTML-escaped, no event) — reflected vs.
+    stored vs. defended, side by side. Built once against an isolated
+    WebApp instance — never touches the student's own session state, and
+    never executes anything as real JavaScript."""
+    app = WebApp()
+    log: list[tuple[HttpRequest, HttpResponse]] = []
+
+    def _get(path: str, q: dict[str, str], timestamp: float) -> HttpRequest:
+        url = parse_url(f"https://{HOST}{path}")
+        url.query = dict(q)
+        return build_request("GET", url, timestamp=timestamp)
+
+    req = _get("/search", {"q": "laptop"}, 1.0)
+    log.append((req, app.handle(req)))
+
+    marker = TRAINING_XSS_MARKERS[0]
+    req = _get("/search", {"q": marker}, 2.0)
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/feedback")
+    req = build_request("POST", url, body=f"name=student&comment={marker}", timestamp=3.0)
+    log.append((req, app.handle(req)))
+
+    req = _get("/comments", {}, 4.0)
+    log.append((req, app.handle(req)))
+
+    req = _get("/secure-search", {"q": marker}, 5.0)
+    log.append((req, app.handle(req)))
+
+    return log
+
+
 _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResponse]]]] = {
     "login-flow": build_investigation_log,
     "content-type-bug": build_content_type_bug_log,
     "profile-mismatch": build_profile_mismatch_log,
     "auth-lifecycle": build_auth_lifecycle_log,
     "sqli-investigation": build_sqli_investigation_log,
+    "xss-investigation": build_xss_investigation_log,
 }
 
 
@@ -893,13 +1122,40 @@ class SqliLabState:
         )
 
 
+@dataclass
+class XssLabState:
+    """XSS Fundamentals training state (YC-035.5) — mirrors SqliLabState:
+    small, explicit, mutable, in-memory only. Every field backs a
+    structured validator check instead of matching rendered text; set
+    from a response's 'X-Sim-XSS-Kind' header (see commands.py's
+    _track_xss_response), never by re-parsing raw text."""
+    reflected_seen: bool = False
+    stored_seen: bool = False
+    dom_seen: bool = False
+    secure_search_tested: bool = False
+    secure_feedback_tested: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return dataclasses.asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> XssLabState:
+        return cls(
+            reflected_seen=d.get("reflected_seen", False),
+            stored_seen=d.get("stored_seen", False),
+            dom_seen=d.get("dom_seen", False),
+            secure_search_tested=d.get("secure_search_tested", False),
+            secure_feedback_tested=d.get("secure_feedback_tested", False),
+        )
+
+
 class WebLab:
     """Everything a web-fundamentals mission session needs: the
     simulated site, the student's own session, the fixed investigation
     transcript for the final objective, and (YC-035.2) intercepting-proxy
     state. `proxy` costs nothing for missions that never touch it (its
     counters simply stay at their defaults) so YC-035.0/YC-035.1 are
-    unaffected. Same for `sqli` (YC-035.4)."""
+    unaffected. Same for `sqli` (YC-035.4) and `xss` (YC-035.5)."""
 
     def __init__(self, app: WebApp, investigation_log: list[tuple[HttpRequest, HttpResponse]]) -> None:
         self.app = app
@@ -914,19 +1170,24 @@ class WebLab:
         # check.
         self.expired_count = 0
         self.sqli = SqliLabState()
+        self.xss = XssLabState()
 
     def to_dict(self) -> dict[str, Any]:
         return {"sessions": dict(self.app.sessions), "profiles": dict(self.app.profiles),
+                "comments": [dataclasses.asdict(c) for c in self.app.comments],
                 "session": self.session.to_dict(), "proxy": self.proxy.to_dict(),
-                "expired_count": self.expired_count, "sqli": self.sqli.to_dict()}
+                "expired_count": self.expired_count, "sqli": self.sqli.to_dict(),
+                "xss": self.xss.to_dict()}
 
     def apply_state(self, snapshot: dict[str, Any]) -> None:
         self.app.sessions = dict(snapshot.get("sessions", {}))
         self.app.profiles = dict(snapshot.get("profiles", {}))
+        self.app.comments = [Comment(**c) for c in snapshot.get("comments", [])]
         self.session = WebSession.from_dict(snapshot.get("session", {}))
         self.proxy = ProxyState.from_dict(snapshot.get("proxy", {}))
         self.expired_count = snapshot.get("expired_count", 0)
         self.sqli = SqliLabState.from_dict(snapshot.get("sqli", {}))
+        self.xss = XssLabState.from_dict(snapshot.get("xss", {}))
 
 
 def build_web_lab(scenario: str = "login-flow") -> WebLab:

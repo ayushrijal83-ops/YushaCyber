@@ -635,6 +635,30 @@ def _track_sqli_response(sh: Shell, req, resp) -> None:
             s.secure_login_tested = True
 
 
+def _track_xss_response(sh: Shell, req, resp) -> None:
+    """Records structured evidence for the XSS Fundamentals mission
+    (YC-035.5) into WebLab.xss's flags, read off the response's
+    'X-Sim-XSS-Kind' header (set by WebApp's fixed, pattern-matched
+    training routes — see web.py). Same discipline as
+    _track_sqli_response: a validator check reads a flag, never rendered
+    text. A no-op for every other mission (the header is simply absent)."""
+    if sh.web_lab is None:
+        return
+    kind = resp.headers.get("X-Sim-XSS-Kind")
+    s = sh.web_lab.xss
+    if kind == "reflected":
+        s.reflected_seen = True
+    elif kind == "stored":
+        s.stored_seen = True
+    elif kind == "dom":
+        s.dom_seen = True
+    elif kind == "encoded":
+        if req.path == "/secure-search":
+            s.secure_search_tested = True
+        elif req.path == "/secure-feedback":
+            s.secure_feedback_tested = True
+
+
 @cmd("open")
 def _open(sh: Shell, args: list[str]) -> str:
     if sh.web_lab is None:
@@ -672,6 +696,7 @@ def _open(sh: Shell, args: list[str]) -> str:
     resp = sh.web_lab.app.handle(req)
     sh.web_lab.session.record(req, resp)
     _track_sqli_response(sh, req, resp)
+    _track_xss_response(sh, req, resp)
     return render_exchange(req, resp)
 
 
@@ -916,6 +941,7 @@ def _forward(sh: Shell, args: list[str]) -> str:
     resp = sh.web_lab.app.handle(req)
     sh.web_lab.session.record(req, resp)
     _track_sqli_response(sh, req, resp)
+    _track_xss_response(sh, req, resp)
     p.pending = None
     p.forwarded_count += 1
     return "Request forwarded.\n" + render_exchange(req, resp)
@@ -998,6 +1024,7 @@ def _repeater(sh: Shell, args: list[str]) -> str:
         resp = sh.web_lab.app.handle(req)
         sh.web_lab.session.record(req, resp)
         _track_sqli_response(sh, req, resp)
+        _track_xss_response(sh, req, resp)
         p.repeater_sent_count += 1
         return "Repeater: request sent.\n" + render_exchange(req, resp)
     if not hist:

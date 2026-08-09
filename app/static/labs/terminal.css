@@ -229,3 +229,29 @@ body.tm-body{background:var(--tm-bg);color:var(--tm-text);font-family:var(--tm-f
     .tm-sqli{padding:12px 14px}
     .tm-sqli__grid,.tm-sqli__compare-grid{grid-template-columns:1fr}
 }
+
+/* ── XSS Fundamentals (YC-035.5) — same visual language as tm-sqli/tm-proxy ── */
+.tm-xss{background:var(--tm-surface);border-top:1px solid #1e2028;padding:14px 20px}
+.tm-xss__bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tm-xss__title{font-weight:700;font-size:.82rem}
+.tm-xss__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}
+.tm-xss__box{background:var(--tm-bg);border:1px solid #1e2028;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.tm-xss__box--wide{grid-column:1/-1;margin-bottom:12px}
+.tm-xss__quickpicks{display:flex;gap:6px;flex-wrap:wrap}
+.tm-xss__quickpicks .btn{font-size:.64rem;padding:4px 8px}
+.tm-xss__comments{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+.tm-xss__comment{background:var(--tm-surface);border:1px solid #1e2028;border-radius:6px;padding:8px 10px;font-size:.72rem;color:var(--tm-text)}
+.tm-xss__comment-author{font-weight:700;color:var(--tm-green);margin-right:6px}
+.tm-xss__comment-badge{font-size:.6rem;color:var(--tm-accent);margin-left:6px;font-style:italic}
+.tm-xss__comment-empty{color:var(--tm-muted);font-size:.72rem;font-style:italic}
+.tm-xss__flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tm-xss__flow-step{background:var(--tm-surface);border:1px solid #1e2028;border-radius:6px;color:var(--tm-text);font-family:var(--tm-font);font-size:.68rem;padding:6px 10px;cursor:pointer;transition:all .15s}
+.tm-xss__flow-step:hover{border-color:var(--tm-accent);color:var(--tm-accent)}
+.tm-xss__flow-step:focus-visible{outline:2px solid var(--tm-accent);outline-offset:2px}
+.tm-xss__flow-step.is-active{border-color:var(--tm-green);color:var(--tm-green);background:rgba(34,197,94,.08)}
+
+@media(max-width:600px){
+    .tm-xss{padding:12px 14px}
+    .tm-xss__grid{grid-template-columns:1fr}
+    .tm-xss__flow{flex-direction:column;align-items:stretch}
+}

@@ -462,9 +462,11 @@ class TestLoader:
     def test_chained_after_authentication_sessions(self):
         assert MISSIONS["authentication-sessions"]["next_mission"] == "sql-injection-fundamentals"
 
-    def test_terminal_mission(self):
+    def test_chains_to_xss_fundamentals(self):
+        # Chained after this mission by YC-035.5 — see
+        # docs/XSS_FUNDAMENTALS.md.
         m = get_mission("sql-injection-fundamentals")
-        assert m["next_mission"] is None
+        assert m["next_mission"] == "xss-fundamentals"
 
     def test_web_lab_scenario_set(self):
         m = get_mission("sql-injection-fundamentals")

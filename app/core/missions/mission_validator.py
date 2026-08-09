@@ -365,6 +365,76 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
         return _fail(obj_id, "Collect more evidence: the TRUE/FALSE comparison, the query "
                             "representation ('query'), and the secure endpoint result.")
 
+    # ── XSS Fundamentals (YC-035.5). Each check reads either the last
+    # request/response's structured 'X-Sim-XSS-Kind'/'X-Sim-XSS-Context'
+    # headers (set deterministically by WebApp's fixed training routes —
+    # see web.py) or a flag off WebLab.xss (XssLabState) — never rendered
+    # text, matching this file's established discipline.
+    if check == "reflected_input":
+        if resp is not None and resp.headers.get("X-Sim-XSS-Kind") == "reflected":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send the training marker to /search as the 'q' parameter.")
+
+    if check == "html_context":
+        if resp is not None and resp.headers.get("X-Sim-XSS-Context") == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Check the X-Sim-XSS-Context header on your last response.")
+
+    if check == "simulated_xss_event":
+        if resp is not None and resp.headers.get("X-Sim-XSS-Kind") in ("reflected", "stored", "dom"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Trigger one of the training markers first.")
+
+    if check == "stored_input":
+        stage = expected.lower()
+        kind = resp.headers.get("X-Sim-XSS-Kind") if resp else None
+        if stage == "submitted":
+            if req is not None and req.path == "/feedback" and req.method == "POST" and kind == "stored":
+                return _pass(obj_id, xp)
+            return _fail(obj_id, "POST to /feedback with the training marker in the 'comment' field.")
+        if stage == "displayed":
+            if req is not None and req.path == "/comments" and kind == "stored":
+                return _pass(obj_id, xp)
+            return _fail(obj_id, "Open /comments after submitting the training marker.")
+        return _fail(obj_id, "Unknown stage.")
+
+    if check == "reflected_vs_stored":
+        if lab.xss.reflected_seen and lab.xss.stored_seen:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Trigger both the reflected (/search) and stored (/feedback + "
+                            "/comments) training markers first.")
+
+    if check == "dom_source":
+        if req is not None and req.path == "/dom-demo":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Open /dom-demo first.")
+
+    if check == "dom_sink":
+        if resp is not None and resp.headers.get("X-Sim-XSS-Kind") == "dom":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send the training marker to /dom-demo as the 'input' parameter.")
+
+    if check == "secure_encoding":
+        target = v.get("endpoint", "/secure-search")
+        if (req is not None and req.path == target
+                and resp is not None and resp.headers.get("X-Sim-XSS-Kind") == "encoded"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Send the same training marker to {target}.")
+
+    if check == "html_escaped_observed":
+        if resp is not None and "&lt;" in resp.body and "&gt;" in resp.body:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send a marker containing < and > to a secure endpoint and "
+                            "check the response body.")
+
+    if check == "xss_evidence_collected":
+        s = lab.xss
+        if (s.reflected_seen and s.stored_seen and s.dom_seen
+                and (s.secure_search_tested or s.secure_feedback_tested)):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Collect more evidence: reflected, stored, DOM, and a "
+                            "secure-endpoint comparison.")
+
     if check == "session_authenticated":
         # Deliberately requires the *last request* to actually be a
         # successful hit on a session-gated resource — not just "a valid

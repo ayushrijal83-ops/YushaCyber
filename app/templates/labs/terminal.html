@@ -173,7 +173,7 @@
 </section>
 {% endif %}
 
-{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions', 'sql-injection-fundamentals') %}
+{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions', 'sql-injection-fundamentals', 'xss-fundamentals') %}
 {# ── Proxy Control (YC-035.2): intercept/forward/drop/edit/Repeater/ ──
    compare, all driven through the same terminal exec() path as the
    Request Builder below — buttons here only ever synthesize a command
@@ -347,6 +347,155 @@
         <span class="tm-proxy__badge" data-sqli-badge-bypass>Auth bypass: not triggered</span>
         <span class="tm-proxy__badge" data-sqli-badge-secure>Secure endpoint: not tested</span>
         <span class="tm-proxy__badge" data-sqli-badge-inspections>Query inspections: 0</span>
+    </div>
+</section>
+{% endif %}
+
+{% if mission and mission.web_lab_status and mission.mission.id == 'xss-fundamentals' %}
+{# ── XSS Fundamentals (YC-035.5): a training application (Search / ──
+   Feedback / Comments / DOM Demo), a reflection visualizer, a source/
+   sink visualizer, a vulnerable-vs-secure comparison, a CSP panel, and
+   an evidence checklist — all driven through the same exec() path as
+   every other button on this page. No live SQL/JS console, no client-
+   side script execution: every button only ever synthesizes an
+   'open ...' command a student could type themselves. #}
+<section class="tm-xss" aria-label="XSS Training Application">
+    <div class="tm-xss__bar">
+        <span class="tm-xss__title">🧪 Training Application — cybershop.training</span>
+    </div>
+
+    <div class="tm-xss__grid">
+        {# ── Search: reflected XSS, vulnerable vs. secure ── #}
+        <div class="tm-xss__box">
+            <div class="tm-proxy__box-head">Search</div>
+            <label class="tm-inspector__field">Search term
+                <input type="text" data-xss-search-input placeholder="laptop" />
+            </label>
+            <div class="tm-xss__quickpicks">
+                <button type="button" class="btn btn--outline" data-xss-quickpick="search:normal">laptop</button>
+                <button type="button" class="btn btn--outline" data-xss-quickpick="search:marker">Training marker</button>
+            </div>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-xss-search-vuln>Search (Vulnerable)</button>
+                <button type="button" class="btn btn--outline" data-xss-search-secure>Search (Secure)</button>
+            </div>
+        </div>
+
+        {# ── Feedback: stored XSS ── #}
+        <div class="tm-xss__box">
+            <div class="tm-proxy__box-head">Feedback</div>
+            <label class="tm-inspector__field">Name
+                <input type="text" data-xss-feedback-name placeholder="student" />
+            </label>
+            <label class="tm-inspector__field">Comment
+                <input type="text" data-xss-feedback-comment placeholder="Great product!" />
+            </label>
+            <button type="button" class="btn btn--outline" data-xss-feedback-marker>Fill training marker</button>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-xss-feedback-vuln>Submit (Vulnerable)</button>
+                <button type="button" class="btn btn--outline" data-xss-feedback-secure>Submit (Secure)</button>
+            </div>
+            <button type="button" class="btn btn--outline" data-xss-comments-view>View Comments</button>
+        </div>
+
+        {# ── DOM Demo: conceptual DOM-based XSS ── #}
+        <div class="tm-xss__box">
+            <div class="tm-proxy__box-head">DOM Demo</div>
+            <label class="tm-inspector__field">Input parameter
+                <input type="text" data-xss-dom-input placeholder="(none)" />
+            </label>
+            <button type="button" class="btn btn--outline" data-xss-dom-marker>Fill training marker</button>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-xss-dom-open>Open DOM Demo</button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Stored comments — a pure view over web_lab_status.comments ── #}
+    <div class="tm-xss__box tm-xss__box--wide">
+        <div class="tm-proxy__box-head">Comments</div>
+        <ul class="tm-xss__comments" data-xss-comments aria-label="Stored training comments">
+            <li class="tm-xss__comment-empty">No comments yet.</li>
+        </ul>
+    </div>
+
+    {# ── Reflection Visualizer: clickable flow steps ── #}
+    <div class="tm-xss__box tm-xss__box--wide">
+        <div class="tm-proxy__box-head">Reflection Visualizer <span class="tm-sqli__note">(click a step)</span></div>
+        <div class="tm-xss__flow" role="list" aria-label="Reflection flow">
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="input" role="listitem">User Input</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="request" role="listitem">HTTP Request</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="server" role="listitem">Server</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="response" role="listitem">HTML Response</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="parser" role="listitem">Browser Parser</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="context" role="listitem">HTML Context</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="event" role="listitem">Simulated XSS Event</button>
+        </div>
+        <p class="tm-sqli__note" data-xss-flow-explain>Click a step above to see what it means.</p>
+    </div>
+
+    {# ── Source/Sink Visualizer: clickable, for DOM XSS ── #}
+    <div class="tm-xss__box tm-xss__box--wide">
+        <div class="tm-proxy__box-head">Source/Sink Visualizer <span class="tm-sqli__note">(click Source or Sink)</span></div>
+        <div class="tm-xss__flow" role="list" aria-label="Source and sink flow">
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="source" role="listitem">SOURCE — URL parameter</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="processing" role="listitem">PROCESSING — client-side JS</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="sink" role="listitem">SINK — DOM HTML insertion</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-xss-flow-step="result" role="listitem">RESULT — simulated event</button>
+        </div>
+        <p class="tm-sqli__note" data-xss-sink-explain>Click a step above to see what it means.</p>
+    </div>
+
+    {# ── Vulnerable vs. Secure — interactive side-by-side comparison ── #}
+    <div class="tm-xss__box tm-xss__box--wide">
+        <div class="tm-proxy__box-head">Vulnerable vs. Secure — Side by Side</div>
+        <div class="tm-proxy__builder-row">
+            <label class="tm-inspector__field tm-inspector__field--grow">Training marker to send to both
+                <input type="text" data-xss-compare-input placeholder="<TRAINING_XSS>" />
+            </label>
+            <button type="button" class="btn btn--primary" data-xss-compare-run>Send to Both</button>
+        </div>
+        <div class="tm-sqli__compare-grid">
+            <div>
+                <div class="tm-sqli__table-name">Vulnerable — /search</div>
+                <div class="tm-sqli__compare-facts">
+                    <span>HTML rendering</span><span>Input affects markup</span><span>Potential XSS</span>
+                </div>
+                <pre class="tm-proxy__pre" data-xss-compare-vuln>No comparison yet.</pre>
+            </div>
+            <div>
+                <div class="tm-sqli__table-name">Secure — /secure-search</div>
+                <div class="tm-sqli__compare-facts">
+                    <span>Context-aware encoding</span><span>Input stays text</span><span>Safer</span>
+                </div>
+                <pre class="tm-proxy__pre" data-xss-compare-secure>No comparison yet.</pre>
+            </div>
+        </div>
+    </div>
+
+    {# ── CSP panel — informational, not a bypass tool ── #}
+    <div class="tm-xss__box tm-xss__box--wide">
+        <div class="tm-proxy__box-head">Content Security Policy</div>
+        <pre class="tm-proxy__pre" data-xss-csp>default-src 'self'; script-src 'self'</pre>
+        <p class="tm-sqli__note">CSP can reduce the impact of some XSS — it is an additional
+            defense, not a replacement for correct, context-aware output encoding.</p>
+    </div>
+
+    {# ── Evidence checklist — a pure view over WebLab.xss's flags ── #}
+    <div class="tm-sqli__badges" data-xss-badges aria-label="Evidence collected">
+        <span class="tm-proxy__badge" data-xss-badge-reflected>Reflected: not seen</span>
+        <span class="tm-proxy__badge" data-xss-badge-stored>Stored: not seen</span>
+        <span class="tm-proxy__badge" data-xss-badge-dom>DOM: not seen</span>
+        <span class="tm-proxy__badge" data-xss-badge-secure>Secure endpoint: not tested</span>
     </div>
 </section>
 {% endif %}

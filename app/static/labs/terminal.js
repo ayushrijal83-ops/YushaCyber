@@ -137,6 +137,7 @@ function exec(cmd, onDone){
             renderProxy(d.web_lab_status);
             renderSession(d.web_lab_status);
             renderSqli(d.web_lab_status);
+            renderXss(d.web_lab_status);
         }
         /* ── Mission complete ── */
         if(d.completed){
@@ -650,6 +651,198 @@ if(sqliCompareRun){
     });
 }
 
+/* ── XSS Fundamentals (YC-035.5) ──
+   Evidence badges and the comments list are a pure view over
+   status.xss's flags and status.comments (both part of
+   web_lab_status(), already carried on every /execute response) — same
+   pattern as renderProxy()/renderSqli(). Comment content is always
+   inserted via textContent/createTextNode, never innerHTML, so nothing
+   a student (or the simulator) puts in a comment can ever become live
+   markup in this real page — the whole point of this mission. Every
+   button below only ever builds an 'open ...' command a student could
+   type themselves and submits it through the same exec() path. */
+var XSS_MARKER = '<TRAINING_XSS>';
+
+var XSS_FLOW_EXPLAIN = {
+    input: 'The value you type into the search box or comment field — never trusted until proven safe.',
+    request: 'Your browser sends it to the server as part of an HTTP request (e.g. GET /search?q=...).',
+    server: 'The server receives the request and builds a response — this is where unsafe concatenation happens.',
+    response: 'The HTML response is sent back, with your input embedded directly in the markup.',
+    parser: 'The browser\'s HTML parser reads the response and builds the page.',
+    context: 'Where your input landed determines what it means — here, plain HTML text content.',
+    event: 'If your input matches a recognized training marker, a simulated browser event fires — never real JavaScript.'
+};
+var XSS_SINK_EXPLAIN = {
+    source: 'Where untrusted data enters the page — here, a URL parameter.',
+    processing: 'Simulated client-side JavaScript reads the source value — no real JavaScript ever runs here.',
+    sink: 'Where the value would be inserted into the DOM — here, a simulated innerHTML-style assignment.',
+    result: 'If the value matches a training marker, a simulated DOM XSS event fires.'
+};
+
+function renderXss(status){
+    if(!status) return;
+    var panel = document.querySelector('[data-xss-badges]');
+    if(!panel) return; /* panel not present on this mission */
+    var x = status.xss || {};
+
+    var rBadge = document.querySelector('[data-xss-badge-reflected]');
+    if(rBadge){
+        rBadge.textContent = 'Reflected: ' + (x.reflected_seen ? 'seen' : 'not seen');
+        rBadge.classList.toggle('tm-proxy__badge--on', !!x.reflected_seen);
+    }
+    var sBadge = document.querySelector('[data-xss-badge-stored]');
+    if(sBadge){
+        sBadge.textContent = 'Stored: ' + (x.stored_seen ? 'seen' : 'not seen');
+        sBadge.classList.toggle('tm-proxy__badge--on', !!x.stored_seen);
+    }
+    var dBadge = document.querySelector('[data-xss-badge-dom]');
+    if(dBadge){
+        dBadge.textContent = 'DOM: ' + (x.dom_seen ? 'seen' : 'not seen');
+        dBadge.classList.toggle('tm-proxy__badge--on', !!x.dom_seen);
+    }
+    var secBadge = document.querySelector('[data-xss-badge-secure]');
+    if(secBadge){
+        var tested = x.secure_search_tested || x.secure_feedback_tested;
+        secBadge.textContent = 'Secure endpoint: ' + (tested ? 'tested' : 'not tested');
+        secBadge.classList.toggle('tm-proxy__badge--on', !!tested);
+    }
+
+    var commentsEl = document.querySelector('[data-xss-comments]');
+    if(commentsEl && status.comments){
+        commentsEl.innerHTML = '';
+        if(!status.comments.length){
+            var empty = document.createElement('li');
+            empty.className = 'tm-xss__comment-empty';
+            empty.textContent = 'No comments yet.';
+            commentsEl.appendChild(empty);
+        }
+        status.comments.forEach(function(c){
+            var li = document.createElement('li');
+            li.className = 'tm-xss__comment';
+            var authorSpan = document.createElement('span');
+            authorSpan.className = 'tm-xss__comment-author';
+            authorSpan.textContent = c.author + ':';
+            li.appendChild(authorSpan);
+            li.appendChild(document.createTextNode(' ' + c.content));
+            var badge = document.createElement('span');
+            badge.className = 'tm-xss__comment-badge';
+            badge.textContent = c.sink === 'secure' ? '(secure — HTML-escaped)' : '(vulnerable)';
+            li.appendChild(badge);
+            commentsEl.appendChild(li);
+        });
+    }
+}
+
+var xssSearchInput = document.querySelector('[data-xss-search-input]');
+document.querySelectorAll('[data-xss-quickpick]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        var key = btn.dataset.xssQuickpick;
+        if(!xssSearchInput) return;
+        if(key === 'search:normal') xssSearchInput.value = 'laptop';
+        if(key === 'search:marker') xssSearchInput.value = XSS_MARKER;
+    });
+});
+
+function xssRunSearch(path){
+    var q = xssSearchInput ? xssSearchInput.value : '';
+    var url = 'https://cybershop.training' + path + '?q=' + q;
+    var cmd = 'open ' + shQuote(url);
+    appendCmd(currentPrompt, cmd);
+    exec(cmd);
+}
+var xssSearchVuln = document.querySelector('[data-xss-search-vuln]');
+if(xssSearchVuln) xssSearchVuln.addEventListener('click', function(){ xssRunSearch('/search'); });
+var xssSearchSecure = document.querySelector('[data-xss-search-secure]');
+if(xssSearchSecure) xssSearchSecure.addEventListener('click', function(){ xssRunSearch('/secure-search'); });
+
+var xssFeedbackMarkerBtn = document.querySelector('[data-xss-feedback-marker]');
+if(xssFeedbackMarkerBtn){
+    xssFeedbackMarkerBtn.addEventListener('click', function(){
+        var c = document.querySelector('[data-xss-feedback-comment]');
+        if(c) c.value = XSS_MARKER;
+    });
+}
+function xssRunFeedback(path){
+    var name = document.querySelector('[data-xss-feedback-name]');
+    var comment = document.querySelector('[data-xss-feedback-comment]');
+    var nv = name ? name.value : '', cv = comment ? comment.value : '';
+    var body = 'name=' + nv + '&comment=' + cv;
+    var cmd = 'open -X POST -d ' + shQuote(body) + ' https://cybershop.training' + path;
+    appendCmd(currentPrompt, cmd);
+    exec(cmd);
+}
+var xssFeedbackVuln = document.querySelector('[data-xss-feedback-vuln]');
+if(xssFeedbackVuln) xssFeedbackVuln.addEventListener('click', function(){ xssRunFeedback('/feedback'); });
+var xssFeedbackSecure = document.querySelector('[data-xss-feedback-secure]');
+if(xssFeedbackSecure) xssFeedbackSecure.addEventListener('click', function(){ xssRunFeedback('/secure-feedback'); });
+
+var xssCommentsView = document.querySelector('[data-xss-comments-view]');
+if(xssCommentsView){
+    xssCommentsView.addEventListener('click', function(){
+        var cmd = 'open https://cybershop.training/comments';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+var xssDomMarkerBtn = document.querySelector('[data-xss-dom-marker]');
+if(xssDomMarkerBtn){
+    xssDomMarkerBtn.addEventListener('click', function(){
+        var inp = document.querySelector('[data-xss-dom-input]');
+        if(inp) inp.value = XSS_MARKER;
+    });
+}
+var xssDomOpen = document.querySelector('[data-xss-dom-open]');
+if(xssDomOpen){
+    xssDomOpen.addEventListener('click', function(){
+        var inp = document.querySelector('[data-xss-dom-input]');
+        var v = inp ? inp.value : '';
+        var url = 'https://cybershop.training/dom-demo' + (v ? ('?input=' + v) : '');
+        var cmd = 'open ' + shQuote(url);
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+document.querySelectorAll('[data-xss-flow-step]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        var key = btn.dataset.xssFlowStep;
+        var group = btn.closest('.tm-xss__box');
+        if(group){
+            group.querySelectorAll('.tm-xss__flow-step').forEach(function(b){ b.classList.remove('is-active'); });
+        }
+        btn.classList.add('is-active');
+        var explain = XSS_FLOW_EXPLAIN[key];
+        var target = document.querySelector('[data-xss-flow-explain]');
+        if(!explain){
+            explain = XSS_SINK_EXPLAIN[key];
+            target = document.querySelector('[data-xss-sink-explain]');
+        }
+        if(target && explain) target.textContent = explain;
+    });
+});
+
+var xssCompareRun = document.querySelector('[data-xss-compare-run]');
+if(xssCompareRun){
+    xssCompareRun.addEventListener('click', function(){
+        var input = document.querySelector('[data-xss-compare-input]');
+        var q = input ? input.value : '';
+        if(!q) return;
+        var vulnCmd = 'open ' + shQuote('https://cybershop.training/search?q=' + q);
+        var secureCmd = 'open ' + shQuote('https://cybershop.training/secure-search?q=' + q);
+        appendCmd(currentPrompt, vulnCmd);
+        exec(vulnCmd, function(d1){
+            var vulnEl = document.querySelector('[data-xss-compare-vuln]');
+            if(vulnEl) vulnEl.textContent = d1.output || 'No comparison yet.';
+            appendCmd(currentPrompt, secureCmd);
+            exec(secureCmd, function(d2){
+                var secureEl = document.querySelector('[data-xss-compare-secure]');
+                if(secureEl) secureEl.textContent = d2.output || 'No comparison yet.';
+            });
+        });
+    });
+}
+
 /* Initial render from server-rendered state, so the panel isn't empty
    until the student's first command. */
 var initialWebLabEl = document.getElementById('tm-web-lab-initial');
@@ -660,6 +853,7 @@ if(initialWebLabEl){
         renderProxy(initialWebLab);
         renderSession(initialWebLab);
         renderSqli(initialWebLab);
+        renderXss(initialWebLab);
     }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
@@ -799,6 +993,7 @@ function doReset(){
             renderProxy(d.web_lab_status);
             renderSession(d.web_lab_status);
             renderSqli(d.web_lab_status);
+            renderXss(d.web_lab_status);
         }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');

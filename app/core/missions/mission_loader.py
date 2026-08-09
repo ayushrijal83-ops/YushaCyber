@@ -2445,6 +2445,310 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "web_lab": "sqli-investigation",
+        "next_mission": "xss-fundamentals",
+    },
+    "xss-fundamentals": {
+        "id": "xss-fundamentals",
+        "title": "Cross-Site Scripting Fundamentals",
+        "description": "Learn how unsafe HTML rendering lets untrusted input become "
+                       "part of the page itself — reflected, stored, and DOM-based XSS "
+                       "— against the same simulated training site (CyberShop) and the "
+                       "same Proxy/Repeater from YC-035.2. The simulator recognizes only "
+                       "a fixed set of exact training markers and maps each to a "
+                       "predetermined, deterministic 'simulated browser event' — it "
+                       "never executes anything you type as real JavaScript, never "
+                       "touches a real browser, cookie, or localStorage, and never lets "
+                       "you escape the training environment. No real exploitation "
+                       "tooling, no cookie/credential theft, no payload generators — "
+                       "that's out of scope everywhere.",
+        "difficulty": "Intermediate",
+        "category": "Web Security",
+        "xp_total": 750,
+        "estimated_minutes": 70,
+        "learn": ["What XSS is and why it happens", "Reflected XSS", "Stored XSS",
+                  "DOM-based XSS (conceptual)", "Source and sink", "HTML context",
+                  "Output encoding / HTML escaping", "Trusted vs. untrusted data",
+                  "Content Security Policy (conceptual)", "Vulnerable vs. secure rendering",
+                  "Evidence-based vulnerability confirmation"],
+        "objectives": [
+            {
+                "id": "xs-1",
+                "title": "XSS Basics",
+                "description": "Cross-Site Scripting happens when untrusted input is "
+                               "rendered as part of a page's HTML instead of as inert "
+                               "text. Check the simulated site's overview to see this "
+                               "mission's new routes.",
+                "hints": [
+                    ("The same overview command from earlier missions lists this "
+                     "mission's routes too."),
+                    "It's a single short word.",
+                    "Use 'web'.",
+                ],
+                "validate": {"type": "command", "match": "web"},
+                "xp": 35,
+            },
+            {
+                "id": "xs-2",
+                "title": "Untrusted Input",
+                "description": "Search the training catalog for 'laptop' and identify "
+                               "which value came from you, the user.",
+                "hints": [
+                    "Every part of this request is fixed except one — the part you typed.",
+                    "It's the 'q' query string parameter.",
+                    "Use 'open https://cybershop.training/search?q=laptop'.",
+                ],
+                "validate": {"type": "web_state", "check": "query_param", "param": "q", "match": "laptop"},
+                "xp": 35,
+            },
+            {
+                "id": "xs-3",
+                "title": "Reflected XSS",
+                "description": "Send the fixed training marker <TRAINING_XSS> to "
+                               "/search and observe it reflected — plus a simulated "
+                               "browser event.",
+                "hints": [
+                    ("A reflected value shows up immediately, in the very next "
+                     "response — nothing is saved anywhere."),
+                    "Set q to <TRAINING_XSS> exactly.",
+                    'Use \'open "https://cybershop.training/search?q=<TRAINING_XSS>"\'.',
+                ],
+                "validate": {"type": "web_state", "check": "reflected_input", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "xs-4",
+                "title": "Inspect HTTP Request",
+                "description": "Capture a search request using the Proxy before it "
+                               "reaches the server.",
+                "hints": [
+                    ("Turn interception on first, the same way you did in the Burp "
+                     "Suite mission."),
+                    "Use 'intercept on', then make a search request.",
+                    "Use 'intercept on', then 'open https://cybershop.training/search?q=keyboard'.",
+                ],
+                "validate": {"type": "web_state", "check": "request_intercepted", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "xs-5",
+                "title": "Identify Reflection",
+                "description": "Find the exact training marker you submitted inside "
+                               "the simulated response body.",
+                "hints": [
+                    "Compare what you submitted with what the server returned.",
+                    "Look for your input inside the response.",
+                    "The 'q' parameter's value appears verbatim in the returned HTML.",
+                ],
+                "validate": {"type": "web_state", "check": "reflected_input", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "xs-6",
+                "title": "Identify HTML Context",
+                "description": "Determine that your reflected value is being rendered "
+                               "as HTML text content, not inside an attribute, a script, "
+                               "or a URL.",
+                "hints": [
+                    ("Different places a value can land in a page (text, an attribute, "
+                     "a <script> block, a URL) need different defenses."),
+                    "Check the X-Sim-XSS-Context header on your last search response.",
+                    "It should read 'html_text'.",
+                ],
+                "validate": {"type": "web_state", "check": "html_context", "match": "html_text"},
+                "xp": 40,
+            },
+            {
+                "id": "xs-7",
+                "title": "Simulated Execution",
+                "description": "Trigger the controlled XSS training marker again and "
+                               "observe the 'SIMULATED BROWSER EVENT' panel in the "
+                               "response.",
+                "hints": [
+                    ("This is the same marker from Objective 3 — look at the panel "
+                     "beneath the search results."),
+                    "It's clearly labeled and states no real JavaScript ever runs.",
+                    'Use \'open "https://cybershop.training/search?q=<TRAINING_XSS>"\' again if needed.',
+                ],
+                "validate": {"type": "web_state", "check": "simulated_xss_event", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "xs-8",
+                "title": "Stored XSS",
+                "description": "Submit the training marker through the vulnerable "
+                               "feedback form.",
+                "hints": [
+                    "Unlike /search, this value isn't reflected immediately — it's saved.",
+                    "POST to /feedback with 'name' and 'comment' form fields.",
+                    ('Use \'open -X POST -d "name=student&comment=<TRAINING_XSS>" '
+                     "https://cybershop.training/feedback'."),
+                ],
+                "validate": {"type": "web_state", "check": "stored_input", "match": "submitted"},
+                "xp": 40,
+            },
+            {
+                "id": "xs-9",
+                "title": "Stored Reflection",
+                "description": "Open the comments page and observe the previously "
+                               "stored training marker — and this time, the simulated "
+                               "event fires here, not at submission time.",
+                "hints": [
+                    "The comment you stored a moment ago should now render on this page.",
+                    "Request the comments listing.",
+                    "Use 'open https://cybershop.training/comments'.",
+                ],
+                "validate": {"type": "web_state", "check": "stored_input", "match": "displayed"},
+                "xp": 45,
+            },
+            {
+                "id": "xs-10",
+                "title": "Reflected vs. Stored",
+                "description": "Having triggered both, articulate the difference: "
+                               "reflected XSS appears in the immediate response; stored "
+                               "XSS is saved and appears in a later, unrelated request.",
+                "hints": [
+                    "You've now triggered both kinds — no new request needed here.",
+                    ("Reflected: request -> response. Stored: request -> storage -> "
+                     "a later response."),
+                    "If Objectives 3 and 9 are both complete, this one completes too.",
+                ],
+                "validate": {"type": "web_state", "check": "reflected_vs_stored", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "xs-11",
+                "title": "DOM XSS",
+                "description": "Open the DOM demo page and identify the simulated "
+                               "source and sink it describes.",
+                "hints": [
+                    ("This page describes a client-side flow — no server round-trip "
+                     "reflection like /search."),
+                    "Request the DOM demo route.",
+                    "Use 'open https://cybershop.training/dom-demo'.",
+                ],
+                "validate": {"type": "web_state", "check": "dom_source", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "xs-12",
+                "title": "Source/Sink Analysis",
+                "description": "Send the training marker as the DOM demo's 'input' "
+                               "parameter and observe the simulated DOM sink fire.",
+                "hints": [
+                    ("The source is the URL parameter; the sink is a simulated DOM "
+                     "insertion — connect the two with the training marker."),
+                    "Set the 'input' query parameter to <TRAINING_XSS>.",
+                    'Use \'open "https://cybershop.training/dom-demo?input=<TRAINING_XSS>"\'.',
+                ],
+                "validate": {"type": "web_state", "check": "dom_sink", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "xs-13",
+                "title": "Secure Rendering",
+                "description": "Send the exact same training marker to /secure-search "
+                               "and observe that it's encoded, not interpreted as HTML.",
+                "hints": [
+                    ("This endpoint treats your input as data to display, never as "
+                     "markup to render."),
+                    "Request /secure-search with the same q you used for Objective 3.",
+                    ('Use \'open "https://cybershop.training/secure-search?q=<TRAINING_XSS>"\' '
+                     "— no simulated event this time."),
+                ],
+                "validate": {"type": "web_state", "check": "secure_encoding",
+                             "endpoint": "/secure-search", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "xs-14",
+                "title": "Output Encoding",
+                "description": "Inspect the secure response body and identify that '<' "
+                               "became '&lt;' and '>' became '&gt;'.",
+                "hints": [
+                    ("HTML escaping doesn't remove the characters — it replaces them "
+                     "with a form the browser displays literally instead of parsing."),
+                    "Check the response body from Objective 13 for '&lt;' and '&gt;'.",
+                    "Both escaped forms should be visible surrounding TRAINING_XSS.",
+                ],
+                "validate": {"type": "web_state", "check": "html_escaped_observed", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "xs-15",
+                "title": "Content Security Policy",
+                "description": "Inspect the simulated response headers and identify "
+                               "the Content-Security-Policy header.",
+                "hints": [
+                    ("Every response in this training site carries one — check any "
+                     "response's headers."),
+                    "Use the 'headers' command after any request.",
+                    "It should read \"default-src 'self'; script-src 'self'\".",
+                ],
+                "validate": {"type": "web_state", "check": "header", "header": "Content-Security-Policy",
+                             "in": "response", "match": "default-src 'self'; script-src 'self'"},
+                "xp": 40,
+            },
+            {
+                "id": "xs-16",
+                "title": "Evidence Collection",
+                "description": "Before the final investigation, make sure you've "
+                               "gathered every kind of evidence: reflected, stored, "
+                               "DOM-based, and a secure-endpoint comparison.",
+                "hints": [
+                    ("Nothing new to send here — just make sure Objectives 3, 9, 12, "
+                     "and 13 are all complete."),
+                    "If any of those are still incomplete, go back and finish them first.",
+                    ("Once reflected, stored, DOM, and the secure endpoint are all "
+                     "done, this objective completes automatically."),
+                ],
+                "validate": {"type": "web_state", "check": "xss_evidence_collected", "match": "1"},
+                "xp": 55,
+            },
+            {
+                "id": "xs-17",
+                "title": "FINAL INVESTIGATION — The Reflected Comment Box",
+                "description": "A bug report says 'our search bar and comments section "
+                               "might be exposing us to script injection.' Inspect the "
+                               "investigation log, determine whether the input is "
+                               "reflected, stored, or reaching a DOM sink, what context "
+                               "it renders in, and which defensive control fixes it.",
+                "hints": [
+                    ("Look closely at entries 2 through 5 — when does the simulated "
+                     "event fire, and when doesn't it?"),
+                    ("Entry 2 (/search) is reflected — immediate. Entries 3-4 "
+                     "(/feedback then /comments) are stored — delayed until "
+                     "rendered. Entry 5 (/secure-search) shows the same marker "
+                     "safely HTML-escaped — output encoding is the fix."),
+                    ('Use \'evidence\' to list the log, then \'inspect 1\' through '
+                     "'inspect 5' to read each exchange. Then: "
+                     'echo "Conclusion: the search and comments endpoints reflect and '
+                     'store the training marker unsafely as HTML - reflected and '
+                     'stored XSS. The secure endpoint shows the same marker safely '
+                     'HTML-escaped, proving output encoding is the correct defensive '
+                     'control." > web/xss-investigation.txt.'),
+                ],
+                "validate": {"type": "file_contains", "match": "output encoding",
+                             "path": "/home/student/web/xss-investigation.txt"},
+                "xp": 95,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": "xss-investigation",
         "next_mission": None,
     },
 }

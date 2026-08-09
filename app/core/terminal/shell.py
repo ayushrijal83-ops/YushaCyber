@@ -28,6 +28,24 @@ _IF_RE = re.compile(r"^if\s+\[\s*(.+?)\s*\]\s*;\s*then\s+(.+?)\s*;\s*fi$")
 _FOR_RE = re.compile(r"^for\s+(\w+)\s+in\s+(.+?)\s*;\s*do\s+(.+?)\s*;\s*done$")
 
 
+def _ends_inside_quotes(text: str) -> bool:
+    """True if `text` has an odd number of open quotes at its end — i.e.
+    a '>' immediately following this point sits inside a quoted argument
+    (e.g. a URL like '"...q=<TRAINING_XSS>"'), not real shell
+    redirection. Used to keep _REDIR_RE (a raw-string regex, not a
+    quote-aware tokenizer) from misreading a '>' that's part of quoted
+    command data — YC-035.5's XSS training markers are the first place
+    in this shell a '>' legitimately appears right before end-of-line
+    inside quotes."""
+    in_squote = in_dquote = False
+    for c in text:
+        if c == "'" and not in_dquote:
+            in_squote = not in_squote
+        elif c == '"' and not in_squote:
+            in_dquote = not in_dquote
+    return in_squote or in_dquote
+
+
 def _strip_quotes(s: str) -> str:
     s = s.strip()
     if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
@@ -118,7 +136,7 @@ class Shell:
         redir_target: str | None = None
         append = False
         rm = _REDIR_RE.search(work_line)
-        if rm:
+        if rm and not _ends_inside_quotes(work_line[:rm.start()]):
             append = rm.group(1) == ">>"
             redir_target = rm.group(2)
             work_line = work_line[:rm.start()].rstrip()
