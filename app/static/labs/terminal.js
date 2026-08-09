@@ -136,6 +136,7 @@ function exec(cmd, onDone){
             renderInspector(d.web_lab_status);
             renderProxy(d.web_lab_status);
             renderSession(d.web_lab_status);
+            renderSqli(d.web_lab_status);
         }
         /* ── Mission complete ── */
         if(d.completed){
@@ -520,6 +521,135 @@ document.querySelectorAll('[data-proxy-set]').forEach(function(btn){
     });
 });
 
+/* ── SQL Injection Fundamentals (YC-035.4) ──
+   Query Visualizer + evidence badges are a pure view over
+   status.last_request/last_response (whose headers already carry
+   X-Sim-Query / X-Sim-Query-Kind, set by WebApp's fixed training
+   routes — see web.py) and status.sqli's counters/flags — same
+   pattern as renderProxy()/renderSession(). Every button below only
+   ever builds an 'open ...' command a student could type themselves
+   and submits it through the same exec() path. Payload constants
+   mirror web.py's TRAINING_*_PAYLOAD exactly. */
+var SQLI_TRUE = "' OR '1'='1";
+var SQLI_FALSE = "' AND '1'='2";
+var SQLI_ERROR = "'";
+var SQLI_BYPASS_USERNAME = "admin'--";
+
+function renderSqli(status){
+    if(!status) return;
+    var panel = document.querySelector('[data-sqli-badges]');
+    if(!panel) return; /* panel not present on this mission */
+
+    var req = status.last_request, resp = status.last_response;
+    var qEl = document.querySelector('[data-sqli-qv-input]');
+    var queryEl = document.querySelector('[data-sqli-qv-query]');
+    var respEl = document.querySelector('[data-sqli-qv-response]');
+    var explainEl = document.querySelector('[data-sqli-qv-explain]');
+    if(req && resp && resp.headers && resp.headers['X-Sim-Query']){
+        var kind = resp.headers['X-Sim-Query-Kind'];
+        if(qEl) qEl.textContent = (req.query && req.query.q) || req.body || '(none)';
+        if(queryEl) queryEl.textContent = resp.headers['X-Sim-Query'];
+        if(respEl) respEl.textContent = resp.status_code + ' ' + resp.reason;
+        if(explainEl){
+            explainEl.textContent = (kind !== 'normal' && kind !== 'parameterized')
+                ? 'Unsafe string concatenation let the input change the query\'s structure.'
+                : (kind === 'parameterized'
+                    ? 'Parameterized query: the input stayed data — the query structure never changed.'
+                    : '');
+        }
+    }
+
+    var s = status.sqli || {};
+    var trueBadge = document.querySelector('[data-sqli-badge-true]');
+    if(trueBadge){
+        trueBadge.textContent = 'TRUE: ' + (s.boolean_true_seen ? 'seen' : 'not seen');
+        trueBadge.classList.toggle('tm-proxy__badge--on', !!s.boolean_true_seen);
+    }
+    var falseBadge = document.querySelector('[data-sqli-badge-false]');
+    if(falseBadge){
+        falseBadge.textContent = 'FALSE: ' + (s.boolean_false_seen ? 'seen' : 'not seen');
+        falseBadge.classList.toggle('tm-proxy__badge--on', !!s.boolean_false_seen);
+    }
+    var bypassBadge = document.querySelector('[data-sqli-badge-bypass]');
+    if(bypassBadge){
+        bypassBadge.textContent = 'Auth bypass: ' + (s.auth_bypass_triggered ? 'triggered' : 'not triggered');
+        bypassBadge.classList.toggle('tm-proxy__badge--on', !!s.auth_bypass_triggered);
+    }
+    var secureBadge = document.querySelector('[data-sqli-badge-secure]');
+    if(secureBadge){
+        secureBadge.textContent = 'Secure endpoint: ' + (s.secure_search_tested ? 'tested' : 'not tested');
+        secureBadge.classList.toggle('tm-proxy__badge--on', !!s.secure_search_tested);
+    }
+    var inspBadge = document.querySelector('[data-sqli-badge-inspections]');
+    if(inspBadge) inspBadge.textContent = 'Query inspections: ' + (s.query_inspections || 0);
+}
+
+var sqliSearchInput = document.querySelector('[data-sqli-search-input]');
+document.querySelectorAll('[data-sqli-quickpick]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        if(!sqliSearchInput) return;
+        var picks = {normal: 'laptop', 'true': SQLI_TRUE, 'false': SQLI_FALSE, error: SQLI_ERROR};
+        sqliSearchInput.value = picks[btn.dataset.sqliQuickpick] || '';
+        sqliSearchInput.focus();
+    });
+});
+
+function sqliRunSearch(path, onDone){
+    var q = sqliSearchInput ? sqliSearchInput.value : '';
+    var url = 'https://cybershop.training' + path + '?q=' + q;
+    var cmd = 'open ' + shQuote(url);
+    appendCmd(currentPrompt, cmd);
+    exec(cmd, onDone);
+}
+var sqliSearchVuln = document.querySelector('[data-sqli-search-vuln]');
+if(sqliSearchVuln) sqliSearchVuln.addEventListener('click', function(){ sqliRunSearch('/search'); });
+var sqliSearchSecure = document.querySelector('[data-sqli-search-secure]');
+if(sqliSearchSecure) sqliSearchSecure.addEventListener('click', function(){ sqliRunSearch('/secure-search'); });
+
+var sqliLoginBypassFill = document.querySelector('[data-sqli-login-bypass]');
+if(sqliLoginBypassFill){
+    sqliLoginBypassFill.addEventListener('click', function(){
+        var u = document.querySelector('[data-sqli-login-username]');
+        var p = document.querySelector('[data-sqli-login-password]');
+        if(u) u.value = SQLI_BYPASS_USERNAME;
+        if(p) p.value = 'anything';
+    });
+}
+function sqliRunLogin(path){
+    var u = document.querySelector('[data-sqli-login-username]');
+    var p = document.querySelector('[data-sqli-login-password]');
+    var uv = u ? u.value : '', pv = p ? p.value : '';
+    var body = 'username=' + uv + '&password=' + pv;
+    var cmd = 'open -X POST -d ' + shQuote(body) + ' https://cybershop.training' + path;
+    appendCmd(currentPrompt, cmd);
+    exec(cmd);
+}
+var sqliLoginVuln = document.querySelector('[data-sqli-login-vuln]');
+if(sqliLoginVuln) sqliLoginVuln.addEventListener('click', function(){ sqliRunLogin('/training-login'); });
+var sqliLoginSecure = document.querySelector('[data-sqli-login-secure]');
+if(sqliLoginSecure) sqliLoginSecure.addEventListener('click', function(){ sqliRunLogin('/secure-login'); });
+
+var sqliCompareRun = document.querySelector('[data-sqli-compare-run]');
+if(sqliCompareRun){
+    sqliCompareRun.addEventListener('click', function(){
+        var input = document.querySelector('[data-sqli-compare-input]');
+        var q = input ? input.value : '';
+        if(!q) return;
+        var vulnCmd = 'open ' + shQuote('https://cybershop.training/search?q=' + q);
+        var secureCmd = 'open ' + shQuote('https://cybershop.training/secure-search?q=' + q);
+        appendCmd(currentPrompt, vulnCmd);
+        exec(vulnCmd, function(d1){
+            var vulnEl = document.querySelector('[data-sqli-compare-vuln]');
+            if(vulnEl) vulnEl.textContent = d1.output || 'No comparison yet.';
+            appendCmd(currentPrompt, secureCmd);
+            exec(secureCmd, function(d2){
+                var secureEl = document.querySelector('[data-sqli-compare-secure]');
+                if(secureEl) secureEl.textContent = d2.output || 'No comparison yet.';
+            });
+        });
+    });
+}
+
 /* Initial render from server-rendered state, so the panel isn't empty
    until the student's first command. */
 var initialWebLabEl = document.getElementById('tm-web-lab-initial');
@@ -529,6 +659,7 @@ if(initialWebLabEl){
         renderInspector(initialWebLab);
         renderProxy(initialWebLab);
         renderSession(initialWebLab);
+        renderSqli(initialWebLab);
     }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
@@ -667,6 +798,7 @@ function doReset(){
             renderInspector(d.web_lab_status);
             renderProxy(d.web_lab_status);
             renderSession(d.web_lab_status);
+            renderSqli(d.web_lab_status);
         }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');

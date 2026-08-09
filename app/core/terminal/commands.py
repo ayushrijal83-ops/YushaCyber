@@ -611,6 +611,30 @@ def _parse_open_args(args: list[str]) -> tuple[str, str | None, str | None, dict
     return method, data, url, headers
 
 
+def _track_sqli_response(sh: Shell, req, resp) -> None:
+    """Records structured evidence for the SQL Injection Fundamentals
+    mission (YC-035.4) into WebLab.sqli's counters/flags, read off the
+    response's 'X-Sim-Query-Kind' header (set by WebApp's fixed,
+    pattern-matched training routes — see web.py). Same discipline as
+    ProxyState: a validator check reads a counter, never rendered text.
+    A no-op for every other mission (the header is simply absent)."""
+    if sh.web_lab is None:
+        return
+    kind = resp.headers.get("X-Sim-Query-Kind")
+    s = sh.web_lab.sqli
+    if kind == "boolean_true":
+        s.boolean_true_seen = True
+    elif kind == "boolean_false":
+        s.boolean_false_seen = True
+    elif kind == "auth_bypass":
+        s.auth_bypass_triggered = True
+    elif kind == "parameterized":
+        if req.path == "/secure-search":
+            s.secure_search_tested = True
+        elif req.path == "/secure-login":
+            s.secure_login_tested = True
+
+
 @cmd("open")
 def _open(sh: Shell, args: list[str]) -> str:
     if sh.web_lab is None:
@@ -647,6 +671,7 @@ def _open(sh: Shell, args: list[str]) -> str:
                 "\n\nUse 'forward', 'drop', or 'edit <field> ...' before it reaches the server.")
     resp = sh.web_lab.app.handle(req)
     sh.web_lab.session.record(req, resp)
+    _track_sqli_response(sh, req, resp)
     return render_exchange(req, resp)
 
 
@@ -670,13 +695,79 @@ def _web(sh: Shell, args: list[str]) -> str:
     username = sh.web_lab.app.sessions.get(sid) if sid else None
     status = f"Logged in as {username}" if username else "Not logged in"
     return (f"Simulated site: {HOST}\n{status}\n"
-           f"Routes: / /products /search /login /auth/login /profile /account "
-           f"/dashboard /admin /logout /api/login /api/profile /api/me\n"
+           f"Routes: / /products /search /secure-search /login /auth/login "
+           f"/training-login /secure-login /profile /account /dashboard /admin "
+           f"/logout /api/login /api/profile /api/me\n"
            f"Type 'open URL' or 'request METHOD PATH' to make a request.\n"
            f"Proxy: 'intercept on|off', 'forward', 'drop', 'edit ...', "
            f"'repeater [N]', 'repeater send', 'compare N M'.\n"
            f"Session: 'expire' invalidates your session server-side without "
-           f"clearing your browser's cookie (see how that differs from logout).")
+           f"clearing your browser's cookie (see how that differs from logout).\n"
+           f"SQL Injection Fundamentals: 'schema [table]' inspects the training "
+           f"database (read-only). 'query' shows the simulated query "
+           f"representation for your last request/response.")
+
+
+# ══════════════════════════════════════════════════════
+# SQL Injection Fundamentals (YC-035.4) — read-only database inspector +
+# query visualizer. Both read only fixed, static data (DB_SCHEMA) or the
+# already-recorded last request/response; neither ever runs a real query
+# or accepts arbitrary SQL from the student.
+# ══════════════════════════════════════════════════════
+
+@cmd("schema")
+def _schema(sh: Shell, args: list[str]) -> str:
+    from app.core.terminal.web import DB_SCHEMA
+    if args:
+        table = args[0].lower()
+        cols = DB_SCHEMA.get(table)
+        if not cols:
+            return f"schema: unknown table '{table}'. Tables: {', '.join(DB_SCHEMA)}"
+        lines = [f"{table}:"]
+        lines += [f"  {name} ({typ})" for name, typ in cols]
+        return "\n".join(lines)
+    lines = ["Training database schema (read-only, fictional — cybershop.training):"]
+    for table, cols in DB_SCHEMA.items():
+        lines.append("")
+        lines.append(f"{table}:")
+        lines += [f"  {name} ({typ})" for name, typ in cols]
+    return "\n".join(lines)
+
+
+@cmd("query")
+def _query_visualizer(sh: Shell, args: list[str]) -> str:
+    """Educational panel: User Input -> Application Query -> Database ->
+    Response, for the student's own last request/response. Reads the
+    'X-Sim-Query'/'X-Sim-Query-Kind' headers WebApp already attached to
+    the response (web.py) — never a live SQL console, never executes
+    anything."""
+    if sh.web_lab is None:
+        return "query: no simulated web environment configured for this session"
+    req, resp = sh.web_lab.session.last_request, sh.web_lab.session.last_response
+    if req is None or resp is None:
+        return "No request made yet. Use 'open URL' first, then 'query'."
+    q_repr = resp.headers.get("X-Sim-Query")
+    kind = resp.headers.get("X-Sim-Query-Kind")
+    if not q_repr:
+        return ("This request has no simulated query representation — only "
+                "/search, /secure-search, /training-login, and /secure-login do.")
+    sh.web_lab.sqli.query_inspections += 1
+    user_input = req.query.get("q") or req.body or "(none)"
+    lines = [
+        "Simulated query representation — not a live SQL console.",
+        "",
+        f"User Input:         {user_input}",
+        f"Application Query:  {q_repr}",
+        "Database:           cybershop.training (simulated, read-only)",
+        f"Response:           {resp.status_code} {resp.reason}",
+    ]
+    if kind not in ("normal", "parameterized"):
+        lines.append("")
+        lines.append("Unsafe string concatenation let the input change the query's structure.")
+    elif kind == "parameterized":
+        lines.append("")
+        lines.append("Parameterized query: the input stayed data — the query structure never changed.")
+    return "\n".join(lines)
 
 
 @cmd("requests")
@@ -824,6 +915,7 @@ def _forward(sh: Shell, args: list[str]) -> str:
     req = p.pending
     resp = sh.web_lab.app.handle(req)
     sh.web_lab.session.record(req, resp)
+    _track_sqli_response(sh, req, resp)
     p.pending = None
     p.forwarded_count += 1
     return "Request forwarded.\n" + render_exchange(req, resp)
@@ -905,6 +997,7 @@ def _repeater(sh: Shell, args: list[str]) -> str:
         req = _copy_request(p.repeater_request)
         resp = sh.web_lab.app.handle(req)
         sh.web_lab.session.record(req, resp)
+        _track_sqli_response(sh, req, resp)
         p.repeater_sent_count += 1
         return "Repeater: request sent.\n" + render_exchange(req, resp)
     if not hist:

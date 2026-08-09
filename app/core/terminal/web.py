@@ -34,6 +34,43 @@ _USERS = {"student": "training123", "analyst": "analyst123", "admin": "admin123"
 # (YC-035.1) — a single, deterministic value, never a real secret.
 API_TOKEN = "training-token-001"
 
+# ── SQL Injection Fundamentals (YC-035.4) — fixed, fictional training
+# catalog for /search and /secure-search. Never real product data. ──
+PRODUCTS: list[dict[str, Any]] = [
+    {"id": 1, "name": "Laptop", "price": 999, "category": "Electronics"},
+    {"id": 2, "name": "Keyboard", "price": 49, "category": "Electronics"},
+    {"id": 3, "name": "Monitor", "price": 199, "category": "Electronics"},
+    {"id": 4, "name": "Mouse", "price": 25, "category": "Electronics"},
+]
+
+# Read-only, fictional schema for the Database Inspector panel/'schema'
+# command — structure only, no row data, so nothing here could ever look
+# like a real data dump.
+DB_SCHEMA: dict[str, list[tuple[str, str]]] = {
+    "users": [("id", "INTEGER"), ("username", "TEXT"), ("role", "TEXT")],
+    "products": [("id", "INTEGER"), ("name", "TEXT"), ("price", "INTEGER"),
+                 ("category", "TEXT")],
+    "orders": [("id", "INTEGER"), ("user_id", "INTEGER"),
+               ("product_id", "INTEGER"), ("quantity", "INTEGER")],
+    "reviews": [("id", "INTEGER"), ("product_id", "INTEGER"),
+                ("username", "TEXT"), ("rating", "INTEGER")],
+}
+
+# Fixed, deterministic training payloads (YC-035.4). The simulator never
+# executes student-supplied text as SQL — '_classify_query_pattern' and
+# '_classify_login_pattern' below only ever compare the input against
+# these exact strings, then return one of a handful of pre-written,
+# canned responses. There is no SQL parser or SQL engine anywhere in this
+# module, so nothing outside this fixed set can change simulator
+# behavior — an arbitrary/unexpected string is always just 'normal'
+# (treated as a literal search term or a literal, wrong, username).
+TRAINING_TRUE_PAYLOAD = "' OR '1'='1"
+TRAINING_FALSE_PAYLOAD = "' AND '1'='2"
+TRAINING_ERROR_PAYLOAD = "'"
+TRAINING_COMMENT_PAYLOAD = "' --"
+TRAINING_UNION_PAYLOAD = "' UNION SELECT NULL, NULL --"
+TRAINING_AUTH_BYPASS_USERNAME = "admin'--"
+
 
 @dataclass
 class ParsedUrl:
@@ -76,6 +113,58 @@ def parse_body(body: str, content_type: str) -> dict[str, Any]:
             return {}
         return data if isinstance(data, dict) else {}
     return _parse_form(body)
+
+
+def _classify_query_pattern(q: str) -> str:
+    """Classifies a 'q' search value into one of a fixed set of training
+    outcomes (YC-035.4) — pure string equality against the constants
+    above, case-insensitive. Never parses or executes the input as SQL;
+    anything that isn't an exact match to a known training payload is
+    just 'normal' (a literal search term)."""
+    s = q.strip().lower()
+    if s == TRAINING_ERROR_PAYLOAD.lower():
+        return "error"
+    if s == TRAINING_TRUE_PAYLOAD.lower():
+        return "boolean_true"
+    if s == TRAINING_FALSE_PAYLOAD.lower():
+        return "boolean_false"
+    if s == TRAINING_COMMENT_PAYLOAD.lower():
+        return "comment"
+    if s == TRAINING_UNION_PAYLOAD.lower():
+        return "union"
+    return "normal"
+
+
+def _classify_login_pattern(username: str) -> str:
+    """Classifies a training-login username (YC-035.4) — same discipline
+    as _classify_query_pattern: one fixed, fictional payload, compared by
+    exact string equality, never parsed or executed as SQL."""
+    if username.strip().lower() == TRAINING_AUTH_BYPASS_USERNAME.lower():
+        return "auth_bypass"
+    return "normal"
+
+
+def _search_query_repr(q: str) -> str:
+    """The 'Application Query' shown by the query visualizer for the
+    *vulnerable* /search endpoint — literal, unsafe string concatenation,
+    so the training payload's quotes/keywords visibly become part of the
+    query text. Text formatting only; never actually executed."""
+    return f"SELECT * FROM products WHERE name = '{q}'"
+
+
+def _secure_search_query_repr() -> str:
+    """The /secure-search counterpart — always this exact, fixed string,
+    regardless of input: a parameterized query's *structure* never
+    changes, no matter what the student types."""
+    return "SELECT * FROM products WHERE name = ?"
+
+
+def _login_query_repr(username: str) -> str:
+    return f"SELECT * FROM users WHERE username = '{username}' AND password = '***'"
+
+
+def _secure_login_query_repr() -> str:
+    return "SELECT * FROM users WHERE username = ? AND password = ?"
 
 
 @dataclass
@@ -160,8 +249,13 @@ class WebApp:
         if req.path == "/products" and req.method == "GET":
             return self._products(req)
         if req.path == "/search" and req.method == "GET":
-            q = req.query.get("q", "")
-            return self._ok(f"Search results for '{q}': 0 matches in the training catalog.")
+            return self._search(req)
+        if req.path == "/secure-search" and req.method == "GET":
+            return self._secure_search(req)
+        if req.path == "/training-login" and req.method == "POST":
+            return self._training_login(req)
+        if req.path == "/secure-login" and req.method == "POST":
+            return self._secure_login(req)
         if req.path == "/login" and req.method == "GET":
             return self._redirect("/auth/login")
         if req.path == "/auth/login" and req.method == "GET":
@@ -203,6 +297,118 @@ class WebApp:
             return HttpResponse(status_code=200, reason="OK", body=body,
                                 content_type="text/html", headers=headers)
         return self._ok("Product catalog: 3 items available.")
+
+    def _render_products(self, q: str, matches: list[dict[str, Any]], note: str) -> str:
+        lines = [f"Search results for '{q}': {len(matches)} match(es) in the training catalog."]
+        for p in matches:
+            lines.append(f"  - {p['name']} (${p['price']})")
+        if note:
+            lines.append("")
+            lines.append(note)
+        return "\n".join(lines)
+
+    def _search(self, req: HttpRequest) -> HttpResponse:
+        """The intentionally vulnerable training search endpoint
+        (YC-035.4). Internally represents an unsafe, string-concatenated
+        query — conceptually `SELECT * FROM products WHERE name =
+        '<input>'` — but never actually builds or runs that string as
+        SQL. `_classify_query_pattern` only ever compares 'q' against a
+        fixed set of exact training payloads; every branch below returns
+        a predetermined, deterministic outcome. An unrecognized string is
+        always just a literal (safe) substring search over the fixed
+        PRODUCTS catalog."""
+        q = req.query.get("q", "")
+        kind = _classify_query_pattern(q)
+        query_repr = _search_query_repr(q)
+        base_headers = {"X-Sim-Query-Kind": kind, "X-Sim-Query": query_repr}
+
+        if kind == "error":
+            body = "Database error: Unexpected quote in training query."
+            headers = {"Content-Type": "text/plain", "Content-Length": str(len(body)),
+                      "Server": SERVER_HEADER, **base_headers}
+            return HttpResponse(status_code=500, reason="Internal Server Error", body=body,
+                                content_type="text/plain", headers=headers)
+
+        if kind == "boolean_true":
+            matches = list(PRODUCTS)
+            note = ("Simulated: the injected condition made the query's logic always "
+                    "true, so every row matched — not a real, intentional search result.")
+        elif kind == "boolean_false":
+            matches = []
+            note = ("Simulated: the injected condition made the query's logic always "
+                    "false, so no rows matched.")
+        elif kind in ("comment", "union"):
+            matches = []
+            note = ("Simulated: the injected input changed the query's structure "
+                    "(conceptual demonstration only — no real data is ever returned here).")
+        else:
+            matches = ([p for p in PRODUCTS if q.strip().lower() in p["name"].lower()]
+                      if q.strip() else [])
+            note = ""
+
+        body = self._render_products(q, matches, note)
+        headers = {"Content-Type": "text/html", "Content-Length": str(len(body)),
+                  "Server": SERVER_HEADER, "Cache-Control": "no-store", **base_headers}
+        return HttpResponse(status_code=200, reason="OK", body=body,
+                            content_type="text/html", headers=headers)
+
+    def _secure_search(self, req: HttpRequest) -> HttpResponse:
+        """The parameterized-query counterpart to /search (YC-035.4): 'q'
+        is always treated as literal data for a plain substring match —
+        never classified, never able to change the query's structure or
+        trigger an error/boolean/union outcome, no matter what's typed.
+        The 'Application Query' this reports is always the exact same
+        fixed string, which is the whole point students should observe."""
+        q = req.query.get("q", "")
+        matches = ([p for p in PRODUCTS if q.strip().lower() in p["name"].lower()]
+                  if q.strip() else [])
+        body = self._render_products(q, matches, "")
+        headers = {"Content-Type": "text/html", "Content-Length": str(len(body)),
+                  "Server": SERVER_HEADER, "Cache-Control": "no-store",
+                  "X-Sim-Query-Kind": "parameterized", "X-Sim-Query": _secure_search_query_repr()}
+        return HttpResponse(status_code=200, reason="OK", body=body,
+                            content_type="text/html", headers=headers)
+
+    def _training_login(self, req: HttpRequest) -> HttpResponse:
+        """The intentionally vulnerable training login (YC-035.4) —
+        conceptually `SELECT * FROM users WHERE username = '<u>' AND
+        password = '<p>'`, never actually built or run as SQL. Only the
+        one fixed TRAINING_AUTH_BYPASS_USERNAME comment-style payload is
+        recognized; everything else falls through to the same fixed
+        credential check every other login endpoint uses."""
+        creds = parse_body(req.body, req.headers.get("Content-Type", ""))
+        username, password = creds.get("username", ""), creds.get("password", "")
+        kind = _classify_login_pattern(username)
+        query_repr = _login_query_repr(username)
+        base_headers = {"X-Sim-Query-Kind": kind, "X-Sim-Query": query_repr}
+
+        if kind == "auth_bypass":
+            return self._json_ok(
+                {"status": "success", "authenticated_as": "admin", "simulated": True,
+                 "note": ("Simulated authentication bypass: a comment sequence in the "
+                         "username removed the password check from the query entirely.")},
+                extra_headers=base_headers)
+        if username in _USERS and _USERS[username] == password:
+            return self._json_ok({"status": "success", "authenticated_as": username},
+                                 extra_headers=base_headers)
+        return self._json_error(401, "Unauthorized",
+                                {"status": "error", "message": "Invalid training credentials"},
+                                extra_headers=base_headers)
+
+    def _secure_login(self, req: HttpRequest) -> HttpResponse:
+        """Parameterized-query counterpart to /training-login (YC-035.4):
+        username/password are always compared as literal data, so the
+        one fixed bypass payload above fails here exactly like any other
+        wrong username — proving the defense, not just asserting it."""
+        creds = parse_body(req.body, req.headers.get("Content-Type", ""))
+        username, password = creds.get("username", ""), creds.get("password", "")
+        base_headers = {"X-Sim-Query-Kind": "parameterized", "X-Sim-Query": _secure_login_query_repr()}
+        if username in _USERS and _USERS[username] == password:
+            return self._json_ok({"status": "success", "authenticated_as": username},
+                                 extra_headers=base_headers)
+        return self._json_error(401, "Unauthorized",
+                                {"status": "error", "message": "Invalid training credentials"},
+                                extra_headers=base_headers)
 
     def _check_credentials(self, req: HttpRequest) -> str | None:
         """Returns the matched training username, or None if invalid.
@@ -354,17 +560,25 @@ class WebApp:
                             headers={"Content-Type": content_type, "Content-Length": str(len(body)),
                                     "Server": SERVER_HEADER, "Cache-Control": "no-store"})
 
-    def _json_ok(self, data: dict[str, Any]) -> HttpResponse:
+    def _json_ok(self, data: dict[str, Any],
+                extra_headers: dict[str, str] | None = None) -> HttpResponse:
         body = json.dumps(data)
-        return HttpResponse(status_code=200, reason="OK", body=body, content_type="application/json",
-                            headers={"Content-Type": "application/json", "Content-Length": str(len(body)),
-                                    "Server": SERVER_HEADER, "Cache-Control": "no-store"})
+        headers = {"Content-Type": "application/json", "Content-Length": str(len(body)),
+                  "Server": SERVER_HEADER, "Cache-Control": "no-store"}
+        if extra_headers:
+            headers.update(extra_headers)
+        return HttpResponse(status_code=200, reason="OK", body=body,
+                            content_type="application/json", headers=headers)
 
-    def _json_error(self, code: int, reason: str, data: dict[str, Any]) -> HttpResponse:
+    def _json_error(self, code: int, reason: str, data: dict[str, Any],
+                    extra_headers: dict[str, str] | None = None) -> HttpResponse:
         body = json.dumps(data)
-        return HttpResponse(status_code=code, reason=reason, body=body, content_type="application/json",
-                            headers={"Content-Type": "application/json", "Content-Length": str(len(body)),
-                                    "Server": SERVER_HEADER})
+        headers = {"Content-Type": "application/json", "Content-Length": str(len(body)),
+                  "Server": SERVER_HEADER}
+        if extra_headers:
+            headers.update(extra_headers)
+        return HttpResponse(status_code=code, reason=reason, body=body,
+                            content_type="application/json", headers=headers)
 
     def _redirect(self, location: str) -> HttpResponse:
         return HttpResponse(status_code=302, reason="Found", content_type="text/plain",
@@ -517,11 +731,48 @@ def build_auth_lifecycle_log() -> list[tuple[HttpRequest, HttpResponse]]:
     return log
 
 
+def build_sqli_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
+    """A fixed, deterministic transcript for the SQL Injection
+    Fundamentals final objective (YC-035.4): a report says the training
+    site's search "sometimes returns every product, and sometimes
+    returns none, for no obvious reason." The transcript shows a normal
+    search, then the two fixed boolean training conditions against the
+    vulnerable /search (all rows, then zero rows — the actual cause: an
+    unsafe, string-concatenated query whose logic the input can flip),
+    then the same TRUE condition against /secure-search, which returns
+    the same (correct, unaffected) result as any other non-matching
+    literal search term. Built once against an isolated WebApp instance
+    — never touches the student's own session state, and never executes
+    the injected text as SQL."""
+    app = WebApp()
+    log: list[tuple[HttpRequest, HttpResponse]] = []
+
+    def _req(method: str, path: str, q: str, timestamp: float) -> HttpRequest:
+        url = parse_url(f"https://{HOST}{path}")
+        url.query = {"q": q}
+        return build_request(method, url, timestamp=timestamp)
+
+    req = _req("GET", "/search", "laptop", 1.0)
+    log.append((req, app.handle(req)))
+
+    req = _req("GET", "/search", TRAINING_TRUE_PAYLOAD, 2.0)
+    log.append((req, app.handle(req)))
+
+    req = _req("GET", "/search", TRAINING_FALSE_PAYLOAD, 3.0)
+    log.append((req, app.handle(req)))
+
+    req = _req("GET", "/secure-search", TRAINING_TRUE_PAYLOAD, 4.0)
+    log.append((req, app.handle(req)))
+
+    return log
+
+
 _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResponse]]]] = {
     "login-flow": build_investigation_log,
     "content-type-bug": build_content_type_bug_log,
     "profile-mismatch": build_profile_mismatch_log,
     "auth-lifecycle": build_auth_lifecycle_log,
+    "sqli-investigation": build_sqli_investigation_log,
 }
 
 
@@ -613,13 +864,42 @@ class ProxyState:
         return ps
 
 
+@dataclass
+class SqliLabState:
+    """SQL Injection Fundamentals training state (YC-035.4) — mirrors
+    ProxyState: small, explicit, mutable, in-memory only. Every field
+    backs a structured validator check instead of matching rendered
+    text; set from the response's 'X-Sim-Query-Kind' header (see
+    commands.py's _track_sqli_response), never by re-parsing raw text."""
+    query_inspections: int = 0
+    boolean_true_seen: bool = False
+    boolean_false_seen: bool = False
+    secure_search_tested: bool = False
+    secure_login_tested: bool = False
+    auth_bypass_triggered: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return dataclasses.asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> SqliLabState:
+        return cls(
+            query_inspections=d.get("query_inspections", 0),
+            boolean_true_seen=d.get("boolean_true_seen", False),
+            boolean_false_seen=d.get("boolean_false_seen", False),
+            secure_search_tested=d.get("secure_search_tested", False),
+            secure_login_tested=d.get("secure_login_tested", False),
+            auth_bypass_triggered=d.get("auth_bypass_triggered", False),
+        )
+
+
 class WebLab:
     """Everything a web-fundamentals mission session needs: the
     simulated site, the student's own session, the fixed investigation
     transcript for the final objective, and (YC-035.2) intercepting-proxy
     state. `proxy` costs nothing for missions that never touch it (its
     counters simply stay at their defaults) so YC-035.0/YC-035.1 are
-    unaffected."""
+    unaffected. Same for `sqli` (YC-035.4)."""
 
     def __init__(self, app: WebApp, investigation_log: list[tuple[HttpRequest, HttpResponse]]) -> None:
         self.app = app
@@ -633,11 +913,12 @@ class WebLab:
         # "because they logged out", for the session_expired validator
         # check.
         self.expired_count = 0
+        self.sqli = SqliLabState()
 
     def to_dict(self) -> dict[str, Any]:
         return {"sessions": dict(self.app.sessions), "profiles": dict(self.app.profiles),
                 "session": self.session.to_dict(), "proxy": self.proxy.to_dict(),
-                "expired_count": self.expired_count}
+                "expired_count": self.expired_count, "sqli": self.sqli.to_dict()}
 
     def apply_state(self, snapshot: dict[str, Any]) -> None:
         self.app.sessions = dict(snapshot.get("sessions", {}))
@@ -645,6 +926,7 @@ class WebLab:
         self.session = WebSession.from_dict(snapshot.get("session", {}))
         self.proxy = ProxyState.from_dict(snapshot.get("proxy", {}))
         self.expired_count = snapshot.get("expired_count", 0)
+        self.sqli = SqliLabState.from_dict(snapshot.get("sqli", {}))
 
 
 def build_web_lab(scenario: str = "login-flow") -> WebLab:

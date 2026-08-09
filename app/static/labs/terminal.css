@@ -200,3 +200,32 @@ body.tm-body{background:var(--tm-bg);color:var(--tm-text);font-family:var(--tm-f
     .tm-session{padding:12px 14px}
     .tm-session__bar{gap:8px}
 }
+
+/* ── SQL Injection Fundamentals (YC-035.4) — same visual language as tm-proxy ── */
+.tm-sqli{background:var(--tm-surface);border-top:1px solid #1e2028;padding:14px 20px}
+.tm-sqli__bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tm-sqli__title{font-weight:700;font-size:.82rem}
+.tm-sqli__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}
+.tm-sqli__box{background:var(--tm-bg);border:1px solid #1e2028;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.tm-sqli__box--wide{grid-column:1/-1;margin-bottom:12px}
+.tm-sqli__quickpicks{display:flex;gap:6px;flex-wrap:wrap}
+.tm-sqli__quickpicks .btn{font-size:.64rem;padding:4px 8px}
+.tm-sqli__schema{display:flex;flex-direction:column;gap:10px;max-height:220px;overflow:auto}
+.tm-sqli__table-name{font-weight:700;font-size:.72rem;color:var(--tm-green)}
+.tm-sqli__cols{list-style:none;margin:4px 0 0;padding:0;font-size:.7rem;color:var(--tm-text);display:flex;flex-direction:column;gap:2px}
+.tm-sqli__coltype{color:var(--tm-muted)}
+.tm-sqli__note{font-size:.66rem;color:var(--tm-muted);font-style:italic;margin:6px 0 0}
+.tm-sqli__flow{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.tm-sqli__flow-step{display:flex;align-items:baseline;gap:10px;font-size:.76rem;flex-wrap:wrap}
+.tm-sqli__flow-label{color:var(--tm-muted);min-width:120px;font-size:.66rem;text-transform:uppercase;letter-spacing:.04em}
+.tm-sqli__flow-step code{font-family:var(--tm-font);color:var(--tm-accent);background:rgba(99,102,241,.1);padding:1px 6px;border-radius:4px;word-break:break-word}
+.tm-sqli__flow-arrow{color:var(--tm-muted);padding-left:2px}
+.tm-sqli__compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
+.tm-sqli__compare-facts{display:flex;gap:6px;flex-wrap:wrap;font-size:.62rem;color:var(--tm-muted);margin:4px 0}
+.tm-sqli__compare-facts span{background:rgba(99,102,241,.08);padding:2px 6px;border-radius:5px}
+.tm-sqli__badges{display:flex;gap:8px;flex-wrap:wrap}
+
+@media(max-width:600px){
+    .tm-sqli{padding:12px 14px}
+    .tm-sqli__grid,.tm-sqli__compare-grid{grid-template-columns:1fr}
+}

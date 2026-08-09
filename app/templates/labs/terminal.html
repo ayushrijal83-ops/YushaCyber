@@ -173,7 +173,7 @@
 </section>
 {% endif %}
 
-{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions') %}
+{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions', 'sql-injection-fundamentals') %}
 {# ── Proxy Control (YC-035.2): intercept/forward/drop/edit/Repeater/ ──
    compare, all driven through the same terminal exec() path as the
    Request Builder below — buttons here only ever synthesize a command
@@ -229,6 +229,124 @@
             </div>
             <pre class="tm-proxy__pre" data-proxy-compare-result>No comparison yet.</pre>
         </div>
+    </div>
+</section>
+{% endif %}
+
+{% if mission and mission.web_lab_status and mission.mission.id == 'sql-injection-fundamentals' %}
+{# ── SQL Injection Fundamentals (YC-035.4): a training application ──
+   (Search / Login / Database) plus a Query Visualizer and a Vulnerable-
+   vs-Secure comparison, all driven through the same exec() path as
+   every other button on this page — no new HTTP client, no live SQL
+   console. Every button here only ever synthesizes an 'open ...'
+   command a student could type themselves. #}
+<section class="tm-sqli" aria-label="SQL Injection Training Application">
+    <div class="tm-sqli__bar">
+        <span class="tm-sqli__title">🗄️ Training Application — cybershop.training</span>
+    </div>
+
+    <div class="tm-sqli__grid">
+        {# ── Search: vulnerable vs. secure, with quick-pick training payloads ── #}
+        <div class="tm-sqli__box">
+            <div class="tm-proxy__box-head">Search</div>
+            <label class="tm-inspector__field">Search term
+                <input type="text" data-sqli-search-input placeholder="laptop" />
+            </label>
+            <div class="tm-sqli__quickpicks">
+                <button type="button" class="btn btn--outline" data-sqli-quickpick="normal">laptop</button>
+                <button type="button" class="btn btn--outline" data-sqli-quickpick="true">TRUE condition</button>
+                <button type="button" class="btn btn--outline" data-sqli-quickpick="false">FALSE condition</button>
+                <button type="button" class="btn btn--outline" data-sqli-quickpick="error">Malformed (error)</button>
+            </div>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-sqli-search-vuln>Search (Vulnerable)</button>
+                <button type="button" class="btn btn--outline" data-sqli-search-secure>Search (Secure)</button>
+            </div>
+        </div>
+
+        {# ── Login: vulnerable vs. secure, with a bypass quick-fill ── #}
+        <div class="tm-sqli__box">
+            <div class="tm-proxy__box-head">Login</div>
+            <label class="tm-inspector__field">Username
+                <input type="text" data-sqli-login-username placeholder="student" />
+            </label>
+            <label class="tm-inspector__field">Password
+                <input type="text" data-sqli-login-password placeholder="training123" />
+            </label>
+            <button type="button" class="btn btn--outline" data-sqli-login-bypass>Fill bypass training payload</button>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-sqli-login-vuln>Login (Vulnerable)</button>
+                <button type="button" class="btn btn--outline" data-sqli-login-secure>Login (Secure)</button>
+            </div>
+        </div>
+
+        {# ── Database Inspector: read-only, fixed schema — no SQL console ── #}
+        <div class="tm-sqli__box">
+            <div class="tm-proxy__box-head">Database Inspector (read-only)</div>
+            <div class="tm-sqli__schema" data-sqli-schema aria-label="Training database schema">
+                {% for table, cols in mission.web_lab_status.db_schema.items() %}
+                <div class="tm-sqli__table">
+                    <div class="tm-sqli__table-name">{{ table }}</div>
+                    <ul class="tm-sqli__cols">
+                        {% for name, typ in cols %}
+                        <li>{{ name }} <span class="tm-sqli__coltype">({{ typ }})</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Query Visualizer: Input -> Application Query -> Database -> Response ── #}
+    <div class="tm-sqli__box tm-sqli__box--wide">
+        <div class="tm-proxy__box-head">Query Visualizer <span class="tm-sqli__note">(simulated query representation — not a live SQL console)</span></div>
+        <div class="tm-sqli__flow" aria-label="Query flow">
+            <div class="tm-sqli__flow-step"><span class="tm-sqli__flow-label">User Input</span><span data-sqli-qv-input>—</span></div>
+            <div class="tm-sqli__flow-arrow" aria-hidden="true">↓</div>
+            <div class="tm-sqli__flow-step"><span class="tm-sqli__flow-label">Application Query</span><code data-sqli-qv-query>—</code></div>
+            <div class="tm-sqli__flow-arrow" aria-hidden="true">↓</div>
+            <div class="tm-sqli__flow-step"><span class="tm-sqli__flow-label">Database</span><span data-sqli-qv-db>cybershop.training (simulated)</span></div>
+            <div class="tm-sqli__flow-arrow" aria-hidden="true">↓</div>
+            <div class="tm-sqli__flow-step"><span class="tm-sqli__flow-label">Response</span><span data-sqli-qv-response>—</span></div>
+        </div>
+        <p class="tm-sqli__note" data-sqli-qv-explain></p>
+    </div>
+
+    {# ── Vulnerable vs. Secure — interactive side-by-side comparison ── #}
+    <div class="tm-sqli__box tm-sqli__box--wide">
+        <div class="tm-proxy__box-head">Vulnerable vs. Secure — Side by Side</div>
+        <div class="tm-proxy__builder-row">
+            <label class="tm-inspector__field tm-inspector__field--grow">Training input to send to both
+                <input type="text" data-sqli-compare-input placeholder="' OR '1'='1" />
+            </label>
+            <button type="button" class="btn btn--primary" data-sqli-compare-run>Send to Both</button>
+        </div>
+        <div class="tm-sqli__compare-grid">
+            <div>
+                <div class="tm-sqli__table-name">Vulnerable — /search</div>
+                <div class="tm-sqli__compare-facts">
+                    <span>String concatenation</span><span>Input affects syntax</span><span>Unsafe</span>
+                </div>
+                <pre class="tm-proxy__pre" data-sqli-compare-vuln>No comparison yet.</pre>
+            </div>
+            <div>
+                <div class="tm-sqli__table-name">Secure — /secure-search</div>
+                <div class="tm-sqli__compare-facts">
+                    <span>Parameterized query</span><span>Input stays data</span><span>Safer</span>
+                </div>
+                <pre class="tm-proxy__pre" data-sqli-compare-secure>No comparison yet.</pre>
+            </div>
+        </div>
+    </div>
+
+    {# ── Evidence checklist — a pure view over WebLab.sqli's counters ── #}
+    <div class="tm-sqli__badges" data-sqli-badges aria-label="Evidence collected">
+        <span class="tm-proxy__badge" data-sqli-badge-true>TRUE: not seen</span>
+        <span class="tm-proxy__badge" data-sqli-badge-false>FALSE: not seen</span>
+        <span class="tm-proxy__badge" data-sqli-badge-bypass>Auth bypass: not triggered</span>
+        <span class="tm-proxy__badge" data-sqli-badge-secure>Secure endpoint: not tested</span>
+        <span class="tm-proxy__badge" data-sqli-badge-inspections>Query inspections: 0</span>
     </div>
 </section>
 {% endif %}

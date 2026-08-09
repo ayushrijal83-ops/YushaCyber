@@ -324,9 +324,11 @@ class TestLoader:
     def test_chained_after_burp_fundamentals(self):
         assert MISSIONS["burp-fundamentals"]["next_mission"] == "authentication-sessions"
 
-    def test_terminal_mission(self):
+    def test_chains_to_sql_injection_fundamentals(self):
+        # Chained after this mission by YC-035.4 — see
+        # docs/SQL_INJECTION_FUNDAMENTALS.md.
         m = get_mission("authentication-sessions")
-        assert m["next_mission"] is None
+        assert m["next_mission"] == "sql-injection-fundamentals"
 
     def test_web_lab_scenario_set(self):
         m = get_mission("authentication-sessions")

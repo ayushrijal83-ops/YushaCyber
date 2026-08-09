@@ -2145,6 +2145,306 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "web_lab": "auth-lifecycle",
+        "next_mission": "sql-injection-fundamentals",
+    },
+    "sql-injection-fundamentals": {
+        "id": "sql-injection-fundamentals",
+        "title": "SQL Injection Fundamentals",
+        "description": "Learn how unsafe, string-concatenated database queries let user "
+                       "input change a query's own logic — against the same simulated "
+                       "training site (CyberShop) and the same Proxy/Repeater from "
+                       "YC-035.2. The simulator recognizes only a fixed set of exact "
+                       "training payloads and maps each to a predetermined, deterministic "
+                       "outcome — it never parses or executes anything you type as real "
+                       "SQL, never touches a real database, and never lets you escape the "
+                       "training environment. No real exploitation tooling, no arbitrary "
+                       "SQL execution, no data dumping — that's out of scope everywhere.",
+        "difficulty": "Intermediate",
+        "category": "Web Security",
+        "xp_total": 700,
+        "estimated_minutes": 70,
+        "learn": ["What a database query is", "How web input reaches a database query",
+                  "Unsafe string concatenation", "SQL injection", "Error-based clues",
+                  "Boolean-based behavior differences", "The UNION concept (conceptual)",
+                  "Authentication-bypass concept", "Parameterized queries / prepared statements",
+                  "Why parameterized queries prevent injection", "Input boundaries",
+                  "Evidence-based vulnerability confirmation"],
+        "objectives": [
+            {
+                "id": "si-1",
+                "title": "Database Basics",
+                "description": "A database stores the site's data (products, users, "
+                               "orders, reviews) so the application can look it up on "
+                               "demand. Inspect the training database's schema before "
+                               "touching any query.",
+                "hints": [
+                    "There's a read-only command that lists every table in the training database.",
+                    "It's a single short word.",
+                    "Use 'schema' to see the users, products, orders, and reviews tables.",
+                ],
+                "validate": {"type": "command", "match": "schema"},
+                "xp": 30,
+            },
+            {
+                "id": "si-2",
+                "title": "Query Flow",
+                "description": "Every search follows the same path: your input -> the "
+                               "application -> a database query -> the database -> the "
+                               "response you see. Check the simulated site's overview to "
+                               "see the routes involved.",
+                "hints": [
+                    ("The same overview command from earlier missions lists this "
+                     "mission's routes too."),
+                    "It's a single short word.",
+                    "Use 'web'.",
+                ],
+                "validate": {"type": "command", "match": "web"},
+                "xp": 30,
+            },
+            {
+                "id": "si-3",
+                "title": "Normal Search",
+                "description": "Search the training catalog for 'laptop' and observe a "
+                               "normal, unmodified result.",
+                "hints": [
+                    ("A plain keyword, with no quotes or special characters, is always "
+                     "treated as literal search text."),
+                    "Request /search with q set to 'laptop'.",
+                    "Use 'open https://cybershop.training/search?q=laptop'.",
+                ],
+                "validate": {"type": "web_state", "check": "normal_request", "param": "q", "match": "laptop"},
+                "xp": 35,
+            },
+            {
+                "id": "si-4",
+                "title": "Inspect Request",
+                "description": "Capture your search request using the Proxy before it "
+                               "reaches the server.",
+                "hints": [
+                    ("Turn interception on first, the same way you did in the Burp "
+                     "Suite mission."),
+                    "Use 'intercept on', then make a search request.",
+                    "Use 'intercept on', then 'open https://cybershop.training/search?q=keyboard'.",
+                ],
+                "validate": {"type": "web_state", "check": "request_intercepted", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "si-5",
+                "title": "Identify Input",
+                "description": "Identify 'q' as the user-controlled parameter by "
+                               "requesting /search with q set to 'laptop' again.",
+                "hints": [
+                    ("Look at the request you captured — exactly one part of it changes "
+                     "when you change your search term."),
+                    "It's the query string parameter in the URL.",
+                    ("Forward or make a request where q=laptop, then check the 'q' "
+                     "query parameter."),
+                ],
+                "validate": {"type": "web_state", "check": "query_param", "param": "q", "match": "laptop"},
+                "xp": 35,
+            },
+            {
+                "id": "si-6",
+                "title": "Error Clue",
+                "description": "Send a single unescaped quote as the search term and "
+                               "observe the simulated database error. This is a strong "
+                               "clue that your input is landing directly inside the query.",
+                "hints": [
+                    "A lone quote character, with nothing else, is the training payload here.",
+                    "Set q to a single ' character.",
+                    ('Use: open "https://cybershop.training/search?q=\'" '
+                     "— expect 500 Internal Server Error."),
+                ],
+                "validate": {"type": "web_state", "check": "error_observed", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "si-7",
+                "title": "Boolean TRUE",
+                "description": "Send the training condition that always evaluates true "
+                               "and observe every product in the catalog come back.",
+                "hints": [
+                    ("The training payload closes the string early, then OR's in a "
+                     "condition that's always true."),
+                    "Set q to \"' OR '1'='1\" exactly.",
+                    "Use 'open \"https://cybershop.training/search?q=' OR '1'='1\"'.",
+                ],
+                "validate": {"type": "web_state", "check": "boolean_true_observed", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "si-8",
+                "title": "Boolean FALSE",
+                "description": "Send the training condition that always evaluates false "
+                               "and observe zero results, even though the catalog isn't empty.",
+                "hints": [
+                    ("Same idea as the TRUE condition, but the appended condition is "
+                     "always false instead."),
+                    "Set q to \"' AND '1'='2\" exactly.",
+                    "Use 'open \"https://cybershop.training/search?q=' AND '1'='2\"'.",
+                ],
+                "validate": {"type": "web_state", "check": "boolean_false_observed", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "si-9",
+                "title": "Compare Responses",
+                "description": "Compare your TRUE and FALSE results using the Proxy's "
+                               "Compare feature. The application's behavior clearly "
+                               "depends on the condition you supplied — the core signal "
+                               "of a boolean-based SQL injection.",
+                "hints": [
+                    "You already have both requests in your History — find their entry numbers.",
+                    "Use 'compare N M' with the TRUE and FALSE request numbers.",
+                    "Example: 'compare 1 2' (use your actual history numbers).",
+                ],
+                "validate": {"type": "web_state", "check": "response_difference", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "si-10",
+                "title": "Query Structure",
+                "description": "Inspect the simulated query representation for one of "
+                               "your training requests and identify how unsafe string "
+                               "concatenation let your input change the query's structure.",
+                "hints": [
+                    ("There's a command that shows Input -> Application Query -> "
+                     "Database -> Response for your last request."),
+                    "It's a single short word.",
+                    "Use 'query' right after sending one of the TRUE/FALSE/error requests.",
+                ],
+                "validate": {"type": "web_state", "check": "query_structure_inspected", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "si-11",
+                "title": "Authentication Scenario",
+                "description": "Open the simulated vulnerable training login and submit "
+                               "the normal training credentials.",
+                "hints": [
+                    ("This is a different endpoint from the /login you used in the "
+                     "Authentication & Sessions mission."),
+                    "POST to /training-login with username and password in the body.",
+                    ('Use \'open -X POST -d "username=student&password=training123" '
+                     "https://cybershop.training/training-login'."),
+                ],
+                "validate": {"type": "web_state", "check": "training_auth_scenario", "match": "opened"},
+                "xp": 30,
+            },
+            {
+                "id": "si-12",
+                "title": "Authentication Logic",
+                "description": "Complete the controlled authentication-bypass exercise "
+                               "using only the predefined training username. A comment "
+                               "sequence in the username can remove the rest of an unsafe "
+                               "query — including the password check.",
+                "hints": [
+                    ("The training username ends the string early, then comments out "
+                     "everything after it — including the password check."),
+                    "Set username to admin'-- exactly; the password can be anything.",
+                    ('Use: open -X POST -d "username=admin\'--&password=x" '
+                     "https://cybershop.training/training-login "
+                     "— expect authenticated_as: admin."),
+                ],
+                "validate": {"type": "web_state", "check": "training_auth_scenario", "match": "bypassed"},
+                "xp": 55,
+            },
+            {
+                "id": "si-13",
+                "title": "Secure Endpoint",
+                "description": "Send the exact same TRUE training input to /secure-search "
+                               "and observe that the query structure stays unchanged.",
+                "hints": [
+                    "This endpoint treats your input as data, never as part of the query.",
+                    "Request /secure-search with the same q you used for the TRUE condition.",
+                    ("Use 'open \"https://cybershop.training/secure-search?q=' OR '1'='1\"' "
+                     "— expect 0 matches, not every product."),
+                ],
+                "validate": {"type": "web_state", "check": "secure_endpoint_tested", "endpoint": "/secure-search", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "si-14",
+                "title": "Parameterized Queries",
+                "description": "Having tested both endpoints with the same input, "
+                               "confirm why parameterized queries prevent injection: they "
+                               "keep user input as data, never as part of the query's syntax.",
+                "hints": [
+                    ("Compare the two 'Application Query' lines you saw from 'query' on "
+                     "each endpoint."),
+                    ("One shows your input inside the query text; the other shows a "
+                     "fixed placeholder that never changes."),
+                    ("Make sure you've tested the same training input against both "
+                     "/search and /secure-search, then use 'query' on each."),
+                ],
+                "validate": {"type": "web_state", "check": "parameterized_query_identified", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "si-15",
+                "title": "Evidence Collection",
+                "description": "Before the final investigation, make sure you've "
+                               "gathered every kind of evidence: the TRUE/FALSE behavior "
+                               "difference, at least one query representation, and the "
+                               "secure endpoint's result.",
+                "hints": [
+                    ("Nothing new to send here — just make sure you've completed the "
+                     "TRUE, FALSE, query-inspection, and secure-endpoint objectives above."),
+                    "If any of those are still incomplete, go back and finish them first.",
+                    ("Once TRUE, FALSE, a query inspection, and the secure endpoint are "
+                     "all done, this objective completes automatically."),
+                ],
+                "validate": {"type": "web_state", "check": "evidence_collected", "match": "1"},
+                "xp": 55,
+            },
+            {
+                "id": "si-16",
+                "title": "FINAL INVESTIGATION — The Inconsistent Search",
+                "description": "A bug report says the training site's search "
+                               "'sometimes returns every product, and sometimes returns "
+                               "none, for no obvious reason.' Inspect the investigation "
+                               "log, reconstruct what's actually happening from the "
+                               "evidence, and determine whether this is SQL injection.",
+                "hints": [
+                    ("Look closely at the second and third entries — the query text, "
+                     "not just the result count."),
+                    ("The second and third requests are the TRUE/FALSE training "
+                     "conditions — unsafe string concatenation let them change the "
+                     "query's own logic. The fourth entry sends the same input to the "
+                     "secure endpoint and gets a normal, unaffected result — proof "
+                     "that parameterized queries are the fix."),
+                    ("Use 'evidence' to list the log, then 'inspect 1' through "
+                     "'inspect 4' to read each exchange. Then: "
+                     'echo "Conclusion: unsafe string concatenation let the TRUE and '
+                     "FALSE training conditions change the search query's own logic "
+                     "- this is SQL injection. The secure endpoint returned a normal, "
+                     "unaffected result for the same input because parameterized "
+                     'queries keep input as data, never as query syntax." > '
+                     "web/sqli-investigation.txt."),
+                ],
+                "validate": {"type": "file_contains", "match": "parameterized queries",
+                             "path": "/home/student/web/sqli-investigation.txt"},
+                "xp": 80,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": "sqli-investigation",
         "next_mission": None,
     },
 }

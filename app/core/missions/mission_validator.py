@@ -293,6 +293,78 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
             return _pass(obj_id, xp)
         return _fail(obj_id, "Use the 'expire' command to expire your session first.")
 
+    # ── SQL Injection Fundamentals (YC-035.4). Each check reads either
+    # the last request/response's structured 'X-Sim-Query-Kind' header
+    # (set deterministically by WebApp's fixed training routes — see
+    # web.py) or a counter/flag off WebLab.sqli (SqliLabState) — never
+    # rendered text, matching this file's established discipline.
+    if check == "normal_request":
+        param = v.get("param", "q")
+        kind = resp.headers.get("X-Sim-Query-Kind") if resp else None
+        if (req is not None and req.path == "/search" and kind == "normal"
+                and req.query.get(param, "").strip().lower() == expected.lower()):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Search for '{expected}' with a plain, literal query.")
+
+    if check == "error_observed":
+        if (resp is not None and resp.status_code == 500
+                and resp.headers.get("X-Sim-Query-Kind") == "error"):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send the malformed training input to /search and check the status code.")
+
+    if check == "boolean_true_observed":
+        if resp is not None and resp.headers.get("X-Sim-Query-Kind") == "boolean_true":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send the TRUE training condition to /search.")
+
+    if check == "boolean_false_observed":
+        if resp is not None and resp.headers.get("X-Sim-Query-Kind") == "boolean_false":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send the FALSE training condition to /search.")
+
+    if check == "response_difference":
+        if lab.sqli.boolean_true_seen and lab.sqli.boolean_false_seen:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send both the TRUE and FALSE training conditions, then compare the results.")
+
+    if check == "query_structure_inspected":
+        if lab.sqli.query_inspections >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Use the 'query' command to inspect the simulated query representation.")
+
+    if check == "training_auth_scenario":
+        if expected.lower() == "bypassed":
+            if lab.sqli.auth_bypass_triggered:
+                return _pass(obj_id, xp)
+            return _fail(obj_id, "Trigger the predefined authentication-bypass training pattern "
+                                "on /training-login.")
+        if req is not None and req.path == "/training-login" and req.method == "POST":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "POST to /training-login with the training credentials first.")
+
+    if check == "secure_endpoint_tested":
+        endpoint = v.get("endpoint", "/secure-search")
+        tested = (lab.sqli.secure_search_tested if endpoint == "/secure-search"
+                  else lab.sqli.secure_login_tested)
+        if tested:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Send the same training input to {endpoint}.")
+
+    if check == "parameterized_query_identified":
+        structural_change_seen = lab.sqli.boolean_true_seen or lab.sqli.boolean_false_seen
+        if structural_change_seen and lab.sqli.secure_search_tested:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Test the same training input against both /search and /secure-search, "
+                            "then compare the simulated query representation.")
+
+    if check == "evidence_collected":
+        s = lab.sqli
+        if (s.boolean_true_seen and s.boolean_false_seen
+                and s.secure_search_tested and s.query_inspections > 0):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Collect more evidence: the TRUE/FALSE comparison, the query "
+                            "representation ('query'), and the secure endpoint result.")
+
     if check == "session_authenticated":
         # Deliberately requires the *last request* to actually be a
         # successful hit on a session-gated resource — not just "a valid

@@ -200,6 +200,7 @@ class MissionRunner:
         lab = self.shell.web_lab
         if lab is None:
             return None
+        from app.core.terminal.web import DB_SCHEMA
         sid = lab.session.cookies.get("session_id")
         # "authenticated" (YC-035.3) is a *server-side* fact: the browser's
         # jar can hold a session_id the server no longer recognizes (after
@@ -244,6 +245,23 @@ class MissionRunner:
                 "repeater_sent_count": lab.proxy.repeater_sent_count,
                 "compared_count": lab.proxy.compared_count,
             },
+            # SQL Injection Fundamentals state (YC-035.4) — only ever
+            # meaningful for that mission; every other web-lab mission's
+            # counters simply stay at their defaults, same as `proxy`
+            # above for missions that never touch the proxy.
+            "sqli": {
+                "query_inspections": lab.sqli.query_inspections,
+                "boolean_true_seen": lab.sqli.boolean_true_seen,
+                "boolean_false_seen": lab.sqli.boolean_false_seen,
+                "secure_search_tested": lab.sqli.secure_search_tested,
+                "secure_login_tested": lab.sqli.secure_login_tested,
+                "auth_bypass_triggered": lab.sqli.auth_bypass_triggered,
+            },
+            # Fixed, read-only training schema (YC-035.4) for the Database
+            # Inspector panel — static data, not per-session state; carried
+            # here so the frontend has a single source of truth instead of
+            # duplicating DB_SCHEMA in the template.
+            "db_schema": DB_SCHEMA,
         }
 
     def use_hint(self, objective_id: str) -> str:
@@ -354,6 +372,23 @@ class MissionRunner:
                 "intercepted_count": proxy["intercepted_count"],
                 "forwarded_count": proxy["forwarded_count"],
                 "dropped_count": proxy["dropped_count"],
+            }
+            # SQL Injection Fundamentals summary (YC-035.4) — small and
+            # structured, so CyberMentor can explain *why* a response
+            # changed (which training condition was sent, whether the
+            # secure endpoint has been compared yet) without repeating
+            # full request/response bodies on every turn.
+            sqli = web_status["sqli"]
+            last_kind = (web_status["last_response"]["headers"].get("X-Sim-Query-Kind")
+                        if web_status["last_response"] else None)
+            ctx["web"]["injection"] = {
+                "last_query_kind": last_kind,
+                "query_inspections": sqli["query_inspections"],
+                "boolean_true_observed": sqli["boolean_true_seen"],
+                "boolean_false_observed": sqli["boolean_false_seen"],
+                "secure_search_tested": sqli["secure_search_tested"],
+                "secure_login_tested": sqli["secure_login_tested"],
+                "auth_bypass_triggered": sqli["auth_bypass_triggered"],
             }
         return ctx
 
