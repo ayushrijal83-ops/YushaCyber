@@ -134,7 +134,46 @@
     </div>
 </div>
 
-{% if mission and mission.web_lab_status and mission.mission.id == 'burp-fundamentals' %}
+{% if mission and mission.web_lab_status and mission.mission.id == 'authentication-sessions' %}
+{# ── Session State (YC-035.3): live authentication status, driven by ──
+   the same web_lab_status payload as the WEB SESSION sidebar panel and
+   the HTTP Inspector below — Logout/Expire buttons build exactly the
+   commands a student could type ('open -X POST .../logout', 'expire')
+   and submit them through the same exec() path as every other button
+   on this page. No new session engine, no new cookie jar. #}
+<section class="tm-session" aria-label="Session State">
+    <div class="tm-session__bar">
+        <span class="tm-session__title">🔐 Session State</span>
+        <span class="tm-session__badge" data-session-badge>Unauthenticated</span>
+        <button class="tm-toolbar__btn" data-session-logout type="button">Logout</button>
+        <button class="tm-toolbar__btn" data-session-expire type="button">Expire Session</button>
+    </div>
+    <div class="tm-session__grid">
+        <div class="tm-session__row"><span class="tm-session__label">User:</span> <span data-session-user>—</span></div>
+        <div class="tm-session__row"><span class="tm-session__label">Session:</span> <span data-session-id>—</span></div>
+        <div class="tm-session__row"><span class="tm-session__label">Expires:</span> <span data-session-expires>—</span></div>
+        <div class="tm-session__row"><span class="tm-session__label">Cookies:</span> <span data-session-cookies>0</span></div>
+    </div>
+    {# ── Authentication flow visualization (YC-035.3 §26) — a static, ──
+       always-visible reference diagram; the live panels above/below it
+       (Session State, HTTP Inspector, History) already let a student
+       click into any real step of their own traffic, so this stays a
+       compact legend rather than a duplicate interactive rebuild of the
+       History tab. #}
+    <ol class="tm-authflow" aria-label="Login and session flow">
+        <li>Browser submits <code>POST /login</code> with credentials</li>
+        <li>Server validates credentials</li>
+        <li>Server responds <code>302 Found</code></li>
+        <li>Response carries <code>Set-Cookie: session_id=...</code></li>
+        <li>Browser stores the session cookie</li>
+        <li>Browser requests <code>GET /profile</code></li>
+        <li>Request carries <code>Cookie: session_id=...</code></li>
+        <li>Server responds <code>200 OK</code> — authenticated</li>
+    </ol>
+</section>
+{% endif %}
+
+{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions') %}
 {# ── Proxy Control (YC-035.2): intercept/forward/drop/edit/Repeater/ ──
    compare, all driven through the same terminal exec() path as the
    Request Builder below — buttons here only ever synthesize a command

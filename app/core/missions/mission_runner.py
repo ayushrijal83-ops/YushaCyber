@@ -16,6 +16,16 @@ from app.core.terminal.shell import Shell
 _IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?\b")
 
 
+def _mask_session_id(sid: str | None) -> str | None:
+    """Partial mask for the AI mentor's prompt context (YC-035.3) —
+    never the full session id, even though it's always fictional training
+    data. Mirrors how a real security-conscious tool would treat any
+    session token."""
+    if not sid:
+        return None
+    return sid[:4] + "****"
+
+
 @dataclass
 class MissionProgress:
     mission_id: str = ""
@@ -191,10 +201,19 @@ class MissionRunner:
         if lab is None:
             return None
         sid = lab.session.cookies.get("session_id")
+        # "authenticated" (YC-035.3) is a *server-side* fact: the browser's
+        # jar can hold a session_id the server no longer recognizes (after
+        # logout or 'expire') — that mismatch is the whole point of the
+        # Session State panel, so it's computed here rather than inferred
+        # from cookie presence alone.
+        authenticated = bool(sid and sid in lab.app.sessions)
         username = lab.app.sessions.get(sid) if sid else None
         req, resp = lab.session.last_request, lab.session.last_response
         return {
             "logged_in_as": username,
+            "authenticated": authenticated,
+            "session_present": sid is not None,
+            "expired_count": lab.expired_count,
             "last_status": resp.status_code if resp else None,
             "last_path": req.path if req else None,
             "cookie_count": len(lab.session.cookies),
@@ -308,6 +327,19 @@ class MissionRunner:
                     f"{h['method']} {h['path']} -> {h['status_code']}"
                     for h in web_status["history"][-5:]
                 ],
+                # Authentication/session state (YC-035.3) — security-filtered:
+                # the session id itself is masked (a handful of leading
+                # characters + '****'), never the full value, even though
+                # it's fictional training data, so CyberMentor's prompt
+                # never carries a copy-pasteable "secret" out of habit.
+                "authentication_state": ("authenticated" if web_status["authenticated"]
+                                        else "unauthenticated"),
+                "session_id_present": web_status["session_present"],
+                "session_active": web_status["authenticated"],
+                "session_expired": (web_status["session_present"]
+                                    and not web_status["authenticated"]),
+                "session_id_masked": _mask_session_id(web_status["cookies"].get("session_id")),
+                "last_authentication_status": web_status["last_status"],
             }
             # Proxy summary (YC-035.2) — small and structured, not the
             # full pending/repeater request objects, matching the same

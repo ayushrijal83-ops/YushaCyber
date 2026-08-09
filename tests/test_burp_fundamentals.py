@@ -505,9 +505,9 @@ class TestLoader:
     def test_chained_after_http_deep_dive(self):
         assert MISSIONS["http-deep-dive"]["next_mission"] == "burp-fundamentals"
 
-    def test_terminal_mission(self):
+    def test_chains_into_authentication_sessions(self):
         m = get_mission("burp-fundamentals")
-        assert m["next_mission"] is None
+        assert m["next_mission"] == "authentication-sessions"
 
     def test_web_lab_scenario_set(self):
         m = get_mission("burp-fundamentals")

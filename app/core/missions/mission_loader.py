@@ -1862,6 +1862,289 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "web_lab": "profile-mismatch",
+        "next_mission": "authentication-sessions",
+    },
+    "authentication-sessions": {
+        "id": "authentication-sessions",
+        "title": "Authentication & Sessions",
+        "description": "Learn how web authentication actually works — login, sessions, "
+                       "cookies, protected routes, logout, and session expiration — against "
+                       "the same simulated training site (CyberShop), using the same proxy "
+                       "and Repeater from YC-035.2. Still purely educational: no session "
+                       "hijacking, no credential attacks, no real authentication provider, "
+                       "and no real network request ever made. Session exploitation is out "
+                       "of scope for this mission — it belongs to a later one.",
+        "difficulty": "Intermediate",
+        "category": "Web Security",
+        "xp_total": 600,
+        "estimated_minutes": 65,
+        "learn": ["Authentication vs. authorization", "Login flow", "Logout flow",
+                  "HTTP POST login requests", "Set-Cookie vs. Cookie", "Session identifiers",
+                  "Authenticated vs. unauthenticated requests", "Protected routes",
+                  "Session invalidation", "Session expiration", "401 vs. 403 vs. 302"],
+        "objectives": [
+            {
+                "id": "as-1",
+                "title": "Authentication vs. Authorization",
+                "description": "Authentication asks 'who are you?'; authorization asks 'what "
+                               "are you allowed to do?'. Check the simulated site's status "
+                               "before you log in.",
+                "hints": [
+                    ("There's a command that shows the simulated site, your login status, "
+                     "and its routes — the same one from earlier missions."),
+                    "It's a single short word.",
+                    "Use 'web'.",
+                ],
+                "validate": {"type": "command", "match": "web"},
+                "xp": 30,
+            },
+            {
+                "id": "as-2",
+                "title": "The Login Request",
+                "description": "Submit the training login form and identify the HTTP method "
+                               "the browser actually sends.",
+                "hints": [
+                    ("A login form submit is never a GET — it carries a body with your "
+                     "credentials."),
+                    "POST to /login (or /auth/login) with username and password in the body.",
+                    ('Use \'open -X POST -d "username=student&password=training123" '
+                     "https://cybershop.training/login'."),
+                ],
+                "validate": {"type": "web_state", "check": "method", "match": "POST"},
+                "xp": 30,
+            },
+            {
+                "id": "as-3",
+                "title": "Fictional Training Credentials",
+                "description": "Confirm the exact password your request sent. This is a "
+                               "fixed, fictional training value — never a real password, "
+                               "here or anywhere else.",
+                "hints": [
+                    ("Credentials are sent as form fields in the POST body — username and "
+                     "password."),
+                    "Check the 'password' field of the request you just sent.",
+                    ("It should read training123 — the fixed training-only password for "
+                     "the account 'student'."),
+                ],
+                "validate": {"type": "web_state", "check": "body_field", "in": "request",
+                             "field": "password", "match": "training123"},
+                "xp": 30,
+            },
+            {
+                "id": "as-4",
+                "title": "Successful Login",
+                "description": "Confirm that a successful login doesn't return an HTML page "
+                               "directly — it redirects the browser somewhere else.",
+                "hints": [
+                    "A successful login response here is a redirect, not a rendered page.",
+                    "Check the status code of your last login response.",
+                    "It should be 302 Found.",
+                ],
+                "validate": {"type": "web_state", "check": "status_code", "match": "302"},
+                "xp": 35,
+            },
+            {
+                "id": "as-5",
+                "title": "Set-Cookie: Server to Browser",
+                "description": "Find the session cookie the server set on your successful "
+                               "login. Set-Cookie flows from server to browser.",
+                "hints": [
+                    ("A successful login tells the browser to remember a session — check "
+                     "what landed in your cookie jar."),
+                    "Use 'cookies' to see what's currently stored.",
+                    "You should see session_id=student-session.",
+                ],
+                "validate": {"type": "web_state", "check": "cookie",
+                             "cookie_name": "session_id", "match": "student-session"},
+                "xp": 35,
+            },
+            {
+                "id": "as-6",
+                "title": "Cookie: Browser to Server",
+                "description": "Request your profile and confirm your browser actually "
+                               "attached the session cookie to the outgoing request. Cookie "
+                               "flows from browser to server — the opposite direction of "
+                               "Set-Cookie.",
+                "hints": [
+                    ("Set-Cookie and Cookie are opposite directions of the same value, not "
+                     "two different things."),
+                    ("Make a request to a page that needs your session now that you have "
+                     "the cookie."),
+                    ("Use 'open https://cybershop.training/profile', then check the request "
+                     "carried Cookie: session_id=student-session."),
+                ],
+                "validate": {"type": "web_state", "check": "cookie_sent",
+                             "cookie_name": "session_id", "match": "student-session"},
+                "xp": 35,
+            },
+            {
+                "id": "as-7",
+                "title": "An Authenticated Request",
+                "description": "Confirm the server recognized your session and actually "
+                               "returned your profile.",
+                "hints": [
+                    ("If the cookie matches a real, current session, the server treats you "
+                     "as logged in."),
+                    "Check the status code and body of your last /profile request.",
+                    "It should be 200 OK, with 'student' in the response body.",
+                ],
+                "validate": {"type": "web_state", "check": "session_authenticated", "match": "true"},
+                "xp": 40,
+            },
+            {
+                "id": "as-8",
+                "title": "Failed Login",
+                "description": "Submit incorrect training credentials and identify the "
+                               "resulting status code.",
+                "hints": [
+                    ("Try the right username with a wrong password — this won't disturb "
+                     "your existing session."),
+                    "POST to /login with a bad password field.",
+                    ('Use \'open -X POST -d "username=student&password=wrong-password" '
+                     "https://cybershop.training/login' — expect 401 Unauthorized."),
+                ],
+                "validate": {"type": "web_state", "check": "status_code", "match": "401"},
+                "xp": 35,
+            },
+            {
+                "id": "as-9",
+                "title": "Authenticated but Not Authorized",
+                "description": "While still logged in as 'student', request /admin. You are "
+                               "authenticated — but that doesn't mean you're allowed here.",
+                "hints": [
+                    ("Authentication succeeding doesn't automatically grant access to "
+                     "everything."),
+                    ("Request the admin route with your current (student) session cookie "
+                     "still active."),
+                    ("Use 'open https://cybershop.training/admin' — expect 403 Forbidden, "
+                     "not 401."),
+                ],
+                "validate": {"type": "web_state", "check": "status_code", "match": "403"},
+                "xp": 45,
+            },
+            {
+                "id": "as-10",
+                "title": "API Authentication",
+                "description": "Inspect the session-protected profile API and identify the "
+                               "authenticated username in the JSON response.",
+                "hints": [
+                    ("Not every protected endpoint returns HTML — this one returns JSON, "
+                     "still gated by the same session cookie."),
+                    "Request /api/profile with your session cookie attached.",
+                    ("Use 'open https://cybershop.training/api/profile' — check the "
+                     "'username' field in the response body."),
+                ],
+                "validate": {"type": "web_state", "check": "body_field", "in": "response",
+                             "field": "username", "match": "student"},
+                "xp": 40,
+            },
+            {
+                "id": "as-11",
+                "title": "Logout",
+                "description": "Log out and inspect the response for a session cookie "
+                               "deletion.",
+                "hints": [
+                    ("Logging out needs to tell both the server (invalidate the session) "
+                     "and the browser (delete the cookie)."),
+                    ("POST to /logout with your session cookie attached, then check the "
+                     "response headers for a Set-Cookie deletion."),
+                    ("Use 'open -X POST https://cybershop.training/logout' with your cookie "
+                     "still set — look for 'Set-Cookie: session_id=; Max-Age=0'."),
+                ],
+                "validate": {"type": "web_state", "check": "logout_completed",
+                             "cookie_name": "session_id", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "as-12",
+                "title": "Session Invalidation",
+                "description": "After logging out, request /profile again and confirm your "
+                               "old session no longer works.",
+                "hints": [
+                    ("Logout doesn't just clear the browser's cookie — it invalidates the "
+                     "session on the server too."),
+                    "Request the same protected page you accessed earlier.",
+                    ("Use 'open https://cybershop.training/profile' — expect 401 "
+                     "Unauthorized, since you're no longer logged in."),
+                ],
+                "validate": {"type": "web_state", "check": "status_code", "match": "401"},
+                "xp": 40,
+            },
+            {
+                "id": "as-13",
+                "title": "A Protected Route Redirects",
+                "description": "Not every protected page answers with a bare error code — "
+                               "some redirect you straight back to the login page. Request "
+                               "/dashboard now that you're logged out.",
+                "hints": [
+                    ("A browser-style page often redirects an unauthenticated visitor "
+                     "instead of showing a raw error status."),
+                    "Request /dashboard while you have no valid session.",
+                    ("Use 'open https://cybershop.training/dashboard' — its Location header "
+                     "should point to /login."),
+                ],
+                "validate": {"type": "web_state", "check": "redirect_location", "match": "/login"},
+                "xp": 40,
+            },
+            {
+                "id": "as-14",
+                "title": "Session Expiration",
+                "description": "Log back in, then trigger simulated session expiration and "
+                               "confirm the session no longer authenticates you — even though "
+                               "your browser never deleted the cookie.",
+                "hints": [
+                    ("Expiration is different from logout: the browser keeps the cookie, "
+                     "but the server stops recognizing it."),
+                    ("Log in again first (your old session is gone), then use the dedicated "
+                     "expiration command."),
+                    ('Use \'open -X POST -d "username=student&password=training123" '
+                     "https://cybershop.training/login', then 'expire'."),
+                ],
+                "validate": {"type": "web_state", "check": "session_expired", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "as-15",
+                "title": "FINAL INVESTIGATION — The Missing Session",
+                "description": "A student says they logged in successfully, but after "
+                               "logging out they can no longer access their profile. "
+                               "Inspect the investigation log, reconstruct the full "
+                               "lifecycle from the evidence, and determine whether this is "
+                               "actually a bug.",
+                "hints": [
+                    ("Every request in this log succeeds exactly as it should — look "
+                     "closely at what happens between the third and fourth entries."),
+                    ("The logout response includes a cookie deletion. The final /profile "
+                     "request is correctly rejected because the session no longer exists "
+                     "server-side — that's the system working as intended, not a bug."),
+                    ('Use \'evidence\' to list the log, then \'inspect 1\' through '
+                     "'inspect 4' to read each exchange. Then: "
+                     'echo "Conclusion: logout invalidated the session server-side '
+                     '(Set-Cookie deletion), so the final /profile request was correctly '
+                     'rejected - not a bug" > web/auth-investigation.txt.'),
+                ],
+                "validate": {"type": "file_contains", "match": "invalidated the session",
+                             "path": "/home/student/web/auth-investigation.txt"},
+                "xp": 80,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": "auth-lifecycle",
         "next_mission": None,
     },
 }

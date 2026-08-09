@@ -670,11 +670,13 @@ def _web(sh: Shell, args: list[str]) -> str:
     username = sh.web_lab.app.sessions.get(sid) if sid else None
     status = f"Logged in as {username}" if username else "Not logged in"
     return (f"Simulated site: {HOST}\n{status}\n"
-           f"Routes: / /products /search /login /auth/login /profile /logout "
-           f"/api/login /api/profile /api/me\n"
+           f"Routes: / /products /search /login /auth/login /profile /account "
+           f"/dashboard /admin /logout /api/login /api/profile /api/me\n"
            f"Type 'open URL' or 'request METHOD PATH' to make a request.\n"
            f"Proxy: 'intercept on|off', 'forward', 'drop', 'edit ...', "
-           f"'repeater [N]', 'repeater send', 'compare N M'.")
+           f"'repeater [N]', 'repeater send', 'compare N M'.\n"
+           f"Session: 'expire' invalidates your session server-side without "
+           f"clearing your browser's cookie (see how that differs from logout).")
 
 
 @cmd("requests")
@@ -750,6 +752,25 @@ def _web_response(sh: Shell, args: list[str]) -> str:
         return "No request made yet. Use 'open URL' first."
     from app.core.terminal.web import render_response
     return render_response(sh.web_lab.session.last_response)
+
+
+@cmd("expire")
+def _expire_session(sh: Shell, args: list[str]) -> str:
+    """Simulator-controlled session expiration (YC-035.3) — deterministic,
+    triggered on demand rather than tied to real wall-clock time. Removes
+    the session server-side, same as logout, but leaves the browser's
+    cookie jar untouched: the student can then see that the server, not
+    the browser, decides whether a session is still valid."""
+    if sh.web_lab is None:
+        return "expire: no simulated web environment configured for this session"
+    sid = sh.web_lab.session.cookies.get("session_id")
+    if not sid or not sh.web_lab.app.expire_session(sid):
+        return "No active session to expire. Log in first."
+    sh.web_lab.expired_count += 1
+    return ("Session expired (simulator-controlled, not real time). Your browser "
+           "still holds the old session cookie, but the server no longer "
+           "recognizes it — the next protected request will be treated as "
+           "unauthenticated.")
 
 
 # ══════════════════════════════════════════════════════

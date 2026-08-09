@@ -98,6 +98,13 @@ class HttpResponse:
     reason: str
     headers: dict[str, str] = field(default_factory=dict)
     cookies: dict[str, str] = field(default_factory=dict)
+    # Cookie names the response tells the browser to delete (YC-035.3 —
+    # logout). Kept separate from `cookies` (which only ever holds
+    # *set* values) so render_response can emit the real
+    # `Set-Cookie: name=; Max-Age=0` deletion form, and WebSession.record
+    # can drop the name from its jar — the same distinction a real
+    # browser makes between "set this cookie" and "delete this cookie".
+    deleted_cookies: list[str] = field(default_factory=list)
     body: str = ""
     content_type: str = "text/plain"
     server: str = SERVER_HEADER
@@ -163,8 +170,17 @@ class WebApp:
             return self._login(req)
         if req.path == "/profile" and req.method == "GET":
             return self._profile(req)
-        if req.path == "/logout" and req.method == "GET":
+        # POST /logout added alongside the existing GET /logout (YC-035.3)
+        # — the actual training login/logout flow submits a form via POST;
+        # GET stays for backward compatibility with earlier missions.
+        if req.path == "/logout" and req.method in ("GET", "POST"):
             return self._logout(req)
+        if req.path == "/account" and req.method == "GET":
+            return self._account(req)
+        if req.path == "/dashboard" and req.method == "GET":
+            return self._dashboard(req)
+        if req.path == "/admin" and req.method == "GET":
+            return self._admin(req)
         if req.path == "/api/login" and req.method == "POST":
             return self._api_login(req)
         if req.path == "/api/profile" and req.method in ("GET", "POST"):
@@ -206,7 +222,13 @@ class WebApp:
             resp = self._redirect("/profile")
             resp.cookies["session_id"] = sid
             return resp
-        return self._error(401, "Unauthorized", "Invalid username or password.")
+        # JSON failure body (YC-035.3) — same 401 status YC-035.0 already
+        # locked in (test_login_post_invalid_credentials), just a
+        # structured body instead of plain text, matching real login APIs
+        # and the training spec's exact error shape. Never echoes back
+        # the submitted password or any other secret.
+        return self._json_error(401, "Unauthorized",
+                                {"error": "Invalid training credentials"})
 
     def _profile(self, req: HttpRequest) -> HttpResponse:
         username = self._session_user(req)
@@ -214,11 +236,62 @@ class WebApp:
             return self._ok(f"Profile: {username}")
         return self._error(401, "Unauthorized", "You must log in to view this page.")
 
+    def _account(self, req: HttpRequest) -> HttpResponse:
+        """Cookie-protected page that redirects instead of erroring when
+        unauthenticated (YC-035.3) — the browser-style counterpart to
+        /profile's API-style 401, so students see both patterns real
+        sites use for a "protected route"."""
+        username = self._session_user(req)
+        if username:
+            return self._ok(f"Account settings for {username}.")
+        return self._redirect("/login")
+
+    def _dashboard(self, req: HttpRequest) -> HttpResponse:
+        username = self._session_user(req)
+        if username:
+            return self._ok(f"Dashboard: welcome back, {username}.")
+        return self._redirect("/login")
+
+    def _admin(self, req: HttpRequest) -> HttpResponse:
+        """Authentication vs. authorization (YC-035.3): an unauthenticated
+        request is 401 ("who are you?"), but the training user "student",
+        while fully authenticated, is still not "admin" — 403 ("you are
+        known, but not allowed here"). Only "admin" (a fictional training
+        account) may pass."""
+        username = self._session_user(req)
+        if username is None:
+            return self._error(401, "Unauthorized", "You must log in to view this page.")
+        if username != "admin":
+            return self._json_error(
+                403, "Forbidden",
+                {"error": "Forbidden",
+                 "message": "You are authenticated, but not authorized to access this resource."})
+        return self._ok("Admin dashboard: training-site controls.")
+
     def _logout(self, req: HttpRequest) -> HttpResponse:
+        """Invalidates the server-side session (YC-035.0) and, as of
+        YC-035.3, tells the browser to delete the cookie too
+        (`deleted_cookies`) — GET keeps its original Location ("/") for
+        backward compatibility with earlier missions; POST (the form-submit
+        flow this mission teaches) redirects to /login instead."""
         sid = req.cookies.get("session_id")
         if sid:
             self.sessions.pop(sid, None)
-        return self._redirect("/")
+        location = "/login" if req.method == "POST" else "/"
+        resp = self._redirect(location)
+        resp.deleted_cookies.append("session_id")
+        return resp
+
+    def expire_session(self, sid: str) -> bool:
+        """Simulator-controlled session expiration (YC-035.3) — deterministic
+        and explicitly triggered (the 'expire' terminal command), never tied
+        to real wall-clock time. Server-side this is identical to logout
+        (the session stops being recognized), but nothing tells the
+        browser to drop its cookie: the whole point is that the student's
+        browser *still has* the stale session_id, yet the server now
+        rejects it — visibly different from logout's explicit cookie
+        deletion."""
+        return self.sessions.pop(sid, None) is not None
 
     def _session_user(self, req: HttpRequest) -> str | None:
         """Cookie-based session lookup — the browser/HTML auth mechanism."""
@@ -405,10 +478,50 @@ def build_profile_mismatch_log() -> list[tuple[HttpRequest, HttpResponse]]:
     return log
 
 
+def build_auth_lifecycle_log() -> list[tuple[HttpRequest, HttpResponse]]:
+    """A fixed, deterministic transcript for the Authentication & Sessions
+    final objective (YC-035.3): a student reports "I logged in fine, but
+    after I logged out I can't get back into my profile" — as if that were
+    a bug. It isn't: the transcript shows a completely correct lifecycle —
+    successful login, an authenticated /profile hit, an explicit logout
+    (which deletes the session cookie server-side), then a final /profile
+    request that is correctly denied because the session no longer exists.
+    The "investigation" is realizing logout is supposed to do that. Built
+    once against an isolated WebApp instance — never touches the student's
+    own session state."""
+    app = WebApp()
+    log: list[tuple[HttpRequest, HttpResponse]] = []
+
+    url = parse_url(f"https://{HOST}/auth/login")
+    req = build_request("POST", url, body="username=student&password=training123", timestamp=1.0)
+    resp = app.handle(req)
+    log.append((req, resp))
+    sid = resp.cookies["session_id"]
+
+    url = parse_url(f"https://{HOST}/profile")
+    req = build_request("GET", url, cookies={"session_id": sid}, timestamp=2.0)
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/logout")
+    req = build_request("POST", url, cookies={"session_id": sid}, timestamp=3.0)
+    log.append((req, app.handle(req)))
+
+    # The browser's cookie jar would have discarded session_id after the
+    # deletion above; this final request models what happens if it's sent
+    # anyway (e.g. a stale tab) — still correctly rejected, since the
+    # server-side session is gone either way.
+    url = parse_url(f"https://{HOST}/profile")
+    req = build_request("GET", url, cookies={"session_id": sid}, timestamp=4.0)
+    log.append((req, app.handle(req)))
+
+    return log
+
+
 _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResponse]]]] = {
     "login-flow": build_investigation_log,
     "content-type-bug": build_content_type_bug_log,
     "profile-mismatch": build_profile_mismatch_log,
+    "auth-lifecycle": build_auth_lifecycle_log,
 }
 
 
@@ -430,6 +543,11 @@ class WebSession:
         self.history.append((req, resp))
         for k, v in resp.cookies.items():
             self.cookies[k] = v
+        # Logout's Set-Cookie deletion (YC-035.3) — the browser drops the
+        # cookie from its own jar exactly as it would apply any other
+        # Set-Cookie instruction from the server.
+        for k in resp.deleted_cookies:
+            self.cookies.pop(k, None)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -508,16 +626,25 @@ class WebLab:
         self.session = WebSession()
         self.investigation_log = investigation_log
         self.proxy = ProxyState()
+        # Counts uses of the 'expire' command (YC-035.3) — deliberately a
+        # simple counter, mirroring ProxyState's counters, rather than a
+        # new dataclass for a single field. Distinguishes "this session
+        # became invalid because the student explicitly expired it" from
+        # "because they logged out", for the session_expired validator
+        # check.
+        self.expired_count = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {"sessions": dict(self.app.sessions), "profiles": dict(self.app.profiles),
-                "session": self.session.to_dict(), "proxy": self.proxy.to_dict()}
+                "session": self.session.to_dict(), "proxy": self.proxy.to_dict(),
+                "expired_count": self.expired_count}
 
     def apply_state(self, snapshot: dict[str, Any]) -> None:
         self.app.sessions = dict(snapshot.get("sessions", {}))
         self.app.profiles = dict(snapshot.get("profiles", {}))
         self.session = WebSession.from_dict(snapshot.get("session", {}))
         self.proxy = ProxyState.from_dict(snapshot.get("proxy", {}))
+        self.expired_count = snapshot.get("expired_count", 0)
 
 
 def build_web_lab(scenario: str = "login-flow") -> WebLab:
@@ -550,6 +677,8 @@ def render_response(resp: HttpResponse) -> str:
         lines.append(f"{k}: {v}")
     for k, v in resp.cookies.items():
         lines.append(f"Set-Cookie: {k}={v}")
+    for k in resp.deleted_cookies:
+        lines.append(f"Set-Cookie: {k}=; Max-Age=0")
     if resp.body:
         lines.append("")
         lines.append(resp.body)

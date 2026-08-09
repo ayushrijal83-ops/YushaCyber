@@ -266,6 +266,33 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
             return _pass(obj_id, xp)
         return _fail(obj_id, "Try requesting a host outside the training scope.")
 
+    # ── Authentication & Sessions (YC-035.3). Each reads structured
+    # request/response/session state exactly like the checks above — no
+    # brittle text matching, matching this file's established discipline.
+    if check == "cookie_sent":
+        # Distinct from the 'cookie' check above: that one inspects the
+        # *client-side jar* (lab.session.cookies) — "did I ever receive
+        # this cookie?" This inspects the *last request actually sent*
+        # (req.cookies) — "did my browser attach it to a request?" The
+        # two can differ (a cookie can sit in the jar unused).
+        name = v.get("cookie_name", "session_id")
+        if req is not None and req.cookies.get(name) == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Make a request that carries the '{name}' cookie.")
+
+    if check == "logout_completed":
+        name = v.get("cookie_name", "session_id")
+        if (req is not None and req.path == "/logout"
+                and resp is not None and resp.status_code in (301, 302)
+                and name in resp.deleted_cookies):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Log out and check the response for a Set-Cookie deletion.")
+
+    if check == "session_expired":
+        if lab.expired_count >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Use the 'expire' command to expire your session first.")
+
     if check == "session_authenticated":
         # Deliberately requires the *last request* to actually be a
         # successful hit on a session-gated resource — not just "a valid

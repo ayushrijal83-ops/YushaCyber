@@ -135,6 +135,7 @@ function exec(cmd, onDone){
             updateWebLabStatus(d.web_lab_status);
             renderInspector(d.web_lab_status);
             renderProxy(d.web_lab_status);
+            renderSession(d.web_lab_status);
         }
         /* ── Mission complete ── */
         if(d.completed){
@@ -401,6 +402,54 @@ function renderProxy(status){
     if(repNote) repNote.hidden = !p.pending;
 }
 
+/* ── Session State (YC-035.3) ──
+   A pure view over status.authenticated/session_present/cookies (part of
+   web_lab_status(), already carried on every /execute response) — same
+   pattern as renderProxy()/renderInspector(). Logout/Expire buttons build
+   the exact terminal commands a student could type themselves and submit
+   them through the same exec() path. */
+function renderSession(status){
+    var badge = document.querySelector('[data-session-badge]');
+    if(!badge) return; /* panel not present on this mission */
+    var authed = !!status.authenticated;
+    badge.textContent = authed ? 'Authenticated' : 'Unauthenticated';
+    badge.classList.toggle('tm-session__badge--on', authed);
+
+    var userEl = document.querySelector('[data-session-user]');
+    if(userEl) userEl.textContent = authed ? (status.logged_in_as || '—') : 'not logged in';
+
+    var sidEl = document.querySelector('[data-session-id]');
+    if(sidEl){
+        var sid = status.cookies && status.cookies.session_id;
+        sidEl.textContent = sid || '—';
+    }
+
+    var expiresEl = document.querySelector('[data-session-expires]');
+    if(expiresEl){
+        expiresEl.textContent = !status.session_present ? '—'
+            : authed ? 'Active' : 'Expired / invalid';
+    }
+
+    var cookiesEl = document.querySelector('[data-session-cookies]');
+    if(cookiesEl) cookiesEl.textContent = status.cookie_count || 0;
+}
+
+var sessionLogout = document.querySelector('[data-session-logout]');
+if(sessionLogout){
+    sessionLogout.addEventListener('click', function(){
+        var cmd = 'open -X POST https://cybershop.training/logout';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+var sessionExpire = document.querySelector('[data-session-expire]');
+if(sessionExpire){
+    sessionExpire.addEventListener('click', function(){
+        appendCmd(currentPrompt, 'expire');
+        exec('expire');
+    });
+}
+
 var proxyToggle = document.querySelector('[data-proxy-toggle]');
 if(proxyToggle){
     proxyToggle.addEventListener('click', function(){
@@ -479,6 +528,7 @@ if(initialWebLabEl){
         var initialWebLab = JSON.parse(initialWebLabEl.textContent);
         renderInspector(initialWebLab);
         renderProxy(initialWebLab);
+        renderSession(initialWebLab);
     }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
@@ -616,6 +666,7 @@ function doReset(){
             updateWebLabStatus(d.web_lab_status);
             renderInspector(d.web_lab_status);
             renderProxy(d.web_lab_status);
+            renderSession(d.web_lab_status);
         }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');
