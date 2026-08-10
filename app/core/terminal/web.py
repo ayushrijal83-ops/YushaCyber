@@ -95,6 +95,29 @@ TRAINING_XSS_MARKERS = (
 # against anything, since no real script ever runs here regardless.
 CSP_POLICY = "default-src 'self'; script-src 'self'"
 
+# ── Cross-Site Request Forgery Fundamentals (YC-035.6) — fixed, fictional
+# training constants. Balances are training-only in-memory integers on a
+# single WebApp instance; never a real financial system, never persisted
+# anywhere real. TRUSTED_ORIGIN/ATTACKER_ORIGIN are plain string values a
+# terminal command can set via 'open -H "Origin: ..."' (see commands.py) —
+# there is no second host or real cross-origin request anywhere in this
+# module; "Origin" here is just a request header the simulator inspects,
+# exactly like any other header.
+TRANSFER_RECIPIENT = "training-user"
+STARTING_BALANCE = 5000
+TRUSTED_ORIGIN = f"https://{HOST}"
+ATTACKER_ORIGIN = "https://attacker.training"
+
+
+def _csrf_token_for_session(sid: str) -> str:
+    """Deterministic, session-bound training CSRF token (YC-035.6) — not
+    a cryptographic secret, just a fixed, reproducible string derived
+    from the session id, so the Token panel and the mission validator
+    can both compute/verify it independently, with no hidden random
+    state. Same discipline as API_TOKEN: fixed and reproducible, never
+    actually random."""
+    return "TRAINING_TOKEN_" + sid.upper().replace("-", "_")
+
 
 def has_xss_marker(text: str) -> bool:
     """True if `text` is *exactly* one of the fixed training markers
@@ -136,6 +159,21 @@ class Comment:
     author: str
     content: str
     sink: str  # "vulnerable" | "secure"
+    created_at: str = "simulated"
+
+
+@dataclass
+class Transfer:
+    """A single simulated funds transfer (YC-035.6) — mirrors Comment:
+    small, explicit, in-memory only. 'defense' records which endpoint
+    handled it (vulnerable /transfer, no CSRF check, vs. secure
+    /secure-transfer, token-verified), for the Transfer History page and
+    the evidence checklist. Never a real financial system."""
+    id: int
+    sender: str
+    recipient: str
+    amount: int
+    defense: str  # "vulnerable" | "secure"
     created_at: str = "simulated"
 
 
@@ -298,7 +336,9 @@ class WebApp:
 
     def __init__(self, sessions: dict[str, str] | None = None,
                  profiles: dict[str, dict[str, Any]] | None = None,
-                 comments: list[Comment] | None = None) -> None:
+                 comments: list[Comment] | None = None,
+                 balances: dict[str, int] | None = None,
+                 transfers: list[Transfer] | None = None) -> None:
         # session_id -> username. Mutated by successful logins/logouts,
         # exactly like VirtualNetwork's interface state (YC-034.6) —
         # small, explicit, session-scoped state.
@@ -314,6 +354,25 @@ class WebApp:
         # small, explicit, mutable, in-memory only. Populated by POST
         # /feedback and /secure-feedback, rendered by GET /comments.
         self.comments: list[Comment] = list(comments) if comments else []
+        # Training account balances (YC-035.6) — username -> integer
+        # balance, lazily defaulted to STARTING_BALANCE via _balance()
+        # rather than pre-populated, mirroring self.profiles's
+        # setdefault-on-first-use pattern. Never a real financial system.
+        self.balances: dict[str, int] = dict(balances) if balances else {}
+        # Simulated funds transfers (YC-035.6) — mirrors self.comments:
+        # small, explicit, mutable, in-memory only. Populated by POST
+        # /transfer and /secure-transfer, rendered by GET /transfer-history.
+        self.transfers: list[Transfer] = list(transfers) if transfers else []
+
+    def _balance(self, username: str) -> int:
+        """Every real training user (student/analyst/admin) starts at
+        STARTING_BALANCE; the fictional transfer recipient starts at 0 —
+        matching the mission's documented starting state (student:
+        $5,000, training recipient: $0). A username already recorded in
+        self.balances (because a transfer touched it) always wins."""
+        if username in self.balances:
+            return self.balances[username]
+        return 0 if username == TRANSFER_RECIPIENT else STARTING_BALANCE
 
     def handle(self, req: HttpRequest) -> HttpResponse:
         """Dispatches to a route handler, then applies the one
@@ -363,6 +422,18 @@ class WebApp:
             return self._logout(req)
         if req.path == "/account" and req.method == "GET":
             return self._account(req)
+        if req.path == "/settings" and req.method == "GET":
+            return self._settings(req)
+        if req.path == "/csrf-demo" and req.method == "GET":
+            return self._csrf_demo(req)
+        if req.path == "/secure-transfer" and req.method == "GET":
+            return self._secure_transfer_page(req)
+        if req.path == "/transfer" and req.method == "POST":
+            return self._transfer(req, defense="vulnerable")
+        if req.path == "/secure-transfer" and req.method == "POST":
+            return self._transfer(req, defense="secure")
+        if req.path == "/transfer-history" and req.method == "GET":
+            return self._transfer_history(req)
         if req.path == "/dashboard" and req.method == "GET":
             return self._dashboard(req)
         if req.path == "/admin" and req.method == "GET":
@@ -639,6 +710,153 @@ class WebApp:
             return self._ok(f"Account settings for {username}.")
         return self._redirect("/login")
 
+    def _settings(self, req: HttpRequest) -> HttpResponse:
+        """Protected settings page (YC-035.6) — same cookie-protected,
+        redirect-on-failure pattern as /account. Purely a navigation hub
+        for the training pages this mission adds; carries no state of its
+        own."""
+        username = self._session_user(req)
+        if not username:
+            return self._redirect("/login")
+        return self._ok(f"Settings for {username}. See /csrf-demo (vulnerable transfer) "
+                        "and /secure-transfer (protected transfer).")
+
+    def _csrf_demo(self, req: HttpRequest) -> HttpResponse:
+        """Informational page describing the vulnerable transfer scenario
+        (YC-035.6) — text only; visiting it never itself performs a
+        transfer. Explains what POST /transfer does and why the
+        browser's automatic cookie attachment is what lets a forged
+        request through: the endpoint trusts the session cookie alone,
+        with no check that the request was actually intended by the
+        user."""
+        body = (
+            "CSRF Demo — Vulnerable Transfer\n\n"
+            "POST /transfer moves simulated training funds between accounts. It is "
+            "protected only by the session cookie: any request carrying a valid "
+            "session_id cookie is accepted, with no check that the request was "
+            "actually intended by the logged-in user.\n\n"
+            "Example vulnerable request:\n"
+            "POST /transfer\n"
+            f"recipient={TRANSFER_RECIPIENT}\n"
+            "amount=100\n\n"
+            "A page on any other origin can auto-submit this same request; the "
+            "student's browser still attaches their cybershop.training session "
+            "cookie automatically, because that's how browsers handle cookies for "
+            "requests to a given site, regardless of which page triggered them.\n\n"
+            "Compare with the protected version at /secure-transfer, which "
+            "additionally requires a csrf_token parameter and validates the "
+            "request's Origin."
+        )
+        return self._ok(body, content_type="text/plain")
+
+    def _secure_transfer_page(self, req: HttpRequest) -> HttpResponse:
+        """GET /secure-transfer (YC-035.6) — shows the logged-in student
+        their own session-bound training CSRF token, the exact value
+        POST /secure-transfer verifies. Redirects to /login when
+        unauthenticated, same pattern as /account."""
+        username = self._session_user(req)
+        if not username:
+            return self._redirect("/login")
+        sid = req.cookies.get("session_id", "")
+        token = _csrf_token_for_session(sid)
+        body = (
+            f"Secure Transfer — logged in as {username}\n\n"
+            f"csrf_token={token}\n\n"
+            "Submit this token together with 'recipient' and 'amount' in a POST "
+            "to /secure-transfer. Requests missing the token, or carrying the "
+            "wrong one, are rejected with 403 Forbidden."
+        )
+        return self._ok(body, content_type="text/plain",
+                        extra_headers={"X-Sim-CSRF-Token": token, "X-Sim-CSRF-Kind": "token_shown"})
+
+    def _transfer(self, req: HttpRequest, defense: str) -> HttpResponse:
+        """Shared handler for the vulnerable (POST /transfer) and secure
+        (POST /secure-transfer) endpoints (YC-035.6) — 'defense' is the
+        only difference in behavior: the vulnerable path trusts the
+        session cookie alone; the secure path additionally validates the
+        Origin header (when present) and requires a matching csrf_token.
+        Neither ever touches a real financial system — 'balances' are
+        training-only in-memory integers on this WebApp instance."""
+        username = self._session_user(req)
+        if not username:
+            return self._json_error(
+                401, "Unauthorized", {"status": "error", "message": "Authentication required"},
+                extra_headers={"X-Sim-CSRF-Kind": "unauthenticated"})
+
+        data = parse_body(req.body, req.headers.get("Content-Type", ""))
+        recipient = data.get("recipient") or TRANSFER_RECIPIENT
+        try:
+            amount = int(data.get("amount", 0))
+        except ValueError:
+            amount = 0
+
+        if defense == "secure":
+            # Origin validation (conceptual defense, YC-035.6): only
+            # enforced when the header is actually present — a real
+            # browser doesn't always send Origin, so this never blocks a
+            # request that simply omits it, only one that explicitly
+            # carries an unexpected value. Checked before the token so a
+            # forged-origin request is rejected regardless of whether a
+            # token was also attached.
+            origin = req.headers.get("Origin")
+            if origin is not None and origin != TRUSTED_ORIGIN:
+                return self._json_error(
+                    403, "Forbidden",
+                    {"status": "error", "message": "CSRF validation failed: unexpected Origin."},
+                    extra_headers={"X-Sim-CSRF-Kind": "origin_rejected"})
+            sid = req.cookies.get("session_id", "")
+            expected_token = _csrf_token_for_session(sid)
+            submitted_token = data.get("csrf_token")
+            if not submitted_token:
+                return self._json_error(
+                    403, "Forbidden",
+                    {"status": "error", "message": "CSRF validation failed: missing csrf_token."},
+                    extra_headers={"X-Sim-CSRF-Kind": "missing_token"})
+            if submitted_token != expected_token:
+                return self._json_error(
+                    403, "Forbidden",
+                    {"status": "error", "message": "CSRF validation failed: invalid csrf_token."},
+                    extra_headers={"X-Sim-CSRF-Kind": "invalid_token"})
+
+        sender_balance = self._balance(username)
+        if amount <= 0 or amount > sender_balance:
+            return self._json_error(
+                400, "Bad Request", {"status": "error", "message": "Invalid transfer amount."},
+                extra_headers={"X-Sim-CSRF-Kind": "invalid_amount"})
+
+        self.balances[username] = sender_balance - amount
+        self.balances[recipient] = self._balance(recipient) + amount
+        transfer = Transfer(id=len(self.transfers) + 1, sender=username, recipient=recipient,
+                            amount=amount, defense=defense,
+                            created_at=f"training-transfer-{len(self.transfers) + 1}")
+        self.transfers.append(transfer)
+
+        if defense == "vulnerable":
+            # 'attack_simulated' marks a forged-Origin request that still
+            # succeeded — the actual vulnerability this mission
+            # demonstrates. A plain, same-origin test transfer (no
+            # attacker Origin header) is just 'vulnerable_success'.
+            kind = ("attack_simulated" if req.headers.get("Origin") == ATTACKER_ORIGIN
+                   else "vulnerable_success")
+        else:
+            kind = "token_valid"
+        return self._json_ok(
+            {"status": "success", "sender": username, "recipient": recipient,
+             "amount": amount, "balance": self.balances[username]},
+            extra_headers={"X-Sim-CSRF-Kind": kind})
+
+    def _transfer_history(self, req: HttpRequest) -> HttpResponse:
+        username = self._session_user(req)
+        if not username:
+            return self._redirect("/login")
+        mine = [t for t in self.transfers if t.sender == username]
+        lines = ["Transfer history:"]
+        if not mine:
+            lines.append("  (no transfers yet)")
+        for t in mine:
+            lines.append(f"  #{t.id} {t.sender} -> {t.recipient}: {t.amount} ({t.defense})")
+        return self._ok("\n".join(lines), content_type="text/plain")
+
     def _dashboard(self, req: HttpRequest) -> HttpResponse:
         username = self._session_user(req)
         if username:
@@ -742,10 +960,14 @@ class WebApp:
         return self._json_error(401, "Unauthorized",
                                 {"status": "error", "message": "Authentication required"})
 
-    def _ok(self, body: str, content_type: str = "text/html") -> HttpResponse:
+    def _ok(self, body: str, content_type: str = "text/html",
+           extra_headers: dict[str, str] | None = None) -> HttpResponse:
+        headers = {"Content-Type": content_type, "Content-Length": str(len(body)),
+                  "Server": SERVER_HEADER, "Cache-Control": "no-store"}
+        if extra_headers:
+            headers.update(extra_headers)
         return HttpResponse(status_code=200, reason="OK", body=body, content_type=content_type,
-                            headers={"Content-Type": content_type, "Content-Length": str(len(body)),
-                                    "Server": SERVER_HEADER, "Cache-Control": "no-store"})
+                            headers=headers)
 
     def _json_ok(self, data: dict[str, Any],
                 extra_headers: dict[str, str] | None = None) -> HttpResponse:
@@ -995,6 +1217,55 @@ def build_xss_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
     return log
 
 
+def build_csrf_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
+    """A fixed, deterministic transcript for the CSRF Fundamentals final
+    objective (YC-035.6): a bug report says "a training user's balance
+    changed after they visited an unrelated page — they never clicked
+    transfer." The five-request transcript shows a normal login, a
+    legitimate transfer, a forged-looking transfer (attacker Origin/
+    Referer headers, but the browser's own session cookie) succeeding
+    against the vulnerable endpoint — the actual cause — then the same
+    forged shape sent to the secure endpoint without a token (rejected)
+    and again with the correct token (accepted), proving the anti-CSRF
+    token is the fix. Built once against an isolated WebApp instance —
+    never touches the student's own session state, and never makes a
+    real cross-origin request (Origin/Referer here are just request
+    header values, exactly like any other header this module handles)."""
+    app = WebApp()
+    log: list[tuple[HttpRequest, HttpResponse]] = []
+
+    url = parse_url(f"https://{HOST}/auth/login")
+    req = build_request("POST", url, body="username=student&password=training123", timestamp=1.0)
+    resp = app.handle(req)
+    log.append((req, resp))
+    sid = resp.cookies["session_id"]
+
+    url = parse_url(f"https://{HOST}/transfer")
+    req = build_request("POST", url, body="recipient=training-user&amount=50",
+                        cookies={"session_id": sid}, timestamp=2.0)
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/transfer")
+    req = build_request("POST", url, body="recipient=training-user&amount=100",
+                        cookies={"session_id": sid}, timestamp=3.0,
+                        extra_headers={"Origin": ATTACKER_ORIGIN, "Referer": f"{ATTACKER_ORIGIN}/"})
+    log.append((req, app.handle(req)))
+
+    url = parse_url(f"https://{HOST}/secure-transfer")
+    req = build_request("POST", url, body="recipient=training-user&amount=100",
+                        cookies={"session_id": sid}, timestamp=4.0,
+                        extra_headers={"Origin": ATTACKER_ORIGIN, "Referer": f"{ATTACKER_ORIGIN}/"})
+    log.append((req, app.handle(req)))
+
+    token = _csrf_token_for_session(sid)
+    url = parse_url(f"https://{HOST}/secure-transfer")
+    req = build_request("POST", url, body=f"recipient=training-user&amount=100&csrf_token={token}",
+                        cookies={"session_id": sid}, timestamp=5.0)
+    log.append((req, app.handle(req)))
+
+    return log
+
+
 _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResponse]]]] = {
     "login-flow": build_investigation_log,
     "content-type-bug": build_content_type_bug_log,
@@ -1002,6 +1273,7 @@ _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResp
     "auth-lifecycle": build_auth_lifecycle_log,
     "sqli-investigation": build_sqli_investigation_log,
     "xss-investigation": build_xss_investigation_log,
+    "csrf-investigation": build_csrf_investigation_log,
 }
 
 
@@ -1149,6 +1421,38 @@ class XssLabState:
         )
 
 
+@dataclass
+class CsrfLabState:
+    """Cross-Site Request Forgery Fundamentals training state (YC-035.6)
+    — mirrors XssLabState: small, explicit, mutable, in-memory only.
+    Every field backs a structured validator check instead of matching
+    rendered text; set from a response's 'X-Sim-CSRF-Kind' header (see
+    commands.py's _track_csrf_response) or an explicit counter
+    (samesite_inspected), never by re-parsing raw text."""
+    attack_simulated: bool = False
+    token_viewed: bool = False
+    missing_token_rejected: bool = False
+    invalid_token_rejected: bool = False
+    valid_token_accepted: bool = False
+    origin_rejected: bool = False
+    samesite_inspected: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return dataclasses.asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> CsrfLabState:
+        return cls(
+            attack_simulated=d.get("attack_simulated", False),
+            token_viewed=d.get("token_viewed", False),
+            missing_token_rejected=d.get("missing_token_rejected", False),
+            invalid_token_rejected=d.get("invalid_token_rejected", False),
+            valid_token_accepted=d.get("valid_token_accepted", False),
+            origin_rejected=d.get("origin_rejected", False),
+            samesite_inspected=d.get("samesite_inspected", 0),
+        )
+
+
 class WebLab:
     """Everything a web-fundamentals mission session needs: the
     simulated site, the student's own session, the fixed investigation
@@ -1171,23 +1475,29 @@ class WebLab:
         self.expired_count = 0
         self.sqli = SqliLabState()
         self.xss = XssLabState()
+        self.csrf = CsrfLabState()
 
     def to_dict(self) -> dict[str, Any]:
         return {"sessions": dict(self.app.sessions), "profiles": dict(self.app.profiles),
                 "comments": [dataclasses.asdict(c) for c in self.app.comments],
+                "balances": dict(self.app.balances),
+                "transfers": [dataclasses.asdict(t) for t in self.app.transfers],
                 "session": self.session.to_dict(), "proxy": self.proxy.to_dict(),
                 "expired_count": self.expired_count, "sqli": self.sqli.to_dict(),
-                "xss": self.xss.to_dict()}
+                "xss": self.xss.to_dict(), "csrf": self.csrf.to_dict()}
 
     def apply_state(self, snapshot: dict[str, Any]) -> None:
         self.app.sessions = dict(snapshot.get("sessions", {}))
         self.app.profiles = dict(snapshot.get("profiles", {}))
         self.app.comments = [Comment(**c) for c in snapshot.get("comments", [])]
+        self.app.balances = dict(snapshot.get("balances", {}))
+        self.app.transfers = [Transfer(**t) for t in snapshot.get("transfers", [])]
         self.session = WebSession.from_dict(snapshot.get("session", {}))
         self.proxy = ProxyState.from_dict(snapshot.get("proxy", {}))
         self.expired_count = snapshot.get("expired_count", 0)
         self.sqli = SqliLabState.from_dict(snapshot.get("sqli", {}))
         self.xss = XssLabState.from_dict(snapshot.get("xss", {}))
+        self.csrf = CsrfLabState.from_dict(snapshot.get("csrf", {}))
 
 
 def build_web_lab(scenario: str = "login-flow") -> WebLab:

@@ -659,6 +659,32 @@ def _track_xss_response(sh: Shell, req, resp) -> None:
             s.secure_feedback_tested = True
 
 
+def _track_csrf_response(sh: Shell, req, resp) -> None:
+    """Records structured evidence for the CSRF Fundamentals mission
+    (YC-035.6) into WebLab.csrf's flags, read off the response's
+    'X-Sim-CSRF-Kind' header (set by WebApp's fixed, deterministic
+    training routes — see web.py). Same discipline as
+    _track_sqli_response/_track_xss_response: a validator check reads a
+    flag, never rendered text. A no-op for every other mission (the
+    header is simply absent)."""
+    if sh.web_lab is None:
+        return
+    kind = resp.headers.get("X-Sim-CSRF-Kind")
+    s = sh.web_lab.csrf
+    if kind == "attack_simulated":
+        s.attack_simulated = True
+    elif kind == "token_shown":
+        s.token_viewed = True
+    elif kind == "missing_token":
+        s.missing_token_rejected = True
+    elif kind == "invalid_token":
+        s.invalid_token_rejected = True
+    elif kind == "token_valid":
+        s.valid_token_accepted = True
+    elif kind == "origin_rejected":
+        s.origin_rejected = True
+
+
 @cmd("open")
 def _open(sh: Shell, args: list[str]) -> str:
     if sh.web_lab is None:
@@ -697,6 +723,7 @@ def _open(sh: Shell, args: list[str]) -> str:
     sh.web_lab.session.record(req, resp)
     _track_sqli_response(sh, req, resp)
     _track_xss_response(sh, req, resp)
+    _track_csrf_response(sh, req, resp)
     return render_exchange(req, resp)
 
 
@@ -721,8 +748,9 @@ def _web(sh: Shell, args: list[str]) -> str:
     status = f"Logged in as {username}" if username else "Not logged in"
     return (f"Simulated site: {HOST}\n{status}\n"
            f"Routes: / /products /search /secure-search /login /auth/login "
-           f"/training-login /secure-login /profile /account /dashboard /admin "
-           f"/logout /api/login /api/profile /api/me\n"
+           f"/training-login /secure-login /profile /account /settings /dashboard "
+           f"/admin /logout /api/login /api/profile /api/me /csrf-demo "
+           f"/secure-transfer /transfer /transfer-history\n"
            f"Type 'open URL' or 'request METHOD PATH' to make a request.\n"
            f"Proxy: 'intercept on|off', 'forward', 'drop', 'edit ...', "
            f"'repeater [N]', 'repeater send', 'compare N M'.\n"
@@ -730,7 +758,10 @@ def _web(sh: Shell, args: list[str]) -> str:
            f"clearing your browser's cookie (see how that differs from logout).\n"
            f"SQL Injection Fundamentals: 'schema [table]' inspects the training "
            f"database (read-only). 'query' shows the simulated query "
-           f"representation for your last request/response.")
+           f"representation for your last request/response.\n"
+           f"CSRF Fundamentals: POST /transfer is the vulnerable, unprotected "
+           f"endpoint; POST /secure-transfer requires a csrf_token. "
+           f"'samesite strict|lax|none' explains SameSite cookie behavior.")
 
 
 # ══════════════════════════════════════════════════════
@@ -942,6 +973,7 @@ def _forward(sh: Shell, args: list[str]) -> str:
     sh.web_lab.session.record(req, resp)
     _track_sqli_response(sh, req, resp)
     _track_xss_response(sh, req, resp)
+    _track_csrf_response(sh, req, resp)
     p.pending = None
     p.forwarded_count += 1
     return "Request forwarded.\n" + render_exchange(req, resp)
@@ -1025,6 +1057,7 @@ def _repeater(sh: Shell, args: list[str]) -> str:
         sh.web_lab.session.record(req, resp)
         _track_sqli_response(sh, req, resp)
         _track_xss_response(sh, req, resp)
+        _track_csrf_response(sh, req, resp)
         p.repeater_sent_count += 1
         return "Repeater: request sent.\n" + render_exchange(req, resp)
     if not hist:
@@ -1071,3 +1104,47 @@ def _compare(sh: Shell, args: list[str]) -> str:
     if not diff_found:
         out.append("(no differences)")
     return "\n".join(out)
+
+
+# ══════════════════════════════════════════════════════
+# Cross-Site Request Forgery Fundamentals (YC-035.6) — a conceptual,
+# educational SameSite inspector. There is no real cookie-attribute
+# engine here (HttpResponse.cookies is just name->value, as it is for
+# every other mission); this command only ever prints a fixed,
+# deterministic explanation for one of three fixed policy names and
+# records that the student inspected it. Never a live browser, never a
+# real cookie jar with attributes.
+# ══════════════════════════════════════════════════════
+
+SAMESITE_EXPLANATION: dict[str, str] = {
+    "strict": ("SameSite=Strict: the cookie is withheld on every cross-site request, "
+              "including top-level navigation from another site. A forged cross-site "
+              "request from an attacker's page would arrive with no session cookie "
+              "attached at all."),
+    "lax": ("SameSite=Lax (the modern browser default): the cookie is withheld on "
+           "cross-site sub-requests, such as a forged background POST from an "
+           "attacker's page, but still sent on top-level cross-site navigation, such "
+           "as clicking an ordinary link. A cross-site forged POST would arrive "
+           "without the cookie."),
+    "none": ("SameSite=None: the cookie is sent on every request, including "
+            "cross-site ones (this setting also requires the Secure attribute in "
+            "real browsers). This is the setting that makes CSRF against this "
+            "endpoint possible in the first place — nothing here withholds the "
+            "cookie from a cross-site request."),
+}
+
+
+@cmd("samesite")
+def _samesite(sh: Shell, args: list[str]) -> str:
+    if sh.web_lab is None:
+        return "samesite: no simulated web environment configured for this session"
+    policy = (args[0].lower() if args else "")
+    if policy not in SAMESITE_EXPLANATION:
+        return "Usage: samesite strict|lax|none"
+    sh.web_lab.csrf.samesite_inspected += 1
+    would_attach = "no" if policy in ("strict", "lax") else "yes"
+    label = "None" if policy == "none" else policy.capitalize()
+    return (f"SameSite={label} (simulated, educational only — actual browser "
+           "behavior also depends on the request type and the browser's own "
+           f"policy)\nCross-site forged POST would attach the cookie: {would_attach}\n\n"
+           + SAMESITE_EXPLANATION[policy])

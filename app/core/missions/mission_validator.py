@@ -435,6 +435,78 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
         return _fail(obj_id, "Collect more evidence: reflected, stored, DOM, and a "
                             "secure-endpoint comparison.")
 
+    # ── CSRF Fundamentals (YC-035.6). Each check reads either the last
+    # request/response's structured 'X-Sim-CSRF-Kind' header (set
+    # deterministically by WebApp's fixed training routes — see web.py)
+    # or a flag/counter off WebLab.csrf (CsrfLabState) — never rendered
+    # text, matching this file's established discipline.
+    if check == "state_change_identified":
+        if req is not None and req.path == "/transfer" and req.method == "POST":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send a POST request to /transfer first.")
+
+    if check == "get_vs_post_identified":
+        if (req is not None and req.path == "/transfer" and req.method == "GET"
+                and resp is not None and resp.status_code == 404):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Try a GET request to /transfer (no -X flag) and observe "
+                            "that no such route exists.")
+
+    if check == "csrf_simulated":
+        if lab.csrf.attack_simulated:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Run the simulated attacker request against the "
+                            "vulnerable /transfer endpoint (Origin: attacker.training).")
+
+    if check == "csrf_token_identified":
+        if lab.csrf.token_viewed:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Open /secure-transfer while logged in to view your "
+                            "training CSRF token.")
+
+    if check == "missing_token_rejected":
+        if resp is not None and resp.status_code == 403 \
+                and resp.headers.get("X-Sim-CSRF-Kind") == "missing_token":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "POST to /secure-transfer without a csrf_token and "
+                            "check for 403 Forbidden.")
+
+    if check == "invalid_token_rejected":
+        if resp is not None and resp.status_code == 403 \
+                and resp.headers.get("X-Sim-CSRF-Kind") == "invalid_token":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "POST to /secure-transfer with an incorrect csrf_token "
+                            "and check for 403 Forbidden.")
+
+    if check == "valid_token_accepted":
+        if resp is not None and resp.status_code == 200 \
+                and resp.headers.get("X-Sim-CSRF-Kind") == "token_valid":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "POST to /secure-transfer with your correct training "
+                            "csrf_token and check for 200 OK.")
+
+    if check == "origin_rejected":
+        if resp is not None and resp.status_code == 403 \
+                and resp.headers.get("X-Sim-CSRF-Kind") == "origin_rejected":
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "POST to /secure-transfer with an Origin header set to "
+                            "https://attacker.training and check for 403 Forbidden.")
+
+    if check == "samesite_inspected":
+        if lab.csrf.samesite_inspected >= int(expected or 1):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Use 'samesite strict', 'samesite lax', and "
+                            "'samesite none' to inspect all three policies.")
+
+    if check == "csrf_evidence_collected":
+        c = lab.csrf
+        if (c.attack_simulated and c.token_viewed and c.missing_token_rejected
+                and c.invalid_token_rejected and c.valid_token_accepted and c.origin_rejected):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Collect more evidence: simulate the attack, view the "
+                            "token, and test a missing token, an invalid token, a "
+                            "valid token, and an unexpected Origin.")
+
     if check == "session_authenticated":
         # Deliberately requires the *last request* to actually be a
         # successful hit on a session-gated resource — not just "a valid

@@ -277,6 +277,24 @@ class MissionRunner:
             # round trip, mirroring `db_schema`'s "single source of truth"
             # rationale above.
             "comments": [dataclasses.asdict(c) for c in lab.app.comments],
+            # CSRF Fundamentals state (YC-035.6) — only ever meaningful for
+            # that mission; every other web-lab mission's flags simply
+            # stay at their defaults, same as `sqli`/`xss`/`proxy` above.
+            "csrf": {
+                "attack_simulated": lab.csrf.attack_simulated,
+                "token_viewed": lab.csrf.token_viewed,
+                "missing_token_rejected": lab.csrf.missing_token_rejected,
+                "invalid_token_rejected": lab.csrf.invalid_token_rejected,
+                "valid_token_accepted": lab.csrf.valid_token_accepted,
+                "origin_rejected": lab.csrf.origin_rejected,
+                "samesite_inspected": lab.csrf.samesite_inspected,
+            },
+            # Simulated transfers/balances (YC-035.6) — small and
+            # structured, for the Transfer History / balance panels to
+            # render without a second command round trip, mirroring
+            # `comments` above.
+            "transfers": [dataclasses.asdict(t) for t in lab.app.transfers],
+            "balances": dict(lab.app.balances),
         }
 
     def use_hint(self, objective_id: str) -> str:
@@ -424,6 +442,25 @@ class MissionRunner:
                 "secure_search_tested": xss["secure_search_tested"],
                 "secure_feedback_tested": xss["secure_feedback_tested"],
                 "stored_comment_count": len(web_status["comments"]),
+            }
+            # CSRF Fundamentals summary (YC-035.6) — small and structured,
+            # so CyberMentor can explain *why* a request was accepted or
+            # rejected (missing/invalid/valid token, unexpected Origin)
+            # from actual mission state, without repeating full
+            # request/response bodies on every turn.
+            csrf = web_status["csrf"]
+            last_csrf_kind = (web_status["last_response"]["headers"].get("X-Sim-CSRF-Kind")
+                              if web_status["last_response"] else None)
+            ctx["web"]["csrf"] = {
+                "last_csrf_kind": last_csrf_kind,
+                "attack_simulated": csrf["attack_simulated"],
+                "token_viewed": csrf["token_viewed"],
+                "missing_token_rejected": csrf["missing_token_rejected"],
+                "invalid_token_rejected": csrf["invalid_token_rejected"],
+                "valid_token_accepted": csrf["valid_token_accepted"],
+                "origin_rejected": csrf["origin_rejected"],
+                "samesite_inspected": csrf["samesite_inspected"],
+                "transfer_count": len(web_status["transfers"]),
             }
         return ctx
 

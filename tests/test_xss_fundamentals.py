@@ -460,9 +460,9 @@ class TestLoader:
     def test_chained_after_sql_injection_fundamentals(self):
         assert MISSIONS["sql-injection-fundamentals"]["next_mission"] == "xss-fundamentals"
 
-    def test_terminal_mission(self):
+    def test_chains_to_csrf_fundamentals(self):
         m = get_mission("xss-fundamentals")
-        assert m["next_mission"] is None
+        assert m["next_mission"] == "csrf-fundamentals"
 
     def test_web_lab_scenario_set(self):
         m = get_mission("xss-fundamentals")

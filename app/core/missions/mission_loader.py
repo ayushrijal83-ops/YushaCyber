@@ -2749,6 +2749,340 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "web_lab": "xss-investigation",
+        "next_mission": "csrf-fundamentals",
+    },
+    "csrf-fundamentals": {
+        "id": "csrf-fundamentals",
+        "title": "Cross-Site Request Forgery Fundamentals",
+        "description": "Learn how an authenticated browser's automatic cookie "
+                       "attachment lets a forged request reach a state-changing "
+                       "endpoint without the user's intent — against the same "
+                       "simulated training site (CyberShop) and the same Proxy/"
+                       "Repeater from YC-035.2. A fictional 'Simulate Request' "
+                       "action reproduces the shape of a cross-site forged request "
+                       "(an unexpected Origin/Referer header) entirely within your "
+                       "own session — it never makes a real network request, never "
+                       "touches a second host, and never lets you escape the "
+                       "training environment. No real attacker infrastructure, no "
+                       "cookie theft, no phishing, no external targets — that's out "
+                       "of scope everywhere.",
+        "difficulty": "Intermediate",
+        "category": "Web Security",
+        "xp_total": 750,
+        "estimated_minutes": 70,
+        "learn": ["What CSRF is", "Why authenticated browsers matter",
+                  "Cookies and automatic credential inclusion", "State-changing requests",
+                  "Same-origin vs. cross-origin", "The CSRF attack flow",
+                  "Why GET should not change state",
+                  "CSRF tokens (synchronizer token pattern)", "SameSite cookies",
+                  "Origin validation", "Referer validation", "CSRF vs. XSS",
+                  "Evidence-based vulnerability confirmation"],
+        "objectives": [
+            {
+                "id": "cs-1",
+                "title": "Identify CSRF",
+                "description": "Cross-Site Request Forgery tricks an authenticated "
+                               "user's own browser into sending a state-changing "
+                               "request the user never intended. Check the "
+                               "simulated site's overview to see this mission's "
+                               "new routes.",
+                "hints": [
+                    ("The same overview command from earlier missions lists this "
+                     "mission's routes too."),
+                    "It's a single short word.",
+                    "Use 'web'.",
+                ],
+                "validate": {"type": "command", "match": "web"},
+                "xp": 35,
+            },
+            {
+                "id": "cs-2",
+                "title": "Authenticated Browser",
+                "description": "Log in as the training user, then request a "
+                               "protected page and confirm your session cookie is "
+                               "attached automatically.",
+                "hints": [
+                    ("The training credentials are the same ones you've used in "
+                     "every mission since Authentication & Sessions."),
+                    ('POST username=student&password=training123 to /auth/login, '
+                     "then request /account."),
+                    ('Use \'open -X POST -d "username=student&password=training123" '
+                     "https://cybershop.training/auth/login', then "
+                     "'open https://cybershop.training/account'."),
+                ],
+                "validate": {"type": "web_state", "check": "cookie_sent",
+                             "cookie_name": "session_id", "match": "student-session"},
+                "xp": 35,
+            },
+            {
+                "id": "cs-3",
+                "title": "State-Changing Request",
+                "description": "Send a legitimate training transfer and identify "
+                               "POST /transfer as a state-changing operation — one "
+                               "that actually changes simulated account balances.",
+                "hints": [
+                    "This endpoint moves simulated training funds between accounts.",
+                    "POST to /transfer with 'recipient' and 'amount' form fields.",
+                    ('Use \'open -X POST -d "recipient=training-user&amount=100" '
+                     "https://cybershop.training/transfer'."),
+                ],
+                "validate": {"type": "web_state", "check": "state_change_identified", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "cs-4",
+                "title": "Capture Request",
+                "description": "Capture your transfer request using the Proxy "
+                               "before it reaches the server.",
+                "hints": [
+                    ("Turn interception on first, the same way you did in the Burp "
+                     "Suite mission."),
+                    "Use 'intercept on', then make another transfer request.",
+                    ('Use \'intercept on\', then \'open -X POST -d '
+                     '"recipient=training-user&amount=50" '
+                     "https://cybershop.training/transfer'."),
+                ],
+                "validate": {"type": "web_state", "check": "request_intercepted", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "cs-5",
+                "title": "Inspect Credentials",
+                "description": "Inspect the captured request and identify the "
+                               "session cookie your browser attached automatically "
+                               "— the only credential this endpoint checks.",
+                "hints": [
+                    "Look at the Cookie header on your captured request.",
+                    "Forward the request, then check the 'Cookie' request header.",
+                    "It should read 'session_id=student-session'.",
+                ],
+                "validate": {"type": "web_state", "check": "cookie_sent",
+                             "cookie_name": "session_id", "match": "student-session"},
+                "xp": 35,
+            },
+            {
+                "id": "cs-6",
+                "title": "Vulnerable Endpoint",
+                "description": "Open the CSRF demo page and read how the "
+                               "vulnerable /transfer endpoint trusts the session "
+                               "cookie alone, with no check that the request was "
+                               "actually intended by the user.",
+                "hints": [
+                    "There's a dedicated page describing this endpoint.",
+                    "Request the CSRF demo route.",
+                    "Use 'open https://cybershop.training/csrf-demo'.",
+                ],
+                "validate": {"type": "web_state", "check": "path", "match": "/csrf-demo"},
+                "xp": 35,
+            },
+            {
+                "id": "cs-7",
+                "title": "Simulate CSRF",
+                "description": "Run the controlled simulated attacker request "
+                               "against the vulnerable endpoint — a forged-looking "
+                               "request (an attacker Origin/Referer) that your own "
+                               "session cookie is still attached to — and observe "
+                               "the simulated transfer succeed anyway.",
+                "hints": [
+                    ("The vulnerable endpoint never looks at Origin or Referer — "
+                     "only the session cookie, which your browser sends regardless."),
+                    ('Send a POST to /transfer with an Origin header set to '
+                     "https://attacker.training."),
+                    ('Use \'open -X POST -H "Origin: https://attacker.training" '
+                     '-H "Referer: https://attacker.training/" '
+                     '-d "recipient=training-user&amount=100" '
+                     "https://cybershop.training/transfer'."),
+                ],
+                "validate": {"type": "web_state", "check": "csrf_simulated", "match": "1"},
+                "xp": 55,
+            },
+            {
+                "id": "cs-8",
+                "title": "Understand Trust",
+                "description": "Having just triggered it, articulate why the "
+                               "server accepted that request: it was authenticated "
+                               "through a valid session cookie, but the endpoint "
+                               "never verified the request was actually intended "
+                               "by the user.",
+                "hints": [
+                    "No new request needed — you already triggered this above.",
+                    "Authentication answers 'who is this?', not 'did they mean to do this?'.",
+                    "If Objective 7 is complete, this one completes too.",
+                ],
+                "validate": {"type": "web_state", "check": "csrf_simulated", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "cs-9",
+                "title": "GET vs. POST",
+                "description": "Try requesting /transfer with a plain GET and "
+                               "confirm no such route exists — state-changing "
+                               "operations in this training site are never "
+                               "performed through GET.",
+                "hints": [
+                    "This is a different request than the ones you've sent so far.",
+                    "Request /transfer with no -X flag (defaults to GET).",
+                    "Use 'open https://cybershop.training/transfer' — expect 404 Not Found.",
+                ],
+                "validate": {"type": "web_state", "check": "get_vs_post_identified", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "cs-10",
+                "title": "CSRF Token",
+                "description": "Open the secure transfer page while logged in and "
+                               "identify your training CSRF token.",
+                "hints": [
+                    "This page shows a value that /transfer never required.",
+                    "Request the secure transfer route.",
+                    "Use 'open https://cybershop.training/secure-transfer'.",
+                ],
+                "validate": {"type": "web_state", "check": "csrf_token_identified", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "cs-11",
+                "title": "Missing Token",
+                "description": "Send a transfer to /secure-transfer without a "
+                               "csrf_token and observe it rejected.",
+                "hints": [
+                    "Send the same recipient/amount fields as before, but no csrf_token.",
+                    "POST to /secure-transfer with only 'recipient' and 'amount'.",
+                    ('Use \'open -X POST -d "recipient=training-user&amount=100" '
+                     "https://cybershop.training/secure-transfer' — expect 403 Forbidden."),
+                ],
+                "validate": {"type": "web_state", "check": "missing_token_rejected", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "cs-12",
+                "title": "Invalid Token",
+                "description": "Send a transfer to /secure-transfer with an "
+                               "incorrect csrf_token and observe it rejected.",
+                "hints": [
+                    "Any value that isn't your real training token counts here.",
+                    "Add csrf_token=INVALID_TRAINING_TOKEN to your request body.",
+                    ('Use \'open -X POST -d '
+                     '"recipient=training-user&amount=100&csrf_token=INVALID_TRAINING_TOKEN" '
+                     "https://cybershop.training/secure-transfer' — expect 403 Forbidden."),
+                ],
+                "validate": {"type": "web_state", "check": "invalid_token_rejected", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "cs-13",
+                "title": "Valid Token",
+                "description": "Send a transfer to /secure-transfer with your "
+                               "correct training csrf_token from Objective 10 and "
+                               "observe it succeed.",
+                "hints": [
+                    "Use the exact token /secure-transfer showed you earlier.",
+                    "Add csrf_token=<your token> to your request body.",
+                    ('Use \'open -X POST -d '
+                     '"recipient=training-user&amount=100&csrf_token=TRAINING_TOKEN_STUDENT_SESSION" '
+                     "https://cybershop.training/secure-transfer' — expect 200 OK."),
+                ],
+                "validate": {"type": "web_state", "check": "valid_token_accepted", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "cs-14",
+                "title": "SameSite",
+                "description": "Inspect SameSite cookie behavior for all three "
+                               "policies — Strict, Lax, and None — and identify "
+                               "which one would still let a cross-site forged "
+                               "request through.",
+                "hints": [
+                    "There's a dedicated command for this — try each policy name.",
+                    "Use 'samesite strict', 'samesite lax', and 'samesite none'.",
+                    ("Only SameSite=None still attaches the cookie to a cross-site "
+                     "forged request."),
+                ],
+                "validate": {"type": "web_state", "check": "samesite_inspected", "match": "3"},
+                "xp": 45,
+            },
+            {
+                "id": "cs-15",
+                "title": "Origin",
+                "description": "Modify the simulated Origin header and observe "
+                               "/secure-transfer reject a request from an "
+                               "unexpected origin.",
+                "hints": [
+                    "Set the Origin header to the same attacker value from Objective 7.",
+                    "Send a POST to /secure-transfer with Origin: https://attacker.training.",
+                    ('Use \'open -X POST -H "Origin: https://attacker.training" '
+                     '-d "recipient=training-user&amount=100" '
+                     "https://cybershop.training/secure-transfer' — expect 403 Forbidden."),
+                ],
+                "validate": {"type": "web_state", "check": "origin_rejected", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "cs-16",
+                "title": "Evidence Collection",
+                "description": "Before the final investigation, make sure you've "
+                               "gathered every kind of evidence: the simulated "
+                               "attack, the token, and the missing/invalid/valid "
+                               "token and Origin-rejection results.",
+                "hints": [
+                    ("Nothing new to send here — just make sure Objectives 7, 10, "
+                     "11, 12, 13, and 15 are all complete."),
+                    "If any of those are still incomplete, go back and finish them first.",
+                    ("Once the attack, the token, and all four rejection/acceptance "
+                     "results are done, this objective completes automatically."),
+                ],
+                "validate": {"type": "web_state", "check": "csrf_evidence_collected", "match": "1"},
+                "xp": 55,
+            },
+            {
+                "id": "cs-17",
+                "title": "FINAL INVESTIGATION — The Unexpected Transfer",
+                "description": "A bug report says 'a training user's balance "
+                               "changed after they visited an unrelated page — "
+                               "they never clicked transfer.' Inspect the "
+                               "investigation log, determine which endpoint let "
+                               "this happen, whether authentication alone was "
+                               "sufficient, and which defensive control fixes it.",
+                "hints": [
+                    ("Look closely at entries 2 through 5 — which requests carry "
+                     "an attacker Origin/Referer, and which endpoint accepts them "
+                     "anyway?"),
+                    ("Entry 3 sends a forged-looking request (attacker Origin/"
+                     "Referer) to the vulnerable /transfer endpoint and succeeds — "
+                     "the session cookie alone was enough. Entry 4 sends the same "
+                     "shape to /secure-transfer and is rejected. Entry 5 succeeds "
+                     "only once the correct csrf_token is included."),
+                    ('Use \'evidence\' to list the log, then \'inspect 1\' through '
+                     "'inspect 5' to read each exchange. Then: "
+                     'echo "Conclusion: the vulnerable transfer endpoint trusted the '
+                     'session cookie alone and accepted a forged-looking cross-site '
+                     'request - this is CSRF. The secure endpoint rejected the same '
+                     'request shape and only succeeded once the correct anti-csrf '
+                     'token was included, proving a synchronizer token is the '
+                     'correct defensive control." > web/csrf-investigation.txt.'),
+                ],
+                "validate": {"type": "file_contains", "match": "anti-csrf token",
+                             "path": "/home/student/web/csrf-investigation.txt"},
+                "xp": 80,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": "csrf-investigation",
         "next_mission": None,
     },
 }

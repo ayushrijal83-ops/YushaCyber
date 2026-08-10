@@ -138,6 +138,7 @@ function exec(cmd, onDone){
             renderSession(d.web_lab_status);
             renderSqli(d.web_lab_status);
             renderXss(d.web_lab_status);
+            renderCsrf(d.web_lab_status);
         }
         /* ── Mission complete ── */
         if(d.completed){
@@ -843,6 +844,229 @@ if(xssCompareRun){
     });
 }
 
+/* ── CSRF Fundamentals (YC-035.6) ──
+   Evidence badges, token display, and transfer history are a pure view
+   over status.csrf's flags, status.transfers, and status.balances (all
+   part of web_lab_status(), already carried on every /execute response)
+   — same pattern as renderProxy()/renderXss(). The "Simulated Attacker
+   Page" button only ever builds an 'open ...' command with an Origin/
+   Referer header set to the fixed attacker.training value — the exact
+   same terminal command a student could type themselves — and submits
+   it through the same exec() path as every other button on this page.
+   No real cross-origin request is ever made anywhere in this section. */
+var ATTACKER_ORIGIN = 'https://attacker.training';
+var TRUSTED_ORIGIN = 'https://cybershop.training';
+
+var CSRF_FLOW_EXPLAIN = {
+    attacker: 'A page hosted anywhere else on the web — this training simulator never actually visits or hosts one.',
+    visit: 'The victim (you, in this simulation) opens that page in the same browser that\'s logged into cybershop.training.',
+    browser: 'The page auto-submits a form or request targeting cybershop.training — the browser doesn\'t ask permission.',
+    cookie: 'Because the request targets cybershop.training, the browser attaches your session cookie automatically — regardless of which page triggered the request.',
+    site: 'cybershop.training receives what looks like a normal, authenticated request.',
+    request: 'A state-changing request (POST /transfer) arrives with a valid session cookie attached.',
+    transfer: 'If the endpoint only checks the cookie, the transfer happens — without the user ever intending it.'
+};
+
+function renderCsrf(status){
+    if(!status) return;
+    var panel = document.querySelector('[data-csrf-badges]');
+    if(!panel) return; /* panel not present on this mission */
+    var c = status.csrf || {};
+
+    var simBadge = document.querySelector('[data-csrf-badge-simulated]');
+    if(simBadge){
+        simBadge.textContent = 'Attack simulated: ' + (c.attack_simulated ? 'seen' : 'not seen');
+        simBadge.classList.toggle('tm-proxy__badge--on', !!c.attack_simulated);
+    }
+    var tokBadge = document.querySelector('[data-csrf-badge-token]');
+    if(tokBadge){
+        tokBadge.textContent = 'Token viewed: ' + (c.token_viewed ? 'seen' : 'not seen');
+        tokBadge.classList.toggle('tm-proxy__badge--on', !!c.token_viewed);
+    }
+    var missBadge = document.querySelector('[data-csrf-badge-missing]');
+    if(missBadge){
+        missBadge.textContent = 'Missing token: ' + (c.missing_token_rejected ? 'tested' : 'not tested');
+        missBadge.classList.toggle('tm-proxy__badge--on', !!c.missing_token_rejected);
+    }
+    var invBadge = document.querySelector('[data-csrf-badge-invalid]');
+    if(invBadge){
+        invBadge.textContent = 'Invalid token: ' + (c.invalid_token_rejected ? 'tested' : 'not tested');
+        invBadge.classList.toggle('tm-proxy__badge--on', !!c.invalid_token_rejected);
+    }
+    var validBadge = document.querySelector('[data-csrf-badge-valid]');
+    if(validBadge){
+        validBadge.textContent = 'Valid token: ' + (c.valid_token_accepted ? 'tested' : 'not tested');
+        validBadge.classList.toggle('tm-proxy__badge--on', !!c.valid_token_accepted);
+    }
+    var originBadge = document.querySelector('[data-csrf-badge-origin]');
+    if(originBadge){
+        originBadge.textContent = 'Origin rejection: ' + (c.origin_rejected ? 'tested' : 'not tested');
+        originBadge.classList.toggle('tm-proxy__badge--on', !!c.origin_rejected);
+    }
+    var samesiteBadge = document.querySelector('[data-csrf-badge-samesite]');
+    if(samesiteBadge) samesiteBadge.textContent = 'SameSite inspections: ' + (c.samesite_inspected || 0);
+
+    var balanceEl = document.querySelector('[data-csrf-balance]');
+    if(balanceEl && status.balances){
+        var bal = status.balances.student;
+        balanceEl.textContent = 'Balance: ' + (typeof bal === 'number' ? bal : '—');
+    }
+
+    var req = status.last_request, resp = status.last_response;
+    var originEl = document.querySelector('[data-csrf-last-origin]');
+    if(originEl) originEl.textContent = (req && req.headers && req.headers.Origin) || '—';
+    var refEl = document.querySelector('[data-csrf-last-referer]');
+    if(refEl) refEl.textContent = (req && req.headers && req.headers.Referer) || '—';
+
+    var tokenDisplay = document.querySelector('[data-csrf-token-display]');
+    if(tokenDisplay && resp && resp.headers && resp.headers['X-Sim-CSRF-Token']){
+        tokenDisplay.textContent = resp.headers['X-Sim-CSRF-Token'];
+        var tokenInput = document.querySelector('[data-csrf-token-input]');
+        if(tokenInput && !tokenInput.value) tokenInput.value = resp.headers['X-Sim-CSRF-Token'];
+    }
+
+    var historyEl = document.querySelector('[data-csrf-history]');
+    if(historyEl && status.transfers){
+        historyEl.innerHTML = '';
+        if(!status.transfers.length){
+            var empty = document.createElement('li');
+            empty.className = 'tm-xss__comment-empty';
+            empty.textContent = 'No transfers yet.';
+            historyEl.appendChild(empty);
+        }
+        status.transfers.forEach(function(t){
+            var li = document.createElement('li');
+            li.className = 'tm-xss__comment';
+            li.textContent = '#' + t.id + '  ' + t.sender + ' → ' + t.recipient + ': ' + t.amount;
+            var badge = document.createElement('span');
+            badge.className = 'tm-xss__comment-badge';
+            badge.textContent = t.defense === 'secure' ? '(secure — token verified)' : '(vulnerable — cookie only)';
+            li.appendChild(badge);
+            historyEl.appendChild(li);
+        });
+    }
+}
+
+function csrfSendTransfer(path, extraHeaders, onDone){
+    var recipient = document.querySelector('[data-csrf-recipient]');
+    var amount = document.querySelector('[data-csrf-amount]');
+    var token = document.querySelector('[data-csrf-token-input]');
+    var body = 'recipient=' + (recipient ? recipient.value : '') + '&amount=' + (amount ? amount.value : '');
+    if(path === '/secure-transfer' && token && token.value){
+        body += '&csrf_token=' + token.value;
+    }
+    var cmd = 'open -X POST';
+    (extraHeaders || []).forEach(function(h){ cmd += ' -H ' + shQuote(h); });
+    cmd += ' -d ' + shQuote(body) + ' https://cybershop.training' + path;
+    appendCmd(currentPrompt, cmd);
+    exec(cmd, onDone);
+}
+
+var csrfTransferVuln = document.querySelector('[data-csrf-transfer-vuln]');
+if(csrfTransferVuln) csrfTransferVuln.addEventListener('click', function(){ csrfSendTransfer('/transfer', []); });
+
+var csrfHistoryBtn = document.querySelector('[data-csrf-transfer-history]');
+if(csrfHistoryBtn){
+    csrfHistoryBtn.addEventListener('click', function(){
+        var cmd = 'open https://cybershop.training/transfer-history';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+var csrfTokenView = document.querySelector('[data-csrf-token-view]');
+if(csrfTokenView){
+    csrfTokenView.addEventListener('click', function(){
+        var cmd = 'open https://cybershop.training/secure-transfer';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+var csrfSecureSend = document.querySelector('[data-csrf-secure-send]');
+if(csrfSecureSend) csrfSecureSend.addEventListener('click', function(){ csrfSendTransfer('/secure-transfer', []); });
+
+var csrfMissingToken = document.querySelector('[data-csrf-missing-token]');
+if(csrfMissingToken){
+    csrfMissingToken.addEventListener('click', function(){
+        var tokenInput = document.querySelector('[data-csrf-token-input]');
+        var saved = tokenInput ? tokenInput.value : '';
+        if(tokenInput) tokenInput.value = '';
+        csrfSendTransfer('/secure-transfer', [], function(){
+            if(tokenInput) tokenInput.value = saved;
+        });
+    });
+}
+
+var csrfInvalidToken = document.querySelector('[data-csrf-invalid-token]');
+if(csrfInvalidToken){
+    csrfInvalidToken.addEventListener('click', function(){
+        var tokenInput = document.querySelector('[data-csrf-token-input]');
+        var saved = tokenInput ? tokenInput.value : '';
+        if(tokenInput) tokenInput.value = 'INVALID_TRAINING_TOKEN';
+        csrfSendTransfer('/secure-transfer', [], function(){
+            if(tokenInput) tokenInput.value = saved;
+        });
+    });
+}
+
+var csrfAttackerSimulate = document.querySelector('[data-csrf-attacker-simulate]');
+if(csrfAttackerSimulate){
+    csrfAttackerSimulate.addEventListener('click', function(){
+        var cmd = 'open -X POST -H ' + shQuote('Origin: ' + ATTACKER_ORIGIN) +
+                  ' -H ' + shQuote('Referer: ' + ATTACKER_ORIGIN + '/') +
+                  ' -d ' + shQuote('recipient=training-user&amount=100') +
+                  ' https://cybershop.training/transfer';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+document.querySelectorAll('[data-csrf-flow-step]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        var key = btn.dataset.csrfFlowStep;
+        document.querySelectorAll('[data-csrf-flow-step]').forEach(function(b){ b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        var explain = CSRF_FLOW_EXPLAIN[key];
+        var target = document.querySelector('[data-csrf-flow-explain]');
+        if(target && explain) target.textContent = explain;
+    });
+});
+
+document.querySelectorAll('[data-csrf-samesite]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        var policy = btn.dataset.csrfSamesite;
+        var cmd = 'samesite ' + policy;
+        appendCmd(currentPrompt, cmd);
+        exec(cmd, function(d){
+            var out = document.querySelector('[data-csrf-samesite-explain]');
+            if(out) out.textContent = d.output || 'No output.';
+        });
+    });
+});
+
+var csrfOriginSend = document.querySelector('[data-csrf-origin-send]');
+if(csrfOriginSend){
+    csrfOriginSend.addEventListener('click', function(){
+        var sel = document.querySelector('[data-csrf-origin-select]');
+        var origin = sel ? sel.value : '';
+        csrfSendTransfer('/secure-transfer', origin ? ['Origin: ' + origin] : []);
+    });
+}
+
+var csrfGetAttempt = document.querySelector('[data-csrf-get-attempt]');
+if(csrfGetAttempt){
+    csrfGetAttempt.addEventListener('click', function(){
+        var cmd = 'open https://cybershop.training/transfer';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd, function(d){
+            var out = document.querySelector('[data-csrf-get-result]');
+            if(out) out.textContent = 'Result: ' + (d.output ? d.output.split('\n')[0] : 'no response') +
+                ' — state-changing operations should not normally be performed through GET.';
+        });
+    });
+}
+
 /* Initial render from server-rendered state, so the panel isn't empty
    until the student's first command. */
 var initialWebLabEl = document.getElementById('tm-web-lab-initial');
@@ -854,6 +1078,7 @@ if(initialWebLabEl){
         renderSession(initialWebLab);
         renderSqli(initialWebLab);
         renderXss(initialWebLab);
+        renderCsrf(initialWebLab);
     }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
@@ -994,6 +1219,7 @@ function doReset(){
             renderSession(d.web_lab_status);
             renderSqli(d.web_lab_status);
             renderXss(d.web_lab_status);
+            renderCsrf(d.web_lab_status);
         }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');

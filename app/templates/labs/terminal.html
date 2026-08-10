@@ -173,7 +173,7 @@
 </section>
 {% endif %}
 
-{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions', 'sql-injection-fundamentals', 'xss-fundamentals') %}
+{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions', 'sql-injection-fundamentals', 'xss-fundamentals', 'csrf-fundamentals') %}
 {# ── Proxy Control (YC-035.2): intercept/forward/drop/edit/Repeater/ ──
    compare, all driven through the same terminal exec() path as the
    Request Builder below — buttons here only ever synthesize a command
@@ -496,6 +496,190 @@
         <span class="tm-proxy__badge" data-xss-badge-stored>Stored: not seen</span>
         <span class="tm-proxy__badge" data-xss-badge-dom>DOM: not seen</span>
         <span class="tm-proxy__badge" data-xss-badge-secure>Secure endpoint: not tested</span>
+    </div>
+</section>
+{% endif %}
+
+{% if mission and mission.web_lab_status and mission.mission.id == 'csrf-fundamentals' %}
+{# ── CSRF Fundamentals (YC-035.6): a training account application ──
+   (Transfer / Secure Transfer), a simulated attacker page, a CSRF Token
+   panel, a SameSite lab, an Origin/Referer inspector, an attack-flow
+   visualizer, a GET-vs-POST comparison, a CSRF-vs-XSS panel, and an
+   evidence checklist — all driven through the same exec() path as every
+   other button on this page. The "Simulated Attacker Page" never sends a
+   real cross-origin request: its button only ever builds the exact same
+   'open ...' command (with an Origin/Referer header set to
+   attacker.training) a student could type themselves, submitted through
+   the same in-memory simulator as everything else here. #}
+<section class="tm-csrf" aria-label="CSRF Training Application">
+    <div class="tm-csrf__bar">
+        <span class="tm-csrf__title">💳 Training Application — cybershop.training</span>
+        <span class="tm-proxy__badge" data-csrf-balance>Balance: —</span>
+    </div>
+
+    <div class="tm-csrf__grid">
+        {# ── Legitimate transfer: vulnerable vs. secure ── #}
+        <div class="tm-csrf__box">
+            <div class="tm-proxy__box-head">Transfer Funds</div>
+            <label class="tm-inspector__field">Recipient
+                <input type="text" data-csrf-recipient placeholder="training-user" value="training-user" />
+            </label>
+            <label class="tm-inspector__field">Amount
+                <input type="number" min="1" data-csrf-amount placeholder="100" value="100" />
+            </label>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-csrf-transfer-vuln>Transfer (Vulnerable)</button>
+                <button type="button" class="btn btn--outline" data-csrf-transfer-history>View History</button>
+            </div>
+            <p class="tm-sqli__note">No csrf_token, no Origin check — only your session cookie is required.</p>
+        </div>
+
+        {# ── CSRF Token panel ── #}
+        <div class="tm-csrf__box">
+            <div class="tm-proxy__box-head">CSRF Token</div>
+            <p class="tm-sqli__note">Authentication answers "who is this?" — a CSRF token answers
+                "did this request intentionally come from the legitimate application?"</p>
+            <button type="button" class="btn btn--outline" data-csrf-token-view>View My Token</button>
+            <code class="tm-csrf__token" data-csrf-token-display>(not viewed yet)</code>
+            <label class="tm-inspector__field">csrf_token to send
+                <input type="text" data-csrf-token-input placeholder="(paste or leave blank)" />
+            </label>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-csrf-secure-send>Secure Transfer</button>
+            </div>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--outline" data-csrf-missing-token>Send Missing Token</button>
+                <button type="button" class="btn btn--outline" data-csrf-invalid-token>Send Invalid Token</button>
+            </div>
+        </div>
+
+        {# ── Simulated attacker page — never a real cross-origin request ── #}
+        <div class="tm-csrf__box tm-csrf__box--attacker">
+            <div class="tm-proxy__box-head">⚠️ Simulated Attacker Page — attacker.training</div>
+            <pre class="tm-proxy__pre">POST /transfer
+recipient = training-user
+amount = 100</pre>
+            <p class="tm-sqli__note">Simulated only — this button never leaves YushaCyber or contacts a
+                real host. It builds the same forged-looking request (an attacker Origin/Referer) a
+                real malicious page would auto-submit, and sends it through this training simulator.
+                Your browser's session cookie is attached automatically, exactly as it would be for a
+                real cross-site request to this site.</p>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-csrf-attacker-simulate>Simulate Request</button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Attack Flow Visualizer — clickable, mirrors the XSS reflection flow ── #}
+    <div class="tm-csrf__box tm-csrf__box--wide">
+        <div class="tm-proxy__box-head">Attack Flow Visualizer <span class="tm-sqli__note">(click a step — simulated CSRF flow)</span></div>
+        <div class="tm-xss__flow" role="list" aria-label="CSRF attack flow">
+            <button type="button" class="tm-xss__flow-step" data-csrf-flow-step="attacker" role="listitem">Attacker-Controlled Page</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-csrf-flow-step="visit" role="listitem">Victim Visits Page</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-csrf-flow-step="browser" role="listitem">Browser</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-csrf-flow-step="cookie" role="listitem">Session Cookie Auto-Attached</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-csrf-flow-step="site" role="listitem">cybershop.training</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-csrf-flow-step="request" role="listitem">State-Changing Request</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-csrf-flow-step="transfer" role="listitem">Transfer Occurs</button>
+        </div>
+        <p class="tm-sqli__note" data-csrf-flow-explain>Click a step above — Simulated CSRF flow, no real cross-origin request.</p>
+    </div>
+
+    <div class="tm-csrf__grid">
+        {# ── SameSite lab ── #}
+        <div class="tm-csrf__box">
+            <div class="tm-proxy__box-head">SameSite Cookie Lab</div>
+            <div class="tm-csrf__quickpicks">
+                <button type="button" class="btn btn--outline" data-csrf-samesite="strict">SameSite=Strict</button>
+                <button type="button" class="btn btn--outline" data-csrf-samesite="lax">SameSite=Lax</button>
+                <button type="button" class="btn btn--outline" data-csrf-samesite="none">SameSite=None</button>
+            </div>
+            <pre class="tm-proxy__pre" data-csrf-samesite-explain>Click a policy above to see whether a cross-site forged request would still carry the cookie.</pre>
+        </div>
+
+        {# ── Origin / Referer inspector ── #}
+        <div class="tm-csrf__box">
+            <div class="tm-proxy__box-head">Origin / Referer Inspector</div>
+            <label class="tm-inspector__field">Origin to send
+                <select data-csrf-origin-select>
+                    <option value="">(none)</option>
+                    <option value="https://cybershop.training">https://cybershop.training (trusted)</option>
+                    <option value="https://attacker.training">https://attacker.training (unexpected)</option>
+                </select>
+            </label>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-csrf-origin-send>Send to Secure Transfer</button>
+            </div>
+            <div class="tm-csrf__row"><span class="tm-session__label">Last Origin:</span> <span data-csrf-last-origin>—</span></div>
+            <div class="tm-csrf__row"><span class="tm-session__label">Last Referer:</span> <span data-csrf-last-referer>—</span></div>
+            <p class="tm-sqli__note">Referer may be absent or stripped by privacy/security policies in
+                real browsers — useful as a secondary signal, never the sole defense.</p>
+        </div>
+    </div>
+
+    {# ── GET vs POST — interactive ── #}
+    <div class="tm-csrf__box tm-csrf__box--wide">
+        <div class="tm-proxy__box-head">GET vs. POST for State-Changing Actions</div>
+        <div class="tm-sqli__compare-grid">
+            <div>
+                <div class="tm-sqli__table-name">Unsafe design</div>
+                <pre class="tm-proxy__pre">GET /transfer?recipient=training-user&amp;amount=100</pre>
+            </div>
+            <div>
+                <div class="tm-sqli__table-name">This training site</div>
+                <pre class="tm-proxy__pre">POST /transfer</pre>
+            </div>
+        </div>
+        <div class="tm-proxy__actions">
+            <button type="button" class="btn btn--outline" data-csrf-get-attempt>Try GET /transfer</button>
+        </div>
+        <p class="tm-sqli__note" data-csrf-get-result>State-changing operations should not normally be
+            performed through GET — a link, image tag, or prefetch can trigger a GET with no user
+            intent at all. This training site has no GET route for /transfer at all.</p>
+    </div>
+
+    {# ── CSRF vs. XSS ── #}
+    <div class="tm-csrf__box tm-csrf__box--wide">
+        <div class="tm-proxy__box-head">CSRF vs. XSS</div>
+        <div class="tm-sqli__compare-grid">
+            <div>
+                <div class="tm-sqli__table-name">XSS</div>
+                <p class="tm-sqli__note">Attacker-controlled script executes in the victim's own
+                    application context — it can read the page, not just send one request.</p>
+            </div>
+            <div>
+                <div class="tm-sqli__table-name">CSRF</div>
+                <p class="tm-sqli__note">The attacker causes the victim's browser to send an
+                    authenticated request — it cannot read the response, only trigger the action.</p>
+            </div>
+        </div>
+        <p class="tm-sqli__note">XSS ≠ CSRF, but XSS can sometimes undermine CSRF defenses (e.g. by
+            reading a page-embedded token) — not explored further in this mission.</p>
+    </div>
+
+    {# ── Transfer History — a pure view over web_lab_status.transfers ── #}
+    <div class="tm-csrf__box tm-csrf__box--wide">
+        <div class="tm-proxy__box-head">Transfer History</div>
+        <ul class="tm-xss__comments" data-csrf-history aria-label="Transfer history">
+            <li class="tm-xss__comment-empty">No transfers yet.</li>
+        </ul>
+    </div>
+
+    {# ── Evidence checklist — a pure view over WebLab.csrf's flags ── #}
+    <div class="tm-sqli__badges" data-csrf-badges aria-label="Evidence collected">
+        <span class="tm-proxy__badge" data-csrf-badge-simulated>Attack simulated: not seen</span>
+        <span class="tm-proxy__badge" data-csrf-badge-token>Token viewed: not seen</span>
+        <span class="tm-proxy__badge" data-csrf-badge-missing>Missing token: not tested</span>
+        <span class="tm-proxy__badge" data-csrf-badge-invalid>Invalid token: not tested</span>
+        <span class="tm-proxy__badge" data-csrf-badge-valid>Valid token: not tested</span>
+        <span class="tm-proxy__badge" data-csrf-badge-origin>Origin rejection: not tested</span>
+        <span class="tm-proxy__badge" data-csrf-badge-samesite>SameSite inspections: 0</span>
     </div>
 </section>
 {% endif %}
