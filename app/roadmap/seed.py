@@ -117,7 +117,19 @@ def seed_roadmap() -> dict[str, int]:
             "modules": RoadmapModule.query.count(),
             "lessons": Lesson.query.count(),
         }
+    return _insert_curriculum()
 
+
+def _insert_curriculum() -> dict[str, int]:
+    """Unconditionally insert the CURRICULUM data (no existence guard).
+
+    Split out from ``seed_roadmap()`` (YC-036.2) so a caller that needs
+    the specific locked curriculum present — regardless of whatever else
+    already exists in the database — can request it directly, without
+    ``seed_roadmap()``'s blanket "any category exists" idempotency guard
+    silently no-op-ing on unrelated data. ``seed_roadmap()`` itself is
+    unchanged in behavior; this is purely an extraction.
+    """
     categories = 0
     modules = 0
     lessons = 0

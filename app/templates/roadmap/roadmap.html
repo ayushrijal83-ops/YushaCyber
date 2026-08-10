@@ -33,7 +33,8 @@
             <section class="rm-hero" aria-labelledby="rm-title">
                 <p class="rm-hero__eyebrow">// choose your path</p>
                 <h1 class="rm-hero__title" id="rm-title">Cybersecurity Roadmap</h1>
-                <p class="rm-hero__subtitle">Master cybersecurity step by step with structured learning paths.</p>
+                <p class="rm-hero__subtitle">Master cybersecurity step by step with structured learning paths.
+                    {% if roadmap_version %}<span class="rm-hero__version">Curriculum v{{ roadmap_version }}</span>{% endif %}</p>
             </section>
 
             {# ---- Roadmap categories (dynamic, from the service layer) ---- #}
@@ -101,7 +102,8 @@
                             {% if module.lessons %}
                             <ul class="rm-lesson-rows">
                                 {% for lesson in module.lessons %}
-                                <li class="rm-lesson-row {% if not lesson.is_preview %}rm-lesson-row--locked{% endif %}">
+                                {% set lesson_open = lesson.is_preview or module.status != "locked" %}
+                                <li class="rm-lesson-row {% if not lesson_open %}rm-lesson-row--locked{% endif %}">
                                     <span class="rm-lesson-row__title">{{ lesson.title }}</span>
                                     <span class="rm-module__tag">{{ lesson.lesson_type|capitalize }}</span>
                                     <span class="rm-module__tag">⏱ {{ lesson.estimated_minutes }} min</span>
@@ -112,8 +114,15 @@
                                     {% if lesson.completed %}
                                     <span class="rm-lesson-row__badge rm-lesson-row__badge--done">✓ Completed</span>
                                     {% endif %}
+                                    {% if lesson_open %}
                                     <a href="{{ url_for('roadmap.lesson_view', module_slug=lesson.module_slug, lesson_slug=lesson.slug) }}"
                                        class="btn btn--outline btn--sm rm-lesson-row__btn">Start Lesson</a>
+                                    {% else %}
+                                    <button type="button" class="btn btn--outline btn--sm rm-lesson-row__btn" disabled
+                                            aria-label="{{ lesson.title }} is locked — complete the previous module first">
+                                        🔒 Locked
+                                    </button>
+                                    {% endif %}
                                 </li>
                                 {% endfor %}
                             </ul>

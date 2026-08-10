@@ -34,17 +34,38 @@ def module_detail(module_slug: str):
 @roadmap_bp.route("/<module_slug>/<lesson_slug>/")
 @login_required
 def lesson_view(module_slug: str, lesson_slug: str):
-    """Render a single lesson's content, or 404 if module/lesson missing."""
+    """Render a single lesson's content, or 404 if module/lesson missing.
+
+    Server-side lock gate (YC-036.2): a lesson belonging to a module this
+    user hasn't unlocked yet (and that isn't itself a preview lesson) is
+    never rendered here, even via a direct URL — the student is sent back
+    to the module page instead, where locked lessons are already shown.
+    """
     context = services.get_lesson_view_context(current_user, module_slug, lesson_slug)
     if context is None:
         abort(404)
+    if context["locked"]:
+        flash("This lesson is locked. Complete the previous module to unlock it.", "error")
+        return redirect(url_for("roadmap.module_detail", module_slug=module_slug))
     return render_template("roadmap/lesson.html", user=current_user, **context)
 
 
 @roadmap_bp.route("/<module_slug>/<lesson_slug>/complete", methods=["POST"])
 @login_required
 def complete_lesson(module_slug: str, lesson_slug: str):
-    """Mark a lesson complete (POST, CSRF-protected), then return to it."""
+    """Mark a lesson complete (POST, CSRF-protected), then return to it.
+
+    Same lock gate as ``lesson_view`` (YC-036.2), checked before any
+    progress/XP is written — a locked lesson can no longer be completed
+    by posting directly to this endpoint.
+    """
+    locked = services.is_lesson_locked(current_user, module_slug, lesson_slug)
+    if locked is None:
+        abort(404)
+    if locked:
+        flash("This lesson is locked. Complete the previous module to unlock it.", "error")
+        return redirect(url_for("roadmap.module_detail", module_slug=module_slug))
+
     result = services.complete_lesson(current_user, module_slug, lesson_slug)
 
     if result["lesson"] is None:

@@ -313,3 +313,10 @@ def _register_cli(app: Flask) -> None:
             print("Resources already populated — no changes made.")
         print(f"  categories: {result['categories']}")
         print(f"  resources:  {result['resources']}")
+
+    @app.cli.command("roadmap-audit")
+    def roadmap_audit_command() -> None:
+        """Report roadmap structural integrity (read-only, YC-036.2)."""
+        from app.roadmap.audit import audit_roadmap, format_audit_report
+
+        print(format_audit_report(audit_roadmap()))

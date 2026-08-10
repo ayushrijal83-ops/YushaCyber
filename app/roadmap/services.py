@@ -33,6 +33,12 @@ from app.roadmap.models import (
     UserQuizAttempt,
 )
 
+# The locked curriculum's version (YC-036.2 — see docs/ROADMAP_LOCK.md).
+# Bump only on a deliberate structural change to the roadmap (track/module/
+# lesson hierarchy, ordering, or prerequisites) — never for lesson content
+# edits, which are explicitly allowed to improve without a version bump.
+ROADMAP_VERSION = "1.0"
+
 
 # ---------------------------------------------------------------------------
 # Content queries — the ONLY sanctioned way for routes to reach roadmap data.
@@ -348,10 +354,15 @@ def get_lesson_view_context(
             "estimated_minutes": lesson.estimated_minutes,
             "xp_reward": lesson.xp_reward,
             "completed": lesson_completed(user, lesson),
+            "is_preview": lesson.is_preview,
         },
         "content_html": render_lesson_content(lesson.content_path),
         "prev_slug": prev_slug,
         "next_slug": next_slug,
+        # Server-side lock gate (YC-036.2) — the route redirects away
+        # rather than rendering real content when this is True, so
+        # locked modules can no longer be read/completed via direct URL.
+        "locked": lesson_locked_for_user(user, module, lesson),
         "nav_items": get_nav_items(active="roadmap"),
     }
 
@@ -452,6 +463,37 @@ def module_status(user: User, module: RoadmapModule) -> str:
     if siblings and siblings[0].id == module.id:
         return "available"
     return "locked"
+
+
+def lesson_locked_for_user(user: User, module: RoadmapModule, lesson: Lesson) -> bool:
+    """True if this lesson may not be viewed or completed yet.
+
+    Every lesson is gated by its module's per-user unlock status
+    (``module_status``), with one deliberate exception: a preview lesson
+    (``Lesson.is_preview`` — always the first lesson of a module, per
+    ``seed.py``'s ``is_preview=(les_order == 1)``) is a sneak peek of the
+    next module and stays viewable/completable even while its module is
+    locked, matching how ``module.html`` already renders a live "Start
+    Lesson" link for the preview lesson regardless of lock status.
+    """
+    if lesson.is_preview:
+        return False
+    return module_status(user, module) == "locked"
+
+
+def is_lesson_locked(user: User, module_slug: str, lesson_slug: str) -> bool | None:
+    """Whether a lesson is currently locked for this user.
+
+    Returns ``None`` if the module or lesson doesn't exist (the caller
+    should 404), otherwise the ``lesson_locked_for_user`` result.
+    """
+    module = get_module(module_slug)
+    if module is None:
+        return None
+    lesson = get_lesson(module_slug, lesson_slug)
+    if lesson is None:
+        return None
+    return lesson_locked_for_user(user, module, lesson)
 
 
 def unlock_next_module(user: User, module: RoadmapModule) -> Optional[RoadmapModule]:
@@ -763,6 +805,7 @@ def get_roadmap_context(user: User) -> dict[str, Any]:
     return {
         "categories": categories,
         "nav_items": get_nav_items(active="roadmap"),
+        "roadmap_version": ROADMAP_VERSION,
     }
 
 
