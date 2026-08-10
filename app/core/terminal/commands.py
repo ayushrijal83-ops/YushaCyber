@@ -685,6 +685,44 @@ def _track_csrf_response(sh: Shell, req, resp) -> None:
         s.origin_rejected = True
 
 
+def _track_upload_response(sh: Shell, req, resp) -> None:
+    """Records structured evidence for the File Upload Security
+    Fundamentals mission (YC-035.7) into WebLab.upload's flags, read off
+    the response's 'X-Sim-Upload-Kind'/'X-Sim-Upload-Signature' headers
+    (set by WebApp's fixed, deterministic training routes — see web.py).
+    Same discipline as _track_csrf_response: a validator check reads a
+    flag, never rendered text. A no-op for every other mission (the
+    headers are simply absent)."""
+    if sh.web_lab is None:
+        return
+    kind = resp.headers.get("X-Sim-Upload-Kind")
+    s = sh.web_lab.upload
+    if resp.headers.get("X-Sim-Upload-Signature"):
+        s.signature_inspected = True
+    if kind == "content_mismatch":
+        s.content_mismatch_seen = True
+        s.vulnerable_accepted_seen = True
+    elif kind in ("executable_accepted", "accepted_vulnerable"):
+        s.vulnerable_accepted_seen = True
+    elif kind == "accepted_secure":
+        s.secure_accepted_seen = True
+    elif kind == "size_exceeded":
+        s.size_limit_seen = True
+    elif kind == "path_traversal_blocked":
+        s.path_traversal_blocked = True
+    elif kind == "executable_blocked":
+        s.executable_blocked = True
+        s.secure_rejection_seen = True
+    elif kind in ("signature_rejected", "mime_rejected"):
+        # Both represent the secure pipeline catching a claimed-type/
+        # actual-content mismatch that the vulnerable, extension-only
+        # pipeline let through — whichever specific layer (declared
+        # Content-Type vs. detected signature) happens to fire first for
+        # a given mismatched upload still counts as "the secure pipeline
+        # rejected this content."
+        s.secure_rejection_seen = True
+
+
 @cmd("open")
 def _open(sh: Shell, args: list[str]) -> str:
     if sh.web_lab is None:
@@ -724,6 +762,7 @@ def _open(sh: Shell, args: list[str]) -> str:
     _track_sqli_response(sh, req, resp)
     _track_xss_response(sh, req, resp)
     _track_csrf_response(sh, req, resp)
+    _track_upload_response(sh, req, resp)
     return render_exchange(req, resp)
 
 
@@ -750,7 +789,8 @@ def _web(sh: Shell, args: list[str]) -> str:
            f"Routes: / /products /search /secure-search /login /auth/login "
            f"/training-login /secure-login /profile /account /settings /dashboard "
            f"/admin /logout /api/login /api/profile /api/me /csrf-demo "
-           f"/secure-transfer /transfer /transfer-history\n"
+           f"/secure-transfer /transfer /transfer-history /upload /secure-upload "
+           f"/uploads /upload/<id> /upload-security\n"
            f"Type 'open URL' or 'request METHOD PATH' to make a request.\n"
            f"Proxy: 'intercept on|off', 'forward', 'drop', 'edit ...', "
            f"'repeater [N]', 'repeater send', 'compare N M'.\n"
@@ -761,7 +801,10 @@ def _web(sh: Shell, args: list[str]) -> str:
            f"representation for your last request/response.\n"
            f"CSRF Fundamentals: POST /transfer is the vulnerable, unprotected "
            f"endpoint; POST /secure-transfer requires a csrf_token. "
-           f"'samesite strict|lax|none' explains SameSite cookie behavior.")
+           f"'samesite strict|lax|none' explains SameSite cookie behavior.\n"
+           f"File Upload Security: POST /upload checks only the file extension; "
+           f"POST /secure-upload also checks size, MIME, content signature, "
+           f"filename normalization, and executable content.")
 
 
 # ══════════════════════════════════════════════════════
@@ -974,6 +1017,7 @@ def _forward(sh: Shell, args: list[str]) -> str:
     _track_sqli_response(sh, req, resp)
     _track_xss_response(sh, req, resp)
     _track_csrf_response(sh, req, resp)
+    _track_upload_response(sh, req, resp)
     p.pending = None
     p.forwarded_count += 1
     return "Request forwarded.\n" + render_exchange(req, resp)
@@ -1058,6 +1102,7 @@ def _repeater(sh: Shell, args: list[str]) -> str:
         _track_sqli_response(sh, req, resp)
         _track_xss_response(sh, req, resp)
         _track_csrf_response(sh, req, resp)
+        _track_upload_response(sh, req, resp)
         p.repeater_sent_count += 1
         return "Repeater: request sent.\n" + render_exchange(req, resp)
     if not hist:

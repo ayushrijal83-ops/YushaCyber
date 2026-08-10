@@ -507,6 +507,93 @@ def _validate_web_state(v: dict[str, Any], shell: Shell, obj_id: str,
                             "token, and test a missing token, an invalid token, a "
                             "valid token, and an unexpected Origin.")
 
+    # ── File Upload Security Fundamentals (YC-035.7). Each check reads
+    # either the last request/response's structured 'X-Sim-Upload-Kind'/
+    # 'X-Sim-Upload-Signature'/'X-Sim-Upload-Extension' headers (set
+    # deterministically by WebApp's fixed training routes — see web.py)
+    # or a flag off WebLab.upload (UploadLabState) — never rendered
+    # text, matching this file's established discipline.
+    if check == "multipart_identified":
+        if req is not None and "multipart/form-data" in req.headers.get("Content-Type", ""):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Make an upload request and check its Content-Type request header.")
+
+    if check == "extension_identified":
+        if resp is not None and resp.headers.get("X-Sim-Upload-Extension") == expected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, f"Upload a file and check the X-Sim-Upload-Extension "
+                            f"response header (expected '{expected}').")
+
+    if check == "content_validation_tested":
+        if lab.upload.content_mismatch_seen:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Upload a file to /upload whose filename claims one "
+                            "type but whose declared content_type/signature is a "
+                            "different one, and observe it still gets accepted.")
+
+    if check == "signature_inspected":
+        if lab.upload.signature_inspected:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Make an upload request and check the "
+                            "X-Sim-Upload-Signature response header.")
+
+    if check == "content_mismatch_confirmed":
+        if lab.upload.content_mismatch_seen and lab.upload.secure_rejection_seen:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send the same mismatched content to both /upload "
+                            "(accepted) and /secure-upload (rejected).")
+
+    if check == "size_limit_tested":
+        if lab.upload.size_limit_seen:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Upload a file larger than the training size limit "
+                            "and check for 413 Payload Too Large.")
+
+    if check == "path_traversal_blocked":
+        if lab.upload.path_traversal_blocked:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Send a filename containing '../' to /secure-upload "
+                            "and check for 403 Forbidden.")
+
+    if check == "storage_inspected":
+        if lab.upload.vulnerable_accepted_seen and lab.upload.secure_accepted_seen:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Successfully upload through both /upload and "
+                            "/secure-upload, then compare their storage behavior.")
+
+    if check == "random_filename_observed":
+        if (resp is not None and resp.headers.get("X-Sim-Upload-Kind") == "accepted_secure"
+                and req is not None):
+            from app.core.terminal.web import parse_body
+            data = parse_body(req.body, req.headers.get("Content-Type", ""))
+            stored_name = resp.headers.get("X-Sim-Upload-Stored-Name")
+            if stored_name and stored_name != data.get("filename"):
+                return _pass(obj_id, xp)
+        return _fail(obj_id, "Successfully upload through /secure-upload and "
+                            "compare the stored filename to your original one.")
+
+    if check == "executable_marker_blocked":
+        if lab.upload.executable_blocked:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Upload the disguised executable training file to "
+                            "/secure-upload and check for 403 Forbidden.")
+
+    if check == "secure_pipeline_compared":
+        if lab.upload.vulnerable_accepted_seen and lab.upload.secure_accepted_seen:
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Successfully complete an upload through both the "
+                            "vulnerable and secure endpoints.")
+
+    if check == "upload_evidence_collected":
+        u = lab.upload
+        if (u.content_mismatch_seen and u.signature_inspected and u.size_limit_seen
+                and u.path_traversal_blocked and u.executable_blocked
+                and u.vulnerable_accepted_seen and u.secure_accepted_seen):
+            return _pass(obj_id, xp)
+        return _fail(obj_id, "Collect more evidence: a content mismatch, a signature "
+                            "inspection, the size limit, path traversal, executable "
+                            "blocking, and both pipelines successfully tested.")
+
     if check == "session_authenticated":
         # Deliberately requires the *last request* to actually be a
         # successful hit on a session-gated resource — not just "a valid

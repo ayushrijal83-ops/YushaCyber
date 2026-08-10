@@ -173,7 +173,7 @@
 </section>
 {% endif %}
 
-{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions', 'sql-injection-fundamentals', 'xss-fundamentals', 'csrf-fundamentals') %}
+{% if mission and mission.web_lab_status and mission.mission.id in ('burp-fundamentals', 'authentication-sessions', 'sql-injection-fundamentals', 'xss-fundamentals', 'csrf-fundamentals', 'file-upload-security') %}
 {# ── Proxy Control (YC-035.2): intercept/forward/drop/edit/Repeater/ ──
    compare, all driven through the same terminal exec() path as the
    Request Builder below — buttons here only ever synthesize a command
@@ -680,6 +680,199 @@ amount = 100</pre>
         <span class="tm-proxy__badge" data-csrf-badge-valid>Valid token: not tested</span>
         <span class="tm-proxy__badge" data-csrf-badge-origin>Origin rejection: not tested</span>
         <span class="tm-proxy__badge" data-csrf-badge-samesite>SameSite inspections: 0</span>
+    </div>
+</section>
+{% endif %}
+
+{% if mission and mission.web_lab_status and mission.mission.id == 'file-upload-security' %}
+{# ── File Upload Security Fundamentals (YC-035.7): a training upload ──
+   application (file picker/metadata, vulnerable vs secure upload),
+   a Filename Security (path traversal) tester, a Storage/Web-
+   Accessibility comparison, conceptual Image Processing and Upload
+   Security Pipeline panels, a Vulnerable-vs-Secure comparison, an
+   Uploads list, and evidence badges — all driven through the same
+   exec() path as every other button on this page. There is no real
+   file content anywhere: every upload is a small set of explicit
+   filename/content_type/size/signature fields built into an 'open ...'
+   command a student could type themselves. #}
+<section class="tm-upload" aria-label="File Upload Training Application">
+    <div class="tm-upload__bar">
+        <span class="tm-upload__title">📁 Upload Laboratory — cybershop.training</span>
+    </div>
+
+    <div class="tm-upload__grid">
+        {# ── File picker + metadata + overridable fields ── #}
+        <div class="tm-upload__box tm-upload__box--wide">
+            <div class="tm-proxy__box-head">Select Training File</div>
+            <label class="tm-inspector__field">Training file
+                <select data-upload-file-picker>
+                    <option value="avatar.jpg">avatar.jpg</option>
+                    <option value="avatar.png">avatar.png</option>
+                    <option value="avatar.gif">avatar.gif</option>
+                    <option value="document.pdf">document.pdf</option>
+                    <option value="notes.txt">notes.txt</option>
+                    <option value="training-marker.svg">training-marker.svg</option>
+                    <option value="shell.jpg">training-executable-marker</option>
+                    <option value="oversized.jpg">oversized.jpg (3 MB)</option>
+                    <option value="mismatched.jpg">mismatched.jpg (content mismatch)</option>
+                </select>
+            </label>
+            <div class="tm-upload__meta" aria-label="File metadata">
+                <div><span class="tm-session__label">Filename:</span> <span data-upload-meta-filename>—</span></div>
+                <div><span class="tm-session__label">Extension:</span> <span data-upload-meta-extension>—</span></div>
+                <div><span class="tm-session__label">MIME:</span> <span data-upload-meta-mime>—</span></div>
+                <div><span class="tm-session__label">Size:</span> <span data-upload-meta-size>—</span></div>
+                <div><span class="tm-session__label">Signature:</span> <span data-upload-meta-signature>—</span></div>
+                <div><span class="tm-session__label">Content:</span> <span data-upload-meta-category>—</span></div>
+                <div><span class="tm-session__label">Hash:</span> <span data-upload-meta-hash>—</span></div>
+            </div>
+            <p class="tm-sqli__note">Extension alone never proves what a file actually is — the fields below
+                can be changed independently to test each validation layer.</p>
+            <div class="tm-proxy__builder-row">
+                <label class="tm-inspector__field">Filename
+                    <input type="text" data-upload-filename-input />
+                </label>
+                <label class="tm-inspector__field">Content-Type (claimed)
+                    <input type="text" data-upload-content-type-input />
+                </label>
+                <label class="tm-inspector__field">Size (bytes)
+                    <input type="number" min="0" data-upload-size-input />
+                </label>
+                <label class="tm-inspector__field">Signature (detected)
+                    <select data-upload-signature-input>
+                        <option>JPEG</option><option>PNG</option><option>GIF</option>
+                        <option>SVG</option><option>PDF</option><option>TEXT</option>
+                        <option>EXECUTABLE</option>
+                    </select>
+                </label>
+            </div>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-upload-vuln>Upload (Vulnerable)</button>
+                <button type="button" class="btn btn--outline" data-upload-secure>Upload (Secure)</button>
+            </div>
+            <pre class="tm-proxy__pre" data-upload-last-result>No upload attempted yet.</pre>
+        </div>
+
+        {# ── Filename Security (path traversal) ── #}
+        <div class="tm-upload__box">
+            <div class="tm-proxy__box-head">Filename Security</div>
+            <label class="tm-inspector__field">Filename to test
+                <input type="text" data-upload-traversal-input value="../profile.jpg" />
+            </label>
+            <div class="tm-proxy__actions">
+                <button type="button" class="btn btn--primary" data-upload-traversal-send>Send to Secure Upload</button>
+            </div>
+            <div class="tm-csrf__row"><span class="tm-session__label">Requested path:</span> <span data-upload-traversal-requested>—</span></div>
+            <div class="tm-csrf__row"><span class="tm-session__label">Resolved training path:</span> <span data-upload-traversal-resolved>—</span></div>
+            <div class="tm-csrf__row"><span class="tm-session__label">Status:</span> <span data-upload-traversal-status>—</span></div>
+        </div>
+
+        {# ── Storage / web-accessibility comparison ── #}
+        <div class="tm-upload__box">
+            <div class="tm-proxy__box-head">Storage &amp; Web-Accessibility</div>
+            <div class="tm-sqli__compare-facts"><span>INSECURE: /uploads/&lt;original filename&gt;</span></div>
+            <pre class="tm-proxy__pre" data-upload-storage-vuln>No vulnerable upload accepted yet.</pre>
+            <div class="tm-sqli__compare-facts"><span>SECURE: /private-training-storage/&lt;random-id&gt;</span></div>
+            <pre class="tm-proxy__pre" data-upload-storage-secure>No secure upload accepted yet.</pre>
+        </div>
+    </div>
+
+    {# ── Upload Flow Visualizer ── #}
+    <div class="tm-upload__box tm-upload__box--wide">
+        <div class="tm-proxy__box-head">Upload Flow Visualizer <span class="tm-sqli__note">(click a step)</span></div>
+        <div class="tm-xss__flow" role="list" aria-label="Upload flow">
+            <button type="button" class="tm-xss__flow-step" data-upload-flow-step="select" role="listitem">User Selects File</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-upload-flow-step="browser" role="listitem">Browser</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-upload-flow-step="post" role="listitem">POST /upload</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-upload-flow-step="validation" role="listitem">Server Validation</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-upload-flow-step="storage" role="listitem">Storage</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-upload-flow-step="reference" role="listitem">File Reference</button>
+            <span class="tm-sqli__flow-arrow" aria-hidden="true">→</span>
+            <button type="button" class="tm-xss__flow-step" data-upload-flow-step="display" role="listitem">Browser Displays File</button>
+        </div>
+        <p class="tm-sqli__note" data-upload-flow-explain>Click a step above to see what it means.</p>
+    </div>
+
+    {# ── Upload Security Pipeline (conceptual, YC-035.7 §27) ── #}
+    <div class="tm-upload__box tm-upload__box--wide">
+        <div class="tm-proxy__box-head">Upload Security Pipeline <span class="tm-sqli__note">(click a step)</span></div>
+        <div class="tm-xss__flow" role="list" aria-label="Upload security pipeline">
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="auth" role="listitem">1. Authentication</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="authz" role="listitem">2. Authorization</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="size" role="listitem">3. Size validation</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="extension" role="listitem">4. Extension allowlist</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="mime" role="listitem">5. MIME validation</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="content" role="listitem">6. Content/signature validation</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="filename" role="listitem">7. Filename normalization</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="random" role="listitem">8. Randomized storage name</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="safe" role="listitem">9. Safe storage</button>
+            <button type="button" class="tm-xss__flow-step" data-upload-pipeline-step="serve" role="listitem">10. Controlled serving</button>
+        </div>
+        <p class="tm-sqli__note" data-upload-pipeline-explain>Click a step above — no single layer is sufficient by itself.</p>
+    </div>
+
+    {# ── Vulnerable vs. Secure — Side by Side ── #}
+    <div class="tm-upload__box tm-upload__box--wide">
+        <div class="tm-proxy__box-head">Vulnerable vs. Secure — Side by Side <span class="tm-sqli__note">(click a step)</span></div>
+        <div class="tm-sqli__compare-grid">
+            <div>
+                <div class="tm-sqli__table-name">Vulnerable — /upload</div>
+                <div class="tm-xss__flow" role="list" aria-label="Vulnerable pipeline steps">
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="v-filename" role="listitem">Filename check</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="v-mime" role="listitem">MIME check</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="v-original" role="listitem">Original filename</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="v-webaccess" role="listitem">Web-accessible storage</button>
+                </div>
+            </div>
+            <div>
+                <div class="tm-sqli__table-name">Secure — /secure-upload</div>
+                <div class="tm-xss__flow" role="list" aria-label="Secure pipeline steps">
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="s-allowlist" role="listitem">Allowlist</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="s-signature" role="listitem">Content/signature validation</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="s-size" role="listitem">Size limit</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="s-random" role="listitem">Random filename</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="s-nonexec" role="listitem">Non-executable storage</button>
+                    <button type="button" class="tm-xss__flow-step" data-upload-compare-step="s-serving" role="listitem">Controlled serving</button>
+                </div>
+            </div>
+        </div>
+        <p class="tm-sqli__note" data-upload-compare-explain>Click a step above to see what it means.</p>
+    </div>
+
+    {# ── Image processing (conceptual only) ── #}
+    <div class="tm-upload__box tm-upload__box--wide">
+        <div class="tm-proxy__box-head">Image Processing (conceptual)</div>
+        <pre class="tm-proxy__pre">Upload → Validation → Image processing → Re-encoding → Safe storage</pre>
+        <p class="tm-sqli__note">Re-encoding an accepted image can help reduce risk from malformed content,
+            but it is not a complete security solution by itself — it never replaces the validation
+            steps above.</p>
+    </div>
+
+    {# ── Uploads list — a pure view over web_lab_status.uploads ── #}
+    <div class="tm-upload__box tm-upload__box--wide">
+        <div class="tm-proxy__box-head">Your Uploads</div>
+        <div class="tm-proxy__actions">
+            <button type="button" class="btn btn--outline" data-upload-history-view>Refresh List</button>
+        </div>
+        <ul class="tm-xss__comments" data-upload-history aria-label="Uploaded files">
+            <li class="tm-xss__comment-empty">No uploads yet.</li>
+        </ul>
+    </div>
+
+    {# ── Evidence checklist — a pure view over WebLab.upload's flags ── #}
+    <div class="tm-sqli__badges" data-upload-badges aria-label="Evidence collected">
+        <span class="tm-proxy__badge" data-upload-badge-mismatch>Content mismatch: not seen</span>
+        <span class="tm-proxy__badge" data-upload-badge-signature>Signature inspected: not seen</span>
+        <span class="tm-proxy__badge" data-upload-badge-size>Size limit: not tested</span>
+        <span class="tm-proxy__badge" data-upload-badge-traversal>Path traversal: not tested</span>
+        <span class="tm-proxy__badge" data-upload-badge-executable>Executable: not blocked</span>
+        <span class="tm-proxy__badge" data-upload-badge-vuln>Vulnerable pipeline: not tested</span>
+        <span class="tm-proxy__badge" data-upload-badge-secure>Secure pipeline: not tested</span>
     </div>
 </section>
 {% endif %}

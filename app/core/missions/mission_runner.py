@@ -295,6 +295,24 @@ class MissionRunner:
             # `comments` above.
             "transfers": [dataclasses.asdict(t) for t in lab.app.transfers],
             "balances": dict(lab.app.balances),
+            # File Upload Security Fundamentals state (YC-035.7) — only
+            # ever meaningful for that mission; every other web-lab
+            # mission's flags simply stay at their defaults, same as
+            # `sqli`/`xss`/`csrf`/`proxy` above.
+            "upload": {
+                "signature_inspected": lab.upload.signature_inspected,
+                "content_mismatch_seen": lab.upload.content_mismatch_seen,
+                "secure_rejection_seen": lab.upload.secure_rejection_seen,
+                "size_limit_seen": lab.upload.size_limit_seen,
+                "path_traversal_blocked": lab.upload.path_traversal_blocked,
+                "executable_blocked": lab.upload.executable_blocked,
+                "vulnerable_accepted_seen": lab.upload.vulnerable_accepted_seen,
+                "secure_accepted_seen": lab.upload.secure_accepted_seen,
+            },
+            # Simulated uploads (YC-035.7) — small and structured, for the
+            # Uploads panel to render without a second command round
+            # trip, mirroring `transfers`/`comments` above.
+            "uploads": [dataclasses.asdict(u) for u in lab.app.uploads],
         }
 
     def use_hint(self, objective_id: str) -> str:
@@ -461,6 +479,28 @@ class MissionRunner:
                 "origin_rejected": csrf["origin_rejected"],
                 "samesite_inspected": csrf["samesite_inspected"],
                 "transfer_count": len(web_status["transfers"]),
+            }
+            # File Upload Security Fundamentals summary (YC-035.7) —
+            # small and structured, so CyberMentor can explain *why* an
+            # upload was accepted or rejected (extension/MIME/signature/
+            # size/path/executable) from actual mission state, without
+            # repeating full request/response bodies on every turn.
+            upload = web_status["upload"]
+            last_resp_headers = (web_status["last_response"]["headers"]
+                                 if web_status["last_response"] else {})
+            ctx["web"]["upload"] = {
+                "last_upload_kind": last_resp_headers.get("X-Sim-Upload-Kind"),
+                "last_filename_extension": last_resp_headers.get("X-Sim-Upload-Extension"),
+                "last_mime": last_resp_headers.get("X-Sim-Upload-Mime"),
+                "last_signature": last_resp_headers.get("X-Sim-Upload-Signature"),
+                "signature_inspected": upload["signature_inspected"],
+                "content_mismatch_seen": upload["content_mismatch_seen"],
+                "size_limit_seen": upload["size_limit_seen"],
+                "path_traversal_blocked": upload["path_traversal_blocked"],
+                "executable_blocked": upload["executable_blocked"],
+                "vulnerable_accepted_seen": upload["vulnerable_accepted_seen"],
+                "secure_accepted_seen": upload["secure_accepted_seen"],
+                "upload_count": len(web_status["uploads"]),
             }
         return ctx
 

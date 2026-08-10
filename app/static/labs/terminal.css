@@ -273,3 +273,17 @@ body.tm-body{background:var(--tm-bg);color:var(--tm-text);font-family:var(--tm-f
     .tm-csrf{padding:12px 14px}
     .tm-csrf__grid{grid-template-columns:1fr}
 }
+
+/* ── File Upload Security Fundamentals (YC-035.7) — same visual language as tm-csrf/tm-xss/tm-proxy ── */
+.tm-upload{background:var(--tm-surface);border-top:1px solid #1e2028;padding:14px 20px}
+.tm-upload__bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tm-upload__title{font-weight:700;font-size:.82rem}
+.tm-upload__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}
+.tm-upload__box{background:var(--tm-bg);border:1px solid #1e2028;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.tm-upload__box--wide{grid-column:1/-1;margin-bottom:12px}
+.tm-upload__meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px 12px;background:var(--tm-surface);border:1px solid #1e2028;border-radius:6px;padding:8px 10px;font-size:.72rem;color:var(--tm-text)}
+
+@media(max-width:600px){
+    .tm-upload{padding:12px 14px}
+    .tm-upload__grid{grid-template-columns:1fr}
+}

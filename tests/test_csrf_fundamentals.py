@@ -587,9 +587,9 @@ class TestLoader:
     def test_chained_after_xss_fundamentals(self):
         assert MISSIONS["xss-fundamentals"]["next_mission"] == "csrf-fundamentals"
 
-    def test_terminal_mission(self):
+    def test_chains_to_file_upload_security(self):
         m = get_mission("csrf-fundamentals")
-        assert m["next_mission"] is None
+        assert m["next_mission"] == "file-upload-security"
 
     def test_web_lab_scenario_set(self):
         m = get_mission("csrf-fundamentals")

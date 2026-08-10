@@ -139,6 +139,7 @@ function exec(cmd, onDone){
             renderSqli(d.web_lab_status);
             renderXss(d.web_lab_status);
             renderCsrf(d.web_lab_status);
+            renderUpload(d.web_lab_status);
         }
         /* ── Mission complete ── */
         if(d.completed){
@@ -1067,6 +1068,249 @@ if(csrfGetAttempt){
     });
 }
 
+/* ── File Upload Security Fundamentals (YC-035.7) ──
+   Evidence badges, storage panel, and the uploads list are a pure view
+   over status.upload's flags and status.uploads (both part of
+   web_lab_status(), already carried on every /execute response) — same
+   pattern as renderProxy()/renderCsrf(). There is no real file content
+   anywhere: every upload button only ever builds an 'open ...' command
+   from explicit filename/content_type/size/signature fields — the exact
+   same fields a student could type themselves — and submits it through
+   the same exec() path as every other button on this page. The training
+   file catalog below mirrors web.py's fixed TRAINING_FILES exactly
+   (same duplication precedent as XSS_MARKER/SQLI_TRUE above), plus a
+   fixed, non-cryptographic display 'hash' for the metadata panel only —
+   never used by any validator check. */
+var UPLOAD_MULTIPART_HEADER = 'Content-Type: multipart/form-data; boundary=----TrainingBoundary';
+var UPLOAD_TRAINING_FILES = {
+    'avatar.jpg': {mime: 'image/jpeg', signature: 'JPEG', size: 24000, category: 'image', hash: 'a1b2c3d4'},
+    'avatar.png': {mime: 'image/png', signature: 'PNG', size: 51000, category: 'image', hash: 'b2c3d4e5'},
+    'avatar.gif': {mime: 'image/gif', signature: 'GIF', size: 12000, category: 'image', hash: 'c3d4e5f6'},
+    'document.pdf': {mime: 'application/pdf', signature: 'PDF', size: 102000, category: 'document', hash: 'd4e5f6a7'},
+    'notes.txt': {mime: 'text/plain', signature: 'TEXT', size: 1200, category: 'text', hash: 'e5f6a7b8'},
+    'training-marker.svg': {mime: 'image/svg+xml', signature: 'SVG', size: 3400, category: 'image', hash: 'f6a7b8c9'},
+    'shell.jpg': {mime: 'image/jpeg', signature: 'EXECUTABLE', size: 8000, category: 'executable', hash: 'a7b8c9d0'},
+    'oversized.jpg': {mime: 'image/jpeg', signature: 'JPEG', size: 3000000, category: 'image', hash: 'b8c9d0e1'},
+    'mismatched.jpg': {mime: 'text/plain', signature: 'TEXT', size: 2000, category: 'text', hash: 'c9d0e1f2'}
+};
+
+var UPLOAD_FLOW_EXPLAIN = {
+    select: 'The student picks a file in the browser — nothing is sent yet.',
+    browser: 'The browser packages the file and its metadata into a multipart/form-data request.',
+    post: 'The browser sends POST /upload (or /secure-upload) to the server.',
+    validation: 'The server checks the request against its validation pipeline — this is where vulnerable and secure pipelines diverge.',
+    storage: 'An accepted file is written to the training storage area — under its original name (vulnerable) or a randomized one (secure).',
+    reference: 'The server returns a reference to the stored file (its id/stored name).',
+    display: 'The browser can use that reference to show the uploaded file back to the user.'
+};
+var UPLOAD_PIPELINE_EXPLAIN = {
+    auth: 'Is the requester logged in at all?',
+    authz: 'Is this requester allowed to upload here?',
+    size: 'Is the file within the configured size limit?',
+    extension: 'Is the filename\'s extension on a fixed allowlist?',
+    mime: 'Does the declared Content-Type match what\'s expected for this extension?',
+    content: 'Does the actual detected content/signature match what\'s expected for this extension?',
+    filename: 'Is the filename normalized — no path traversal, no unsafe characters?',
+    random: 'Is the file stored under a random, unpredictable name instead of the original?',
+    safe: 'Is the file stored somewhere that can\'t be directly executed or browsed?',
+    serve: 'Is the file served back through a controlled handler, not a raw static path?'
+};
+var UPLOAD_COMPARE_EXPLAIN = {
+    'v-filename': 'The vulnerable endpoint checks only the filename\'s extension.',
+    'v-mime': 'It never inspects the declared Content-Type at all.',
+    'v-original': 'Accepted files keep their original, attacker-chosen filename.',
+    'v-webaccess': 'Accepted files are stored under a path a browser could request directly.',
+    's-allowlist': 'The secure endpoint checks the extension against a stricter allowlist (no .svg).',
+    's-signature': 'It also checks the actual detected content signature, not just the claim.',
+    's-size': 'It enforces the same size limit, checked before any other validation.',
+    's-random': 'Accepted files are stored under a randomized, unpredictable name.',
+    's-nonexec': 'Executable-signed content is rejected outright, never stored.',
+    's-serving': 'Files are only ever served back through a controlled handler (GET /upload/<id>), never a raw path.'
+};
+
+function fmtUploadSize(bytes){
+    if(bytes >= 1000000) return (bytes/1000000).toFixed(1) + ' MB';
+    if(bytes >= 1000) return Math.round(bytes/1000) + ' KB';
+    return bytes + ' B';
+}
+function uploadExtensionOf(filename){
+    var parts = (filename || '').split('.');
+    return parts.length > 1 ? '.' + parts.pop().toLowerCase() : '';
+}
+
+var uploadPicker = document.querySelector('[data-upload-file-picker]');
+function applyUploadMeta(filename){
+    var info = UPLOAD_TRAINING_FILES[filename];
+    if(!info) return;
+    var ext = uploadExtensionOf(filename);
+    var set = function(sel, val){ var el = document.querySelector(sel); if(el) el.textContent = val; };
+    set('[data-upload-meta-filename]', filename);
+    set('[data-upload-meta-extension]', ext);
+    set('[data-upload-meta-mime]', info.mime);
+    set('[data-upload-meta-size]', fmtUploadSize(info.size));
+    set('[data-upload-meta-signature]', info.signature);
+    set('[data-upload-meta-category]', info.category);
+    set('[data-upload-meta-hash]', info.hash + ' (simulated, non-cryptographic)');
+
+    var fnInput = document.querySelector('[data-upload-filename-input]');
+    var ctInput = document.querySelector('[data-upload-content-type-input]');
+    var szInput = document.querySelector('[data-upload-size-input]');
+    var sigInput = document.querySelector('[data-upload-signature-input]');
+    if(fnInput) fnInput.value = filename;
+    if(ctInput) ctInput.value = info.mime;
+    if(szInput) szInput.value = info.size;
+    if(sigInput) sigInput.value = info.signature;
+}
+if(uploadPicker){
+    uploadPicker.addEventListener('change', function(){ applyUploadMeta(uploadPicker.value); });
+    applyUploadMeta(uploadPicker.value);
+}
+
+function uploadSend(path){
+    var fn = document.querySelector('[data-upload-filename-input]');
+    var ct = document.querySelector('[data-upload-content-type-input]');
+    var sz = document.querySelector('[data-upload-size-input]');
+    var sig = document.querySelector('[data-upload-signature-input]');
+    var body = 'filename=' + (fn ? fn.value : '') + '&content_type=' + (ct ? ct.value : '') +
+              '&size=' + (sz ? sz.value : '') + '&signature=' + (sig ? sig.value : '');
+    var cmd = 'open -X POST -H ' + shQuote(UPLOAD_MULTIPART_HEADER) + ' -d ' + shQuote(body) +
+              ' https://cybershop.training' + path;
+    appendCmd(currentPrompt, cmd);
+    exec(cmd, function(d){
+        var resultEl = document.querySelector('[data-upload-last-result]');
+        if(resultEl && d.web_lab_status && d.web_lab_status.last_response){
+            var resp = d.web_lab_status.last_response;
+            var kind = resp.headers['X-Sim-Upload-Kind'] || 'unknown';
+            resultEl.textContent = resp.status_code + ' ' + resp.reason + '  (' + kind + ')';
+        }
+    });
+}
+var uploadVulnBtn = document.querySelector('[data-upload-vuln]');
+if(uploadVulnBtn) uploadVulnBtn.addEventListener('click', function(){ uploadSend('/upload'); });
+var uploadSecureBtn = document.querySelector('[data-upload-secure]');
+if(uploadSecureBtn) uploadSecureBtn.addEventListener('click', function(){ uploadSend('/secure-upload'); });
+
+var uploadTraversalSend = document.querySelector('[data-upload-traversal-send]');
+if(uploadTraversalSend){
+    uploadTraversalSend.addEventListener('click', function(){
+        var input = document.querySelector('[data-upload-traversal-input]');
+        var filename = input ? input.value : '../profile.jpg';
+        var body = 'filename=' + filename + '&content_type=image/jpeg&size=24000&signature=JPEG';
+        var cmd = 'open -X POST -H ' + shQuote(UPLOAD_MULTIPART_HEADER) + ' -d ' + shQuote(body) +
+                  ' https://cybershop.training/secure-upload';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd, function(d){
+            var base = filename.split('/').pop().split('\\').pop();
+            var reqEl = document.querySelector('[data-upload-traversal-requested]');
+            var resEl = document.querySelector('[data-upload-traversal-resolved]');
+            var statusEl = document.querySelector('[data-upload-traversal-status]');
+            if(reqEl) reqEl.textContent = filename;
+            if(resEl) resEl.textContent = '/private-training-storage/' + base;
+            var resp = d.web_lab_status && d.web_lab_status.last_response;
+            var blocked = resp && resp.headers['X-Sim-Upload-Kind'] === 'path_traversal_blocked';
+            if(statusEl) statusEl.textContent = blocked ? 'BLOCKED' : (resp ? (resp.status_code + ' ' + resp.reason) : 'unknown');
+        });
+    });
+}
+
+document.querySelectorAll('[data-upload-flow-step]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('[data-upload-flow-step]').forEach(function(b){ b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        var explain = UPLOAD_FLOW_EXPLAIN[btn.dataset.uploadFlowStep];
+        var target = document.querySelector('[data-upload-flow-explain]');
+        if(target && explain) target.textContent = explain;
+    });
+});
+document.querySelectorAll('[data-upload-pipeline-step]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('[data-upload-pipeline-step]').forEach(function(b){ b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        var explain = UPLOAD_PIPELINE_EXPLAIN[btn.dataset.uploadPipelineStep];
+        var target = document.querySelector('[data-upload-pipeline-explain]');
+        if(target && explain) target.textContent = explain;
+    });
+});
+document.querySelectorAll('[data-upload-compare-step]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('[data-upload-compare-step]').forEach(function(b){ b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        var explain = UPLOAD_COMPARE_EXPLAIN[btn.dataset.uploadCompareStep];
+        var target = document.querySelector('[data-upload-compare-explain]');
+        if(target && explain) target.textContent = explain;
+    });
+});
+
+var uploadHistoryView = document.querySelector('[data-upload-history-view]');
+if(uploadHistoryView){
+    uploadHistoryView.addEventListener('click', function(){
+        var cmd = 'open https://cybershop.training/uploads';
+        appendCmd(currentPrompt, cmd);
+        exec(cmd);
+    });
+}
+
+function renderUpload(status){
+    if(!status) return;
+    var panel = document.querySelector('[data-upload-badges]');
+    if(!panel) return; /* panel not present on this mission */
+    var u = status.upload || {};
+
+    var badge = function(sel, on, onText, offText){
+        var el = document.querySelector(sel);
+        if(el){
+            el.textContent = on ? onText : offText;
+            el.classList.toggle('tm-proxy__badge--on', !!on);
+        }
+    };
+    badge('[data-upload-badge-mismatch]', u.content_mismatch_seen, 'Content mismatch: seen', 'Content mismatch: not seen');
+    badge('[data-upload-badge-signature]', u.signature_inspected, 'Signature inspected: seen', 'Signature inspected: not seen');
+    badge('[data-upload-badge-size]', u.size_limit_seen, 'Size limit: tested', 'Size limit: not tested');
+    badge('[data-upload-badge-traversal]', u.path_traversal_blocked, 'Path traversal: tested', 'Path traversal: not tested');
+    badge('[data-upload-badge-executable]', u.executable_blocked, 'Executable: blocked', 'Executable: not blocked');
+    badge('[data-upload-badge-vuln]', u.vulnerable_accepted_seen, 'Vulnerable pipeline: tested', 'Vulnerable pipeline: not tested');
+    badge('[data-upload-badge-secure]', u.secure_accepted_seen, 'Secure pipeline: tested', 'Secure pipeline: not tested');
+
+    var uploads = status.uploads || [];
+    var lastVuln = null, lastSecure = null;
+    uploads.forEach(function(up){
+        if(up.pipeline === 'vulnerable') lastVuln = up; else if(up.pipeline === 'secure') lastSecure = up;
+    });
+    var vulnEl = document.querySelector('[data-upload-storage-vuln]');
+    if(vulnEl){
+        vulnEl.textContent = lastVuln
+            ? ('stored_name=' + lastVuln.stored_name + '  web_accessible=' + lastVuln.web_accessible)
+            : 'No vulnerable upload accepted yet.';
+    }
+    var secureEl = document.querySelector('[data-upload-storage-secure]');
+    if(secureEl){
+        secureEl.textContent = lastSecure
+            ? ('stored_name=' + lastSecure.stored_name + '  web_accessible=' + lastSecure.web_accessible)
+            : 'No secure upload accepted yet.';
+    }
+
+    var historyEl = document.querySelector('[data-upload-history]');
+    if(historyEl){
+        historyEl.innerHTML = '';
+        if(!uploads.length){
+            var empty = document.createElement('li');
+            empty.className = 'tm-xss__comment-empty';
+            empty.textContent = 'No uploads yet.';
+            historyEl.appendChild(empty);
+        }
+        uploads.forEach(function(up){
+            var li = document.createElement('li');
+            li.className = 'tm-xss__comment';
+            li.textContent = '#' + up.id + '  ' + up.stored_name;
+            var badgeEl = document.createElement('span');
+            badgeEl.className = 'tm-xss__comment-badge';
+            badgeEl.textContent = up.pipeline === 'secure' ? '(secure — private)' : '(vulnerable — web-accessible)';
+            li.appendChild(badgeEl);
+            historyEl.appendChild(li);
+        });
+    }
+}
+
 /* Initial render from server-rendered state, so the panel isn't empty
    until the student's first command. */
 var initialWebLabEl = document.getElementById('tm-web-lab-initial');
@@ -1079,6 +1323,7 @@ if(initialWebLabEl){
         renderSqli(initialWebLab);
         renderXss(initialWebLab);
         renderCsrf(initialWebLab);
+        renderUpload(initialWebLab);
     }catch(err){ /* absent/malformed — inspector keeps its placeholder text */ }
 }
 
@@ -1220,6 +1465,7 @@ function doReset(){
             renderSqli(d.web_lab_status);
             renderXss(d.web_lab_status);
             renderCsrf(d.web_lab_status);
+            renderUpload(d.web_lab_status);
         }
         document.querySelectorAll('[data-mission-objectives] [data-obj-id]').forEach(function(el){
             el.classList.remove('tm-obj--done', 'tm-obj--current');

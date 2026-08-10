@@ -3083,6 +3083,369 @@ MISSIONS: dict[str, dict[str, Any]] = {
             "tmp": {},
         },
         "web_lab": "csrf-investigation",
+        "next_mission": "file-upload-security",
+    },
+    "file-upload-security": {
+        "id": "file-upload-security",
+        "title": "File Upload Security Fundamentals",
+        "description": "Learn why file uploads are dangerous and why no single "
+                       "validation layer — extension, declared MIME type, or "
+                       "filename alone — is ever sufficient, against the same "
+                       "simulated training site (CyberShop) and the same Proxy/"
+                       "Repeater from YC-035.2. There is no real file content "
+                       "anywhere: an upload is always a small set of explicit, "
+                       "fixed fields (filename, claimed content type, claimed "
+                       "size, and a fixed 'signature' label standing in for "
+                       "detected magic bytes) — the simulator never reads, "
+                       "writes, or executes a real file, never creates a web "
+                       "shell, and never lets you escape the training "
+                       "environment. No real exploitation tooling, no "
+                       "executable payload construction, no arbitrary "
+                       "filesystem access — that's out of scope everywhere.",
+        "difficulty": "Intermediate",
+        "category": "Web Security",
+        "xp_total": 800,
+        "estimated_minutes": 70,
+        "learn": ["Why file uploads are dangerous", "Extension validation",
+                  "MIME/content-type validation", "Magic bytes / file signatures",
+                  "Content validation", "Filename validation",
+                  "Path traversal concept", "File size limits", "Storage location",
+                  "Randomized filenames", "Executable content",
+                  "Web-accessible upload directories", "Defense-in-depth",
+                  "Vulnerable vs. secure upload pipelines",
+                  "Evidence-based vulnerability identification"],
+        "objectives": [
+            {
+                "id": "up-1",
+                "title": "Upload Basics",
+                "description": "Uploading a file follows a flow like any other "
+                               "request: your browser sends it, the server "
+                               "validates it, then stores it and returns a "
+                               "reference. Check the simulated site's overview to "
+                               "see this mission's new routes.",
+                "hints": [
+                    ("The same overview command from earlier missions lists this "
+                     "mission's routes too."),
+                    "It's a single short word.",
+                    "Use 'web'.",
+                ],
+                "validate": {"type": "command", "match": "web"},
+                "xp": 35,
+            },
+            {
+                "id": "up-2",
+                "title": "Capture Upload",
+                "description": "Log in, then capture an upload request using the "
+                               "Proxy before it reaches the server.",
+                "hints": [
+                    ("Turn interception on first, the same way you did in the "
+                     "Burp Suite mission, then upload a training file."),
+                    ("Use 'intercept on', then POST to /upload with filename, "
+                     "content_type, size, and signature fields."),
+                    ('Use \'intercept on\', then \'open -X POST -d '
+                     '"filename=avatar.jpg&content_type=image/jpeg&size=24000&signature=JPEG" '
+                     "https://cybershop.training/upload'."),
+                ],
+                "validate": {"type": "web_state", "check": "request_intercepted", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "up-3",
+                "title": "Multipart Request",
+                "description": "Identify that upload requests declare a "
+                               "multipart/form-data Content-Type — check your "
+                               "captured request's headers.",
+                "hints": [
+                    "Real file uploads use a distinct request Content-Type.",
+                    "Set the Content-Type header explicitly with -H.",
+                    ('Use \'open -X POST -H "Content-Type: multipart/form-data; '
+                     'boundary=----TrainingBoundary" -d '
+                     '"filename=avatar.jpg&content_type=image/jpeg&size=24000&signature=JPEG" '
+                     "https://cybershop.training/upload'."),
+                ],
+                "validate": {"type": "web_state", "check": "multipart_identified", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "up-4",
+                "title": "Filename",
+                "description": "Identify the 'filename' field in your upload "
+                               "request body.",
+                "hints": [
+                    "It's one of the form fields in the request body.",
+                    "Check the 'filename' field's value.",
+                    "It should read 'avatar.jpg'.",
+                ],
+                "validate": {"type": "web_state", "check": "body_field", "field": "filename",
+                             "in": "request", "match": "avatar.jpg"},
+                "xp": 35,
+            },
+            {
+                "id": "up-5",
+                "title": "Extension",
+                "description": "Identify the file extension the server detected "
+                               "from your uploaded filename.",
+                "hints": [
+                    "Forward your intercepted request first, if you haven't already.",
+                    "Check the X-Sim-Upload-Extension response header.",
+                    "It should read '.jpg'.",
+                ],
+                "validate": {"type": "web_state", "check": "extension_identified", "match": ".jpg"},
+                "xp": 35,
+            },
+            {
+                "id": "up-6",
+                "title": "MIME Type",
+                "description": "Identify the declared Content-Type of your "
+                               "uploaded file.",
+                "hints": [
+                    "This is the 'content_type' field you sent, echoed back.",
+                    "Check the X-Sim-Upload-Mime response header.",
+                    "It should read 'image/jpeg'.",
+                ],
+                "validate": {"type": "web_state", "check": "header", "header": "X-Sim-Upload-Mime",
+                             "in": "response", "match": "image/jpeg"},
+                "xp": 40,
+            },
+            {
+                "id": "up-7",
+                "title": "Extension Validation",
+                "description": "Demonstrate why extension validation alone is "
+                               "insufficient: upload the provided controlled "
+                               "training mismatch (a '.jpg' filename whose "
+                               "content doesn't match) to the vulnerable "
+                               "endpoint and observe it still gets accepted.",
+                "hints": [
+                    ("The training file 'mismatched.jpg' claims one thing but "
+                     "its content signature says another."),
+                    "POST it to /upload with content_type=text/plain and signature=TEXT.",
+                    ('Use \'open -X POST -H "Content-Type: multipart/form-data; '
+                     'boundary=----TrainingBoundary" -d '
+                     '"filename=mismatched.jpg&content_type=text/plain&size=2000&signature=TEXT" '
+                     "https://cybershop.training/upload' — expect 200 OK anyway."),
+                ],
+                "validate": {"type": "web_state", "check": "content_validation_tested", "match": "1"},
+                "xp": 50,
+            },
+            {
+                "id": "up-8",
+                "title": "MIME Validation",
+                "description": "The same request you just sent also proves MIME "
+                               "type alone is insufficient: the vulnerable "
+                               "endpoint never even inspected the declared "
+                               "Content-Type before accepting the file.",
+                "hints": [
+                    "No new request needed — you already triggered this above.",
+                    "The vulnerable endpoint only ever checks the extension.",
+                    "If Objective 7 is complete, this one completes too.",
+                ],
+                "validate": {"type": "web_state", "check": "content_validation_tested", "match": "1"},
+                "xp": 35,
+            },
+            {
+                "id": "up-9",
+                "title": "File Signature",
+                "description": "Inspect the simulated magic-bytes/signature the "
+                               "server detected for one of your uploads.",
+                "hints": [
+                    "Every upload response carries this, whether accepted or not.",
+                    "Check the X-Sim-Upload-Signature response header.",
+                    "Use 'headers' right after any upload request.",
+                ],
+                "validate": {"type": "web_state", "check": "signature_inspected", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "up-10",
+                "title": "Content Validation",
+                "description": "Send the exact same mismatched training file to "
+                               "the secure endpoint and confirm the actual "
+                               "content — not just the filename — is what "
+                               "determines whether it's rejected.",
+                "hints": [
+                    "Same fields as Objective 7, different endpoint.",
+                    "POST the mismatched file to /secure-upload instead of /upload.",
+                    ('Use \'open -X POST -H "Content-Type: multipart/form-data; '
+                     'boundary=----TrainingBoundary" -d '
+                     '"filename=mismatched.jpg&content_type=text/plain&size=2000&signature=TEXT" '
+                     "https://cybershop.training/secure-upload' — expect it rejected this time."),
+                ],
+                "validate": {"type": "web_state", "check": "content_mismatch_confirmed", "match": "1"},
+                "xp": 50,
+            },
+            {
+                "id": "up-11",
+                "title": "Size Limit",
+                "description": "Upload a file exceeding the simulated 2 MB size "
+                               "limit and observe it rejected.",
+                "hints": [
+                    "The training file 'oversized.jpg' is well over the limit.",
+                    "Set size=3000000 in your upload request.",
+                    ('Use \'open -X POST -H "Content-Type: multipart/form-data; '
+                     'boundary=----TrainingBoundary" -d '
+                     '"filename=oversized.jpg&content_type=image/jpeg&size=3000000&signature=JPEG" '
+                     "https://cybershop.training/upload' — expect 413 Payload Too Large."),
+                ],
+                "validate": {"type": "web_state", "check": "size_limit_tested", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "up-12",
+                "title": "Filename Security",
+                "description": "Test a controlled path-traversal-shaped filename "
+                               "against the secure endpoint and observe it "
+                               "blocked.",
+                "hints": [
+                    "Prefix the filename with a directory traversal sequence.",
+                    "Set filename=../avatar.jpg and POST to /secure-upload.",
+                    ('Use \'open -X POST -H "Content-Type: multipart/form-data; '
+                     'boundary=----TrainingBoundary" -d '
+                     '"filename=../avatar.jpg&content_type=image/jpeg&size=24000&signature=JPEG" '
+                     "https://cybershop.training/secure-upload' — expect 403 Forbidden."),
+                ],
+                "validate": {"type": "web_state", "check": "path_traversal_blocked", "match": "1"},
+                "xp": 50,
+            },
+            {
+                "id": "up-13",
+                "title": "Storage",
+                "description": "Successfully upload a valid training file "
+                               "through the secure endpoint and compare its "
+                               "storage behavior — private, not web-accessible "
+                               "— with the vulnerable endpoint's earlier result.",
+                "hints": [
+                    "Send the same, valid avatar.jpg fields you used before.",
+                    "POST to /secure-upload with the correct, matching fields.",
+                    ('Use \'open -X POST -H "Content-Type: multipart/form-data; '
+                     'boundary=----TrainingBoundary" -d '
+                     '"filename=avatar.jpg&content_type=image/jpeg&size=24000&signature=JPEG" '
+                     "https://cybershop.training/secure-upload' — expect 200 OK."),
+                ],
+                "validate": {"type": "web_state", "check": "storage_inspected", "match": "1"},
+                "xp": 45,
+            },
+            {
+                "id": "up-14",
+                "title": "Randomized Filename",
+                "description": "Observe the secure endpoint's server-generated, "
+                               "randomized stored filename — different from the "
+                               "original filename you uploaded.",
+                "hints": [
+                    "No new request needed — check the response from Objective 13.",
+                    "Check the X-Sim-Upload-Stored-Name response header.",
+                    "It should not read 'avatar.jpg'.",
+                ],
+                "validate": {"type": "web_state", "check": "random_filename_observed", "match": "1"},
+                "xp": 40,
+            },
+            {
+                "id": "up-15",
+                "title": "Executable Content",
+                "description": "Test the safe 'training-executable-marker' file "
+                               "against the secure endpoint and observe it "
+                               "blocked.",
+                "hints": [
+                    ("The training file 'shell.jpg' looks like an image by "
+                     "extension, but its signature says otherwise."),
+                    "Set signature=EXECUTABLE and POST to /secure-upload.",
+                    ('Use \'open -X POST -H "Content-Type: multipart/form-data; '
+                     'boundary=----TrainingBoundary" -d '
+                     '"filename=shell.jpg&content_type=image/jpeg&size=8000&signature=EXECUTABLE" '
+                     "https://cybershop.training/secure-upload' — expect 403 Forbidden."),
+                ],
+                "validate": {"type": "web_state", "check": "executable_marker_blocked", "match": "1"},
+                "xp": 50,
+            },
+            {
+                "id": "up-16",
+                "title": "Vulnerable vs. Secure",
+                "description": "Having successfully completed an upload through "
+                               "both endpoints, compare the two pipelines: one "
+                               "checks a single layer, the other applies several "
+                               "independent controls.",
+                "hints": [
+                    "No new request needed here.",
+                    "You've already completed uploads through both /upload and /secure-upload.",
+                    "If Objectives 2 and 13 are both complete, this one completes too.",
+                ],
+                "validate": {"type": "web_state", "check": "secure_pipeline_compared", "match": "1"},
+                "xp": 50,
+            },
+            {
+                "id": "up-17",
+                "title": "Evidence Collection",
+                "description": "Before the final investigation, make sure you've "
+                               "gathered every kind of evidence: a content "
+                               "mismatch, a signature inspection, the size "
+                               "limit, path traversal, executable blocking, and "
+                               "both pipelines tested.",
+                "hints": [
+                    ("Nothing new to send here — just make sure Objectives 7, 9, "
+                     "11, 12, 15, 2, and 13 are all complete."),
+                    "If any of those are still incomplete, go back and finish them first.",
+                    ("Once every kind of evidence above is collected, this "
+                     "objective completes automatically."),
+                ],
+                "validate": {"type": "web_state", "check": "upload_evidence_collected", "match": "1"},
+                "xp": 55,
+            },
+            {
+                "id": "up-18",
+                "title": "FINAL INVESTIGATION — The Public Profile Picture",
+                "description": "A bug report says 'someone uploaded a profile "
+                               "picture that isn't actually an image, and it's "
+                               "sitting in a public folder.' Inspect the "
+                               "investigation log, determine which validation "
+                               "layers are present or missing, whether "
+                               "executable content can reach storage, whether "
+                               "uploads are web-accessible, and which defenses "
+                               "should be implemented.",
+                "hints": [
+                    ("Look closely at entries 2 through 6 — which file reaches "
+                     "storage despite not being a real image, and which pipeline "
+                     "catches it?"),
+                    ("Entry 3 uploads a disguised executable ('shell.jpg') "
+                     "through the vulnerable, extension-only endpoint and it "
+                     "succeeds. Entry 4 sends the same file to the secure "
+                     "endpoint and it's blocked by content-signature "
+                     "validation. Entry 5 shows the shared size limit reject an "
+                     "oversized file. Entry 6 shows a normal file accepted "
+                     "securely, with a randomized, non-web-accessible stored "
+                     "name."),
+                    ('Use \'evidence\' to list the log, then \'inspect 1\' through '
+                     "'inspect 6' to read each exchange. Then: "
+                     'echo "Conclusion: the vulnerable endpoint validated only the '
+                     "file extension, letting a disguised executable file reach "
+                     "storage under its original, web-accessible name. The secure "
+                     "endpoint applied multiple independent controls - size, "
+                     "extension, filename normalization, declared MIME, and "
+                     "content signature - and stored the valid file under a "
+                     "randomized, private name instead. No single layer is "
+                     'enough; this is defense in depth." > '
+                     "web/upload-investigation.txt."),
+                ],
+                "validate": {"type": "file_contains", "match": "defense in depth",
+                             "path": "/home/student/web/upload-investigation.txt"},
+                "xp": 65,
+            },
+        ],
+        "filesystem": {
+            "home": {"student": {
+                "web": {},
+                "Documents": {},
+                "Downloads": {},
+                "Desktop": {},
+                ".bashrc": "# ~/.bashrc\n",
+                ".profile": "# ~/.profile\n",
+            }},
+            "etc": {
+                "passwd": "root:x:0:0:root:/root:/bin/bash\nstudent:x:1000:1000::/home/student:/bin/bash\n",
+                "hostname": "yushacyber-lab\n",
+            },
+            "var": {"log": {"syslog": "System log entries here.\n"}},
+            "tmp": {},
+        },
+        "web_lab": "upload-investigation",
         "next_mission": None,
     },
 }

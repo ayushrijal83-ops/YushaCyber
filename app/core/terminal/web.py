@@ -119,6 +119,80 @@ def _csrf_token_for_session(sid: str) -> str:
     return "TRAINING_TOKEN_" + sid.upper().replace("-", "_")
 
 
+# ── File Upload Security Fundamentals (YC-035.7) — fixed, fictional
+# training file catalog for /upload and /secure-upload. There is no real
+# file I/O or byte content anywhere in this module: an upload "request"
+# is always a small set of explicit, client-supplied fields (filename,
+# claimed content_type, claimed size, and a fixed 'signature' label
+# standing in for detected magic bytes) — the same "no real parser, only
+# fixed classification of explicit fields" discipline as the SQLi/XSS
+# payload constants above. Nothing here ever reads, writes, or executes
+# a real file.
+TRAINING_FILES: dict[str, dict[str, Any]] = {
+    "avatar.jpg": {"mime": "image/jpeg", "signature": "JPEG", "size": 24_000},
+    "avatar.png": {"mime": "image/png", "signature": "PNG", "size": 51_000},
+    "avatar.gif": {"mime": "image/gif", "signature": "GIF", "size": 12_000},
+    "document.pdf": {"mime": "application/pdf", "signature": "PDF", "size": 102_000},
+    "notes.txt": {"mime": "text/plain", "signature": "TEXT", "size": 1_200},
+    "training-marker.svg": {"mime": "image/svg+xml", "signature": "SVG", "size": 3_400},
+    # A fixed, fictional 'disguised executable' training file — labeled
+    # "training-executable-marker" in the UI (YC-035.7 §18) — an image
+    # *extension* whose detected signature is EXECUTABLE, so the
+    # vulnerable (extension-only) pipeline accepts it while the secure
+    # (signature-checking) pipeline blocks it. Never a real executable;
+    # 'signature' is only ever a fixed classification label, never
+    # parsed, compiled, or run.
+    "shell.jpg": {"mime": "image/jpeg", "signature": "EXECUTABLE", "size": 8_000},
+    "oversized.jpg": {"mime": "image/jpeg", "signature": "JPEG", "size": 3_000_000},
+    "mismatched.jpg": {"mime": "text/plain", "signature": "TEXT", "size": 2_000},
+}
+
+EXPECTED_MIME_FOR_EXTENSION: dict[str, str] = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+    ".gif": "image/gif", ".pdf": "application/pdf", ".txt": "text/plain",
+    ".svg": "image/svg+xml",
+}
+EXPECTED_SIGNATURE_FOR_EXTENSION: dict[str, str] = {
+    ".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".gif": "GIF",
+    ".pdf": "PDF", ".txt": "TEXT", ".svg": "SVG",
+}
+_SIGNATURE_CATEGORY: dict[str, str] = {
+    "JPEG": "image", "PNG": "image", "GIF": "image", "SVG": "image",
+    "PDF": "document", "TEXT": "text", "EXECUTABLE": "executable",
+}
+
+# The vulnerable pipeline validates only the filename's extension — an
+# image-only-looking allowlist that still includes '.svg' (a real-world
+# mistake: SVG can carry embedded scripts). The secure pipeline's
+# allowlist deliberately excludes '.svg' for that reason.
+VULNERABLE_UPLOAD_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".svg"})
+SECURE_UPLOAD_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif"})
+UPLOAD_SIZE_LIMIT_BYTES = 2_000_000  # 2 MB, fixed training limit
+
+
+def _extension_of(filename: str) -> str:
+    """Pure string split — the last '.'-separated suffix, lowercased.
+    No filesystem access, no path resolution."""
+    if "." not in filename:
+        return ""
+    return "." + filename.rsplit(".", 1)[1].lower()
+
+
+def _looks_like_path_traversal(filename: str) -> bool:
+    """A fixed, conceptual path-traversal detector (YC-035.7) — pure
+    substring checks, never real path resolution. Since this module has
+    no filesystem access anywhere, a traversal-shaped filename could
+    never actually escape anything even without this check; it exists
+    purely so the secure pipeline can demonstrably reject the shape,
+    the same "prove the defense, don't just assert it" discipline as
+    every other secure endpoint in this file."""
+    return ".." in filename or filename.startswith("/") or "\\" in filename
+
+
+def _category_for_signature(signature: str) -> str:
+    return _SIGNATURE_CATEGORY.get(signature, "unknown")
+
+
 def has_xss_marker(text: str) -> bool:
     """True if `text` is *exactly* one of the fixed training markers
     above (YC-035.5), case-insensitively. Public (unlike the SQLi
@@ -174,6 +248,28 @@ class Transfer:
     recipient: str
     amount: int
     defense: str  # "vulnerable" | "secure"
+    created_at: str = "simulated"
+
+
+@dataclass
+class UploadedFile:
+    """A single simulated upload (YC-035.7) — mirrors Transfer/Comment:
+    small, explicit, in-memory only. 'pipeline' records which endpoint
+    stored it (vulnerable /upload, extension-only, vs. secure
+    /secure-upload, fully validated) so the Uploads list and the
+    vulnerable-vs-secure comparison can render each one according to its
+    own origin. Never real file bytes, never a real filesystem path."""
+    id: str
+    owner: str
+    original_filename: str
+    stored_name: str
+    extension: str
+    mime: str
+    signature: str
+    size: int
+    category: str
+    pipeline: str  # "vulnerable" | "secure"
+    web_accessible: bool
     created_at: str = "simulated"
 
 
@@ -338,7 +434,8 @@ class WebApp:
                  profiles: dict[str, dict[str, Any]] | None = None,
                  comments: list[Comment] | None = None,
                  balances: dict[str, int] | None = None,
-                 transfers: list[Transfer] | None = None) -> None:
+                 transfers: list[Transfer] | None = None,
+                 uploads: list[UploadedFile] | None = None) -> None:
         # session_id -> username. Mutated by successful logins/logouts,
         # exactly like VirtualNetwork's interface state (YC-034.6) —
         # small, explicit, session-scoped state.
@@ -363,6 +460,23 @@ class WebApp:
         # small, explicit, mutable, in-memory only. Populated by POST
         # /transfer and /secure-transfer, rendered by GET /transfer-history.
         self.transfers: list[Transfer] = list(transfers) if transfers else []
+        # Simulated uploads (YC-035.7) — mirrors self.transfers: small,
+        # explicit, mutable, in-memory only. Populated by POST /upload
+        # and /secure-upload, rendered by GET /uploads and GET
+        # /upload/<id>. Never real file bytes, never a real filesystem
+        # write — 'stored_name' is just a string label.
+        self.uploads: list[UploadedFile] = list(uploads) if uploads else []
+
+    def _random_stored_name(self, extension: str) -> str:
+        """Deterministic, reproducible 'random-looking' stored filename
+        (YC-035.7) — never real randomness, matching this module's
+        established discipline (the fixed CSRF token, the fixed SQLi/XSS
+        payload constants) so the UI and tests can predict it exactly.
+        Derived only from how many uploads already exist, the same
+        'id = len(list) + 1' counting pattern Comment/Transfer already
+        use — no separate counter field needed."""
+        digest = ((len(self.uploads) + 1) * 2654435761) & 0xFFFFFFFF
+        return f"{digest:08x}{extension}"
 
     def _balance(self, username: str) -> int:
         """Every real training user (student/analyst/admin) starts at
@@ -434,6 +548,25 @@ class WebApp:
             return self._transfer(req, defense="secure")
         if req.path == "/transfer-history" and req.method == "GET":
             return self._transfer_history(req)
+        if req.path == "/upload" and req.method == "GET":
+            return self._upload_get(req)
+        if req.path == "/upload" and req.method == "POST":
+            return self._upload_post(req, pipeline="vulnerable")
+        if req.path == "/secure-upload" and req.method == "GET":
+            return self._secure_upload_get(req)
+        if req.path == "/secure-upload" and req.method == "POST":
+            return self._upload_post(req, pipeline="secure")
+        if req.path == "/uploads" and req.method == "GET":
+            return self._uploads_list(req)
+        if req.path == "/upload-security" and req.method == "GET":
+            return self._upload_security_page(req)
+        # GET /upload/<id> (YC-035.7) — the "controlled download handler":
+        # a dynamic segment, handled as a plain string prefix check (this
+        # simulator has no routing framework — every other route above is
+        # an exact path match) rather than a real path-parameter parser.
+        if (req.method == "GET" and req.path.startswith("/upload/")
+                and req.path != "/upload/"):
+            return self._upload_detail(req, req.path[len("/upload/"):])
         if req.path == "/dashboard" and req.method == "GET":
             return self._dashboard(req)
         if req.path == "/admin" and req.method == "GET":
@@ -857,6 +990,195 @@ class WebApp:
             lines.append(f"  #{t.id} {t.sender} -> {t.recipient}: {t.amount} ({t.defense})")
         return self._ok("\n".join(lines), content_type="text/plain")
 
+    def _upload_get(self, req: HttpRequest) -> HttpResponse:
+        """Informational upload page (YC-035.7) — describes the
+        vulnerable pipeline's single check (file extension only) and
+        lists the fixed training files a student can select. Visiting it
+        never itself uploads anything."""
+        body = (
+            "Upload Avatar — Vulnerable\n\n"
+            "POST /upload accepts an image if its filename extension is one of: "
+            + ", ".join(sorted(VULNERABLE_UPLOAD_EXTENSIONS)) + ".\n"
+            "It does not check the declared Content-Type, does not inspect the "
+            "actual file content/signature, and stores the file under its "
+            "original, web-accessible filename.\n\n"
+            "Training files: " + ", ".join(sorted(TRAINING_FILES)) + ".\n"
+            "Compare with the protected version at /secure-upload."
+        )
+        return self._ok(body, content_type="text/plain")
+
+    def _secure_upload_get(self, req: HttpRequest) -> HttpResponse:
+        """Informational secure-upload page (YC-035.7) — describes the
+        full validation pipeline. Visiting it never itself uploads
+        anything."""
+        body = (
+            "Upload Avatar — Secure\n\n"
+            "POST /secure-upload additionally validates: file size (max "
+            f"{UPLOAD_SIZE_LIMIT_BYTES // 1_000_000} MB), a stricter extension "
+            "allowlist (" + ", ".join(sorted(SECURE_UPLOAD_EXTENSIONS)) + ", no "
+            ".svg), filename normalization (rejects path-traversal-shaped "
+            "names), the declared Content-Type against the extension, and the "
+            "detected content signature against the extension — rejecting "
+            "executable content outright. Accepted files are stored under a "
+            "randomized, non-web-accessible name."
+        )
+        return self._ok(body, content_type="text/plain")
+
+    def _upload_security_page(self, req: HttpRequest) -> HttpResponse:
+        """The Upload Security Pipeline overview (YC-035.7 §27) — a fixed,
+        numbered description of every independent control a secure
+        upload pipeline applies, used by the mission's Vulnerable-vs-
+        Secure panel and final-investigation hints."""
+        body = (
+            "FILE UPLOAD SECURITY PIPELINE\n"
+            "1. Authentication\n"
+            "2. Authorization\n"
+            "3. Size validation\n"
+            "4. Extension allowlist\n"
+            "5. MIME validation\n"
+            "6. Content/signature validation\n"
+            "7. Filename normalization\n"
+            "8. Randomized storage name\n"
+            "9. Safe (non-web-accessible) storage\n"
+            "10. Controlled serving\n\n"
+            "No single layer is sufficient by itself — defense in depth means "
+            "applying multiple independent controls, since any one of them "
+            "could be misconfigured or bypassed."
+        )
+        return self._ok(body, content_type="text/plain")
+
+    def _upload_post(self, req: HttpRequest, pipeline: str) -> HttpResponse:
+        """Shared handler for the vulnerable (POST /upload) and secure
+        (POST /secure-upload) endpoints (YC-035.7). There is no real
+        file content anywhere: 'filename', 'content_type', 'size', and
+        'signature' are explicit, client-supplied form fields — the
+        simulated stand-ins for a real client's filename, declared
+        Content-Type, byte size, and detected magic bytes. Nothing here
+        ever reads, writes, or executes a real file."""
+        username = self._session_user(req)
+        if not username:
+            return self._json_error(
+                401, "Unauthorized", {"status": "error", "message": "Authentication required"},
+                extra_headers={"X-Sim-Upload-Kind": "unauthenticated"})
+
+        data = parse_body(req.body, req.headers.get("Content-Type", ""))
+        filename = data.get("filename", "")
+        content_type = data.get("content_type", "")
+        try:
+            size = int(data.get("size", 0))
+        except ValueError:
+            size = 0
+        signature = data.get("signature", "").upper()
+        extension = _extension_of(filename)
+        base_headers = {
+            "X-Sim-Upload-Extension": extension, "X-Sim-Upload-Mime": content_type,
+            "X-Sim-Upload-Signature": signature,
+        }
+
+        if size > UPLOAD_SIZE_LIMIT_BYTES:
+            return self._json_error(
+                413, "Payload Too Large", {"status": "error", "message": "File exceeds the training size limit."},
+                extra_headers={**base_headers, "X-Sim-Upload-Kind": "size_exceeded"})
+
+        allowed_extensions = (VULNERABLE_UPLOAD_EXTENSIONS if pipeline == "vulnerable"
+                             else SECURE_UPLOAD_EXTENSIONS)
+        if extension not in allowed_extensions:
+            return self._json_error(
+                415, "Unsupported Media Type", {"status": "error", "message": "File extension not allowed."},
+                extra_headers={**base_headers, "X-Sim-Upload-Kind": "extension_rejected"})
+
+        if pipeline == "secure":
+            if _looks_like_path_traversal(filename):
+                resolved = f"/private-training-storage/{filename.rsplit('/', 1)[-1].rsplit(chr(92), 1)[-1]}"
+                return self._json_error(
+                    403, "Forbidden",
+                    {"status": "error", "message": "Path traversal blocked.",
+                     "requested_path": filename, "resolved_training_path": resolved},
+                    extra_headers={**base_headers, "X-Sim-Upload-Kind": "path_traversal_blocked"})
+
+            expected_mime = EXPECTED_MIME_FOR_EXTENSION.get(extension)
+            if content_type != expected_mime:
+                return self._json_error(
+                    415, "Unsupported Media Type",
+                    {"status": "error", "message": "Declared Content-Type does not match the extension."},
+                    extra_headers={**base_headers, "X-Sim-Upload-Kind": "mime_rejected"})
+
+            if signature == "EXECUTABLE":
+                return self._json_error(
+                    403, "Forbidden", {"status": "error", "message": "Executable content detected. Blocked."},
+                    extra_headers={**base_headers, "X-Sim-Upload-Kind": "executable_blocked"})
+
+            expected_signature = EXPECTED_SIGNATURE_FOR_EXTENSION.get(extension)
+            if signature != expected_signature:
+                return self._json_error(
+                    415, "Unsupported Media Type",
+                    {"status": "error", "message": "Content does not match declared file type."},
+                    extra_headers={**base_headers, "X-Sim-Upload-Kind": "signature_rejected"})
+
+            stored_name = self._random_stored_name(extension)
+            uploaded = UploadedFile(
+                id=stored_name, owner=username, original_filename=filename, stored_name=stored_name,
+                extension=extension, mime=content_type, signature=signature,
+                size=size, category=_category_for_signature(signature), pipeline="secure",
+                web_accessible=False, created_at=f"training-upload-{len(self.uploads) + 1}")
+            self.uploads.append(uploaded)
+            return self._json_ok(
+                {"status": "success", "id": stored_name, "stored_name": stored_name, "web_accessible": False},
+                extra_headers={**base_headers, "X-Sim-Upload-Kind": "accepted_secure",
+                              "X-Sim-Upload-Stored-Name": stored_name, "X-Sim-Upload-Web-Accessible": "false"})
+
+        # Vulnerable pipeline — extension already checked above; nothing
+        # else is validated, so a content/signature mismatch (or a
+        # disguised-executable training file) is stored exactly like any
+        # other accepted upload, under its original, web-accessible name.
+        expected_signature = EXPECTED_SIGNATURE_FOR_EXTENSION.get(extension)
+        mismatch = bool(signature) and signature != expected_signature
+        uploaded = UploadedFile(
+            id=filename, owner=username, original_filename=filename, stored_name=filename,
+            extension=extension, mime=content_type, signature=signature,
+            size=size, category=_category_for_signature(signature), pipeline="vulnerable",
+            web_accessible=True, created_at=f"training-upload-{len(self.uploads) + 1}")
+        self.uploads.append(uploaded)
+        if signature == "EXECUTABLE":
+            kind = "executable_accepted"
+        elif mismatch:
+            kind = "content_mismatch"
+        else:
+            kind = "accepted_vulnerable"
+        return self._json_ok(
+            {"status": "success", "id": filename, "stored_name": filename, "web_accessible": True},
+            extra_headers={**base_headers, "X-Sim-Upload-Kind": kind,
+                          "X-Sim-Upload-Stored-Name": filename, "X-Sim-Upload-Web-Accessible": "true"})
+
+    def _uploads_list(self, req: HttpRequest) -> HttpResponse:
+        username = self._session_user(req)
+        if not username:
+            return self._redirect("/login")
+        mine = [u for u in self.uploads if u.owner == username]
+        lines = ["Uploaded files:"]
+        if not mine:
+            lines.append("  (no uploads yet)")
+        for u in mine:
+            access = "web-accessible" if u.web_accessible else "private"
+            lines.append(f"  #{u.id} {u.stored_name} ({u.pipeline}, {access})")
+        return self._ok("\n".join(lines), content_type="text/plain")
+
+    def _upload_detail(self, req: HttpRequest, upload_id: str) -> HttpResponse:
+        """The 'controlled download handler' (YC-035.7 §19) — serves an
+        upload's metadata only by its opaque id, never by resolving a
+        client-supplied filesystem path. Auth-gated, same as every other
+        protected page."""
+        username = self._session_user(req)
+        if not username:
+            return self._redirect("/login")
+        match = next((u for u in self.uploads if u.id == upload_id and u.owner == username), None)
+        if match is None:
+            return self._not_found()
+        access = "web-accessible" if match.web_accessible else "private (served via this controlled handler)"
+        body = (f"Upload #{match.id}\nOriginal filename: {match.original_filename}\n"
+               f"Stored as: {match.stored_name}\nPipeline: {match.pipeline}\nAccess: {access}")
+        return self._ok(body, content_type="text/plain")
+
     def _dashboard(self, req: HttpRequest) -> HttpResponse:
         username = self._session_user(req)
         if username:
@@ -1266,6 +1588,55 @@ def build_csrf_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
     return log
 
 
+def build_upload_investigation_log() -> list[tuple[HttpRequest, HttpResponse]]:
+    """A fixed, deterministic transcript for the File Upload Security
+    Fundamentals final objective (YC-035.7): a bug report says "someone
+    uploaded a profile picture that isn't actually an image, and it's
+    sitting in a public folder." The six-request transcript shows a
+    login, a normal accepted upload (vulnerable, web-accessible), a
+    disguised-executable file ('shell.jpg' — an image extension, but an
+    EXECUTABLE content signature) accepted by the vulnerable
+    extension-only pipeline, the same file rejected by the secure
+    pipeline's signature check, an oversized file rejected by the shared
+    size limit, and a normal upload accepted by the secure pipeline
+    (randomized name, private) — showing the vulnerability and its fix
+    side by side. Built once against an isolated WebApp instance — never
+    touches the student's own session state, and never handles a real
+    file's bytes."""
+    app = WebApp()
+    log: list[tuple[HttpRequest, HttpResponse]] = []
+
+    url = parse_url(f"https://{HOST}/auth/login")
+    req = build_request("POST", url, body="username=student&password=training123", timestamp=1.0)
+    resp = app.handle(req)
+    log.append((req, resp))
+    sid = resp.cookies["session_id"]
+
+    def _upload_req(path: str, filename: str, timestamp: float) -> HttpRequest:
+        info = TRAINING_FILES[filename]
+        body = (f"filename={filename}&content_type={info['mime']}"
+               f"&size={info['size']}&signature={info['signature']}")
+        url = parse_url(f"https://{HOST}{path}")
+        return build_request("POST", url, body=body, cookies={"session_id": sid}, timestamp=timestamp)
+
+    req = _upload_req("/upload", "avatar.jpg", 2.0)
+    log.append((req, app.handle(req)))
+
+    req = _upload_req("/upload", "shell.jpg", 3.0)
+    log.append((req, app.handle(req)))
+
+    req = _upload_req("/secure-upload", "shell.jpg", 4.0)
+    log.append((req, app.handle(req)))
+
+    req = _upload_req("/upload", "oversized.jpg", 5.0)
+    log.append((req, app.handle(req)))
+
+    req = _upload_req("/secure-upload", "avatar.jpg", 6.0)
+    log.append((req, app.handle(req)))
+
+    return log
+
+
 _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResponse]]]] = {
     "login-flow": build_investigation_log,
     "content-type-bug": build_content_type_bug_log,
@@ -1274,6 +1645,7 @@ _INVESTIGATION_BUILDERS: dict[str, Callable[[], list[tuple[HttpRequest, HttpResp
     "sqli-investigation": build_sqli_investigation_log,
     "xss-investigation": build_xss_investigation_log,
     "csrf-investigation": build_csrf_investigation_log,
+    "upload-investigation": build_upload_investigation_log,
 }
 
 
@@ -1453,6 +1825,40 @@ class CsrfLabState:
         )
 
 
+@dataclass
+class UploadLabState:
+    """File Upload Security Fundamentals training state (YC-035.7) —
+    mirrors CsrfLabState: small, explicit, mutable, in-memory only.
+    Every field backs a structured validator check instead of matching
+    rendered text; set from a response's 'X-Sim-Upload-Kind'/'X-Sim-
+    Upload-Signature' headers (see commands.py's _track_upload_response),
+    never by re-parsing raw text."""
+    signature_inspected: bool = False
+    content_mismatch_seen: bool = False
+    secure_rejection_seen: bool = False
+    size_limit_seen: bool = False
+    path_traversal_blocked: bool = False
+    executable_blocked: bool = False
+    vulnerable_accepted_seen: bool = False
+    secure_accepted_seen: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return dataclasses.asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> UploadLabState:
+        return cls(
+            signature_inspected=d.get("signature_inspected", False),
+            content_mismatch_seen=d.get("content_mismatch_seen", False),
+            secure_rejection_seen=d.get("secure_rejection_seen", False),
+            size_limit_seen=d.get("size_limit_seen", False),
+            path_traversal_blocked=d.get("path_traversal_blocked", False),
+            executable_blocked=d.get("executable_blocked", False),
+            vulnerable_accepted_seen=d.get("vulnerable_accepted_seen", False),
+            secure_accepted_seen=d.get("secure_accepted_seen", False),
+        )
+
+
 class WebLab:
     """Everything a web-fundamentals mission session needs: the
     simulated site, the student's own session, the fixed investigation
@@ -1476,15 +1882,18 @@ class WebLab:
         self.sqli = SqliLabState()
         self.xss = XssLabState()
         self.csrf = CsrfLabState()
+        self.upload = UploadLabState()
 
     def to_dict(self) -> dict[str, Any]:
         return {"sessions": dict(self.app.sessions), "profiles": dict(self.app.profiles),
                 "comments": [dataclasses.asdict(c) for c in self.app.comments],
                 "balances": dict(self.app.balances),
                 "transfers": [dataclasses.asdict(t) for t in self.app.transfers],
+                "uploads": [dataclasses.asdict(u) for u in self.app.uploads],
                 "session": self.session.to_dict(), "proxy": self.proxy.to_dict(),
                 "expired_count": self.expired_count, "sqli": self.sqli.to_dict(),
-                "xss": self.xss.to_dict(), "csrf": self.csrf.to_dict()}
+                "xss": self.xss.to_dict(), "csrf": self.csrf.to_dict(),
+                "upload": self.upload.to_dict()}
 
     def apply_state(self, snapshot: dict[str, Any]) -> None:
         self.app.sessions = dict(snapshot.get("sessions", {}))
@@ -1492,12 +1901,14 @@ class WebLab:
         self.app.comments = [Comment(**c) for c in snapshot.get("comments", [])]
         self.app.balances = dict(snapshot.get("balances", {}))
         self.app.transfers = [Transfer(**t) for t in snapshot.get("transfers", [])]
+        self.app.uploads = [UploadedFile(**u) for u in snapshot.get("uploads", [])]
         self.session = WebSession.from_dict(snapshot.get("session", {}))
         self.proxy = ProxyState.from_dict(snapshot.get("proxy", {}))
         self.expired_count = snapshot.get("expired_count", 0)
         self.sqli = SqliLabState.from_dict(snapshot.get("sqli", {}))
         self.xss = XssLabState.from_dict(snapshot.get("xss", {}))
         self.csrf = CsrfLabState.from_dict(snapshot.get("csrf", {}))
+        self.upload = UploadLabState.from_dict(snapshot.get("upload", {}))
 
 
 def build_web_lab(scenario: str = "login-flow") -> WebLab:
