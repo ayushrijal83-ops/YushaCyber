@@ -4,13 +4,13 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (89 of 96
-lessons still empty as of YC-036.4, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (87 of 96
+lessons still empty as of YC-036.5, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
-added silently. Python Programming (YC-036.3) and Linux Fundamentals
-(YC-036.4) are the first real content in the roadmap; this file also
-pins that both stay real.
+added silently. Python Programming (YC-036.3), Linux Fundamentals
+(YC-036.4), and Computer Networking (YC-036.5) are the first real
+content in the roadmap; this file also pins that all three stay real.
 """
 
 from __future__ import annotations
@@ -274,12 +274,16 @@ class TestContentBaseline:
             empty = sum(1 for lesson in lessons if _lesson_content_state(lesson)[0])
             placeholder = sum(1 for lesson in lessons if _lesson_content_state(lesson)[1])
             # 94 -> 91 as of YC-036.3 (Python Programming's 3 lessons), then
-            # 91 -> 89 as of YC-036.4: Linux Fundamentals' core-concepts and
-            # hands-on-practice lessons now have real content too (its
-            # introduction lesson already had real content before YC-036.3;
-            # see TestLinuxFundamentalsContent below).
-            assert empty == 89
-            assert placeholder == 1
+            # 91 -> 89 as of YC-036.4 (Linux Fundamentals' core-concepts and
+            # hands-on-practice; its introduction lesson already had real
+            # content before YC-036.3), then 89 -> 87 as of YC-036.5:
+            # Computer Networking's core-concepts and hands-on-practice
+            # were EMPTY, and its introduction was the one PLACEHOLDER
+            # lesson (a leftover XSS test payload — see Known Issues #3b)
+            # — all 3 are real now, so placeholder drops to 0. See
+            # TestNetworkingFundamentalsContent below.
+            assert empty == 87
+            assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
         with app.app_context():
@@ -736,6 +740,178 @@ class TestLinuxFundamentalsContent:
             r = c.get("/roadmap/linux-fundamentals/introduction/")
             body = r.data.decode("utf-8")
             assert 'data-mentor-lab="Linux Fundamentals' in body
+            assert "Introduction" in body
+
+
+# ═══════════════════════════════════════════
+# Computer Networking lesson content (YC-036.5)
+# ═══════════════════════════════════════════
+class TestNetworkingFundamentalsContent:
+    """Guards the real content written for YC-036.5 — not just that a
+    file exists, but that each lesson still contains its actual taught
+    material and isn't quietly regressed back to a stub or the leftover
+    XSS test payload it replaced. Also guards the lesson -> mission
+    cross-links wired in this ticket."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "client", "server", "MAC", "protocol", "packet loss",
+        ],
+        "core-concepts": [
+            "CIDR", "broadcast address", "socket", "192.168.1.64/26",
+            "well-known ports",
+        ],
+        "hands-on-practice": [
+            "SYN-ACK", "NXDOMAIN", "default gateway", "ip route", "ss",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(f"roadmap/beginner/computer-networking/{slug}.md")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_leftover_xss_payload_is_gone(self, app):
+        """Known Issues #3b: introduction.md used to be a raw
+        <script>alert(1)</script> test fixture. Confirm it's gone, not
+        just that bleach still neutralizes it."""
+        html = self._render(app, "introduction")
+        assert "alert(1)" not in html
+        assert "onclick" not in html.lower()
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="computer-networking").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2."""
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="computer-networking").first()
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [l.slug for l in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [l.xp_reward for l in lessons] == [25, 50, 100]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_practice_links_scoped_to_commands_that_actually_work(self, app, student):
+        """The free-practice terminal (`/terminal`) never attaches a
+        simulated network to the shell — only the mission runner does —
+        so networking lessons must NOT offer that link (it would send
+        students to run `ping`/`ip`/`ss`/`nslookup` somewhere those
+        commands fail). Only the real mission link should appear, and
+        only on the two lessons that actually teach commands."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug, expect_mission in (
+                ("introduction", True),
+                ("core-concepts", False),
+                ("hands-on-practice", True),
+            ):
+                ctx = get_lesson_view_context(student_user, "computer-networking", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert "show_terminal" not in practice
+                assert bool(practice.get("mission_slug")) is expect_mission
+                if expect_mission:
+                    assert practice["mission_slug"] == "networking-fundamentals"
+
+    def test_mission_link_points_to_a_real_route_and_real_mission(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("terminal.mission_page", slug="networking-fundamentals") == (
+                "/terminal/mission/networking-fundamentals"
+            )
+        from app.core.missions.mission_loader import MISSIONS
+        assert "networking-fundamentals" in MISSIONS
+        mission = MISSIONS["networking-fundamentals"]
+        assert mission["title"] == "Networking Fundamentals"
+        objective_commands = {o["validate"]["match"] for o in mission["objectives"]}
+        assert {"ip addr", "ip route", "ss"} <= objective_commands
+
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        """introduction is a preview and always reachable; core-concepts
+        and hands-on-practice require the module unlocked."""
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="computer-networking").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/computer-networking/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
+            r = c.get("/roadmap/computer-networking/hands-on-practice/")
+            body = r.data.decode("utf-8")
+            assert "Networking Fundamentals Mission" in body
+            assert "Try it in the Terminal" not in body
+
+    def test_cybermentor_receives_lesson_context(self, app, student):
+        uname, _uid = student
+        with app.test_client() as c:
+            _login(c, uname)
+            r = c.get("/roadmap/computer-networking/introduction/")
+            body = r.data.decode("utf-8")
+            assert 'data-mentor-lab="Computer Networking' in body
             assert "Introduction" in body
 
 

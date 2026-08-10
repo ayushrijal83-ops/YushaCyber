@@ -323,18 +323,44 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "linux-basics",
         "mission_title": "Linux Basics",
     },
+    # computer-networking (YC-036.5): the free-practice terminal
+    # (`/terminal`, below) never attaches a simulated network to the
+    # shell — only the terminal MISSION runner does — so `ping`/`ip`/`ss`/
+    # `nslookup` (everything this module teaches) only actually works
+    # inside the real mission. Linked from both lessons that teach
+    # network commands; core-concepts (addressing/subnetting math, no
+    # commands) intentionally gets no practice CTA at all.
+    ("computer-networking", "introduction"): {
+        "mission_slug": "networking-fundamentals",
+        "mission_title": "Networking Fundamentals",
+    },
+    ("computer-networking", "hands-on-practice"): {
+        "mission_slug": "networking-fundamentals",
+        "mission_title": "Networking Fundamentals",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
-# even lessons with no scored mission attached to them specifically.
+# even lessons with no scored mission attached to them specifically. Only
+# for modules whose taught commands work in the bare, network-less
+# sandbox (filesystem commands) — see the note above for why
+# computer-networking is deliberately excluded.
 _TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals"}
 
 
 def _lesson_practice_links(module_slug: str, lesson_slug: str) -> dict[str, Any]:
-    """Terminal/mission cross-links for a lesson, or {} if none apply."""
-    if module_slug not in _TERMINAL_PRACTICE_MODULES:
-        return {}
-    links: dict[str, Any] = {"show_terminal": True}
+    """Terminal/mission cross-links for a lesson, or {} if none apply.
+
+    The two link kinds are independent: a module's free-practice terminal
+    link (``show_terminal``) and a lesson's scored-mission link are looked
+    up separately, since a module may have real mission reinforcement
+    (computer-networking) without its taught commands working in the
+    bare, network-less free-practice sandbox (see the module-level notes
+    above `_LESSON_MISSION_LINKS` / `_TERMINAL_PRACTICE_MODULES`).
+    """
+    links: dict[str, Any] = {}
+    if module_slug in _TERMINAL_PRACTICE_MODULES:
+        links["show_terminal"] = True
     mission = _LESSON_MISSION_LINKS.get((module_slug, lesson_slug))
     if mission is not None:
         links["mission_slug"] = mission["mission_slug"]

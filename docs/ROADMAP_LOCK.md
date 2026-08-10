@@ -53,13 +53,17 @@ In today's implementation this loop is **partially wired**:
   (verified: zero `url_for('labs...`, `missions...` references anywhere
   in `app/templates/roadmap/` or `app/content/`) — the **Lab Mapping**
   and **Mission Mapping** sections below were purely documentation, a
-  foundation for wiring real links in a future ticket. YC-036.4 is that
-  ticket, for one module: every `linux-fundamentals` lesson now links to
-  the free-practice terminal, and `hands-on-practice` additionally links
-  to the real `linux-basics` terminal mission (see "Content Status —
-  Linux Fundamentals" below). Every other module's lessons still have no
-  lab/mission link — this remains a real gap for whoever picks up the
-  next module.
+  foundation for wiring real links in a future ticket. YC-036.4 and
+  YC-036.5 are that ticket, for two modules so far: every
+  `linux-fundamentals` lesson links to the free-practice terminal, and
+  its `hands-on-practice` additionally links to the real `linux-basics`
+  terminal mission; `computer-networking`'s `introduction` and
+  `hands-on-practice` link to the real `networking-fundamentals` terminal
+  mission (no free-practice terminal link there — see "Content Status —
+  Computer Networking" below for why). No lab has been linked from any
+  lesson yet in either ticket — only missions. Every other module's
+  lessons still have no lab/mission link — this remains a real gap for
+  whoever picks up the next module.
 - **XP / Progress** — fully real: `award_xp()`, `UserLessonProgress`,
   `UserModuleProgress`, level-up, all wired and tested by manual
   verification below.
@@ -414,6 +418,83 @@ student had open.
 
 ---
 
+## Content Status — Computer Networking (YC-036.5)
+
+The third module with real, authored lesson content. `introduction` was
+not merely thin here — Known Issues #3b flagged it as a leftover XSS
+sanitisation test fixture (`<script>alert(1)</script>`), which made it
+the roadmap's one and only `placeholder`-classified lesson. It's been
+replaced entirely, not patched:
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | PLACEHOLDER (XSS test payload, not real content — Known Issues #3b) | What a network/host/client/server is, the request path (interface → switch/router → network → server → response), a conceptual MAC-vs-IP preview, what a protocol is, `ping` taught to the full command standard | `app/content/roadmap/beginner/computer-networking/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | MAC addresses (local/Layer 2 identity, ARP resolution, broadcast), IPv4 addressing (private/public/loopback), subnetting (CIDR, subnet mask, network/broadcast address, worked `/24` → `/26` examples, host-count formula), ports and sockets, well-known ports | `app/content/roadmap/beginner/computer-networking/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | TCP vs. UDP, the TCP three-way handshake, DNS resolution (query/response flow, `nslookup`, `NXDOMAIN`), routing and the default gateway, NAT (brief, non-oversimplified), `ip addr`/`ip route`/`ss` taught to the full command standard, a 6-step troubleshooting reasoning chain (interface → IP → gateway → connectivity → DNS), and a capstone walkthrough of the real **Networking Fundamentals** terminal mission | `app/content/roadmap/beginner/computer-networking/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY**. Every command example's
+output (`ping`, `ip addr`, `ip route`, `ss`, `nslookup`, including the
+`NXDOMAIN` failure case) was taken directly from
+`app/core/terminal/network.py`'s actual formatting logic and the real
+`networking-fundamentals` mission's simulated topology in
+`app/core/missions/mission_loader.py` (`10.10.10.20` student-pc,
+`10.10.10.1` gateway, `10.10.10.10` example.local, `10.10.10.53` dns01)
+— not invented example data.
+
+This lowers the roadmap-wide "empty lessons" count from 89 to 87, and
+the "placeholder lessons" count from 1 to **0** (see Known Issues #3/#3b)
+— reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Mission cross-link — scoped differently from Linux Fundamentals
+
+`introduction` and `hands-on-practice` both show a **"Networking
+Fundamentals Mission"** link (`/terminal/mission/networking-fundamentals`,
+`terminal.mission_page` — no new route, no new mission). Unlike Linux
+Fundamentals, **no lesson in this module shows a "Try it in the Terminal"
+free-practice link**: `app/core/terminal/services.start_shell()` (the
+handler behind the bare `/terminal` sandbox) never attaches a simulated
+network to the shell — only `start_mission()` does — so `ping`/`ip`/`ss`/
+`nslookup` (everything this module teaches) would fail with "no network
+configured for this session" in that sandbox. Sending students there
+would have been actively misleading, so the free-practice link is
+withheld for this module entirely (`_TERMINAL_PRACTICE_MODULES` in
+`app/roadmap/services.py` intentionally excludes `computer-networking`).
+`core-concepts` (addressing/subnetting math, no commands) gets no
+practice link at all, consistent with the rule that a link should only
+appear where it genuinely helps.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+The driving spec's teaching philosophy covers considerably more ground
+than 3 lessons can hold without becoming a command dump (Rule: "do not
+use one generic template for every networking lesson" / "do not overload
+the networking track"). Deliberately left out of this pass, as topics
+for a possible future module or lesson expansion:
+
+- **DHCP** (the DORA process) — no lesson currently teaches it.
+- **Firewalls** as their own topic — mentioned nowhere yet; a natural
+  fit once a module reaches traffic-filtering concepts.
+- **A dedicated application-protocol survey** (HTTP/HTTPS/SSH/FTP/SMTP
+  beyond the single well-known-ports table in `core-concepts`) —
+  intentionally deferred to `web-fundamentals`, per the driving spec's
+  own instruction not to duplicate that module's territory.
+- **IPv6** — IPv4 only, throughout.
+- **OSI vs. TCP/IP layer models as their own explicit lesson** — the
+  concepts (link/interface, addressing, transport, application) are
+  taught throughout via the actual protocols that live at each layer,
+  but no lesson names or diagrams the models directly by their formal
+  layer numbers.
+- **Wireshark-style packet-field breakdown** (flags, payload framing) —
+  out of scope here; `wireshark` is already its own Intermediate-track
+  module with its own lesson slots.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next networking
+content pass, per the explicit instruction against inventing curriculum.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -474,7 +555,7 @@ student had open.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 89/96 of today's lessons — Python Programming's 3 lessons (YC-036.3) and Linux Fundamentals' 3 lessons (YC-036.4) are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 87/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), and Computer Networking (YC-036.5) — 9 lessons total — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -532,26 +613,24 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **89 of 96 lessons have no real content** (94 at the time of
-   YC-036.2's audit, 91 after YC-036.3). All 3 of `python-programming`'s
-   lessons (YC-036.3) and all 3 of `linux-fundamentals`'s lessons
-   (YC-036.4 — `introduction` was rewritten from a 36-line stub, not
-   left as-is) have genuine Markdown content; `computer-networking/
-   introduction` is still a 4-line stub (in fact a leftover XSS-
-   sanitization test payload, `<script>alert(1)</script>`, harmlessly
-   stripped by `_sanitise_lesson_html`/bleach on render — see `#3b`
-   below); every other `content_path` resolves to nothing and renders
-   "This lesson is coming soon." This is the single largest content-debt
-   item and remains explicitly out of scope beyond Python Programming —
-   tracked here for whoever picks up the next module's lessons.
-3b. **`computer-networking/introduction.md`'s content is a test
-   fixture, not a stub** — worth its own line since it's not merely
-   thin, it's actively the wrong kind of content (a raw
-   `<script>alert(1)</script>` payload). Confirmed harmless: `bleach`
-   strips it on render, so nothing unsafe reaches a browser. Left
-   as-is, since replacing it is lesson-writing work (Rule 10 territory),
-   not a structural fix — flagged clearly so it isn't mistaken for
-   intentional content by whoever writes Computer Networking next.
+3. **87 of 96 lessons have no real content** (94 at the time of
+   YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4). All 3 lessons
+   each of `python-programming` (YC-036.3), `linux-fundamentals`
+   (YC-036.4), and `computer-networking` (YC-036.5) have genuine
+   Markdown content; every other `content_path` resolves to nothing and
+   renders "This lesson is coming soon." This is the single largest
+   content-debt item and remains explicitly out of scope beyond these
+   three modules — tracked here for whoever picks up the next module's
+   lessons.
+3b. **`computer-networking/introduction.md`'s content used to be a test
+   fixture, not a stub — fixed in YC-036.5.** Previously a raw
+   `<script>alert(1)</script>` payload (confirmed harmless at the time:
+   `bleach` stripped it on render, so nothing unsafe ever reached a
+   browser) rather than merely thin content. Replaced with real lesson
+   content in YC-036.5 — `tests/test_roadmap_lock.py`'s
+   `test_leftover_xss_payload_is_gone` pins that it doesn't come back.
+   Line kept (rather than deleted) as a record of what this lesson used
+   to contain, for anyone auditing the module's history.
 4. **All 320 quiz questions are placeholder and trivially gameable** —
    generated by `quiz_seed.py` as `"{module} — question {i}: which option
    is correct?"`, correct answer always at position `((i-1) mod 4)+1`.
