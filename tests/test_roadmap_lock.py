@@ -4,16 +4,20 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (94 empty
-lessons, gameable quizzes) is deliberately NOT asserted as passing —
-see docs/ROADMAP_LOCK.md "Known Issues" — only pinned as a baseline so
-new empty/placeholder lessons can't be added silently.
+through the normal lesson-completion flow. Content quality (91 of 96
+lessons still empty as of YC-036.3, gameable quizzes) is deliberately
+NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
+only pinned as a baseline so new empty/placeholder lessons can't be
+added silently. Python Programming's 3 lessons (YC-036.3) are the
+first real content in the roadmap; this file also pins that they stay
+real.
 """
 
 from __future__ import annotations
 
 import os
 import tempfile
+from typing import ClassVar
 
 _TMPDIR = tempfile.mkdtemp(prefix="yc0362-test-")
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMPDIR}/test_roadmap.db"
@@ -269,7 +273,9 @@ class TestContentBaseline:
 
             empty = sum(1 for lesson in lessons if _lesson_content_state(lesson)[0])
             placeholder = sum(1 for lesson in lessons if _lesson_content_state(lesson)[1])
-            assert empty == 94
+            # 94 -> 91 as of YC-036.3: Python Programming's 3 lessons now
+            # have real content (see TestPythonProgrammingContent below).
+            assert empty == 91
             assert placeholder == 1
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -487,6 +493,96 @@ class TestProgressAndXP:
             complete_lesson(User.query.get(uid), "linux-fundamentals", "introduction")
             after = get_category_progress(User.query.get(uid))[beginner.id]
             assert after > before
+
+
+# ═══════════════════════════════════════════
+# Python Programming lesson content (YC-036.3)
+# ═══════════════════════════════════════════
+class TestPythonProgrammingContent:
+    """Guards the real content written for YC-036.3 — not just that a
+    file exists, but that each lesson still contains its actual taught
+    material and isn't quietly regressed back to a stub."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "interpreted", "REPL", "IndentationError", "print(",
+            "statement", "expression",
+        ],
+        "core-concepts": [
+            "dynamic typing", "NoneType", "f-string", "type(",
+            "ValueError", "snake_case",
+        ],
+        "hands-on-practice": [
+            "elif", "range(", "break", "continue", "return",
+            "is_strong", "local",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(f"roadmap/beginner/python-programming/{slug}.md")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            # A real, hand-written lesson at this scope is well over 1KB
+            # of rendered HTML; a stub or "coming soon" placeholder is not.
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="python-programming").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        """The introduction lesson is a preview and always reachable;
+        core-concepts and hands-on-practice require the module unlocked
+        (YC-036.2's lock enforcement) — unlock it the same way normal
+        progression would, then confirm all three actually serve the
+        real content, not the "coming soon" fallback."""
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="python-programming").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/python-programming/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
 
 
 # ═══════════════════════════════════════════

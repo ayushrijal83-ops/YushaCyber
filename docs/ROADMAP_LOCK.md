@@ -315,6 +315,35 @@ Track J.
 
 ---
 
+## Content Status — Python Programming (YC-036.3)
+
+The first module in the roadmap with real, authored lesson content
+(previously: 3 template-placeholder lessons, no content file at all).
+Written per-lesson, matching each lesson's actual title and time
+budget rather than a forced identical template:
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | What Python is (interpreted vs. compiled), REPL vs. script files, statements vs. expressions, indentation as grammar, comments, `print()`, common syntax mistakes, reading error messages | `app/content/roadmap/beginner/python-programming/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | Variables as names-not-boxes, assignment/reassignment, naming rules, dynamic typing, the 5 core types (`int`/`float`/`str`/`bool`/`None`), `type()`, type conversion, arithmetic/comparison operators, f-strings, `input()` | `app/content/roadmap/beginner/python-programming/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | `if`/`elif`/`else`, `and`/`or`/`not`, `for`/`while`/`range()`, `break`/`continue`, defining functions (parameters vs. arguments, `return`, local scope), 2 drills (FizzBuzz, vowel counter) + a capstone exercise (a password-strength checker combining all of the above) | `app/content/roadmap/beginner/python-programming/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the standard used for
+this pass: a student who reads a lesson start to finish can explain the
+concept in their own words and can run every code example as shown
+(every example was hand-verified to execute correctly and produce the
+stated output before being written into the lesson). Each lesson uses
+the existing markdown → `bleach`-sanitised HTML pipeline unchanged — no
+lesson-content architecture change was needed; the existing allowlisted
+tag set (headings, paragraphs, lists, tables, fenced code blocks,
+blockquotes) was already sufficient.
+
+This lowers the roadmap-wide "empty lessons" count from 94 to 91 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -375,7 +404,7 @@ Track J.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 94/96 of today's lessons) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 91/96 of today's lessons — Python Programming's 3 lessons are real as of YC-036.3) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -433,13 +462,25 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **94 of 96 lessons have no real content** — only
-   `linux-fundamentals/introduction` (real, 36 lines) and
-   `computer-networking/introduction` (a 4-line stub) have a Markdown
-   file; every other `content_path` resolves to nothing and renders
+3. **91 of 96 lessons have no real content** (94 at the time of
+   YC-036.2's audit). `linux-fundamentals/introduction` (real, 36 lines)
+   and all 3 of `python-programming`'s lessons (real, written for
+   YC-036.3) have genuine Markdown content; `computer-networking/
+   introduction` is still a 4-line stub (in fact a leftover XSS-
+   sanitization test payload, `<script>alert(1)</script>`, harmlessly
+   stripped by `_sanitise_lesson_html`/bleach on render — see `#3b`
+   below); every other `content_path` resolves to nothing and renders
    "This lesson is coming soon." This is the single largest content-debt
-   item and is explicitly out of scope for this structural lock (Rule 10)
-   — tracked here for whoever picks up lesson-writing next.
+   item and remains explicitly out of scope beyond Python Programming —
+   tracked here for whoever picks up the next module's lessons.
+3b. **`computer-networking/introduction.md`'s content is a test
+   fixture, not a stub** — worth its own line since it's not merely
+   thin, it's actively the wrong kind of content (a raw
+   `<script>alert(1)</script>` payload). Confirmed harmless: `bleach`
+   strips it on render, so nothing unsafe reaches a browser. Left
+   as-is, since replacing it is lesson-writing work (Rule 10 territory),
+   not a structural fix — flagged clearly so it isn't mistaken for
+   intentional content by whoever writes Computer Networking next.
 4. **All 320 quiz questions are placeholder and trivially gameable** —
    generated by `quiz_seed.py` as `"{module} — question {i}: which option
    is correct?"`, correct answer always at position `((i-1) mod 4)+1`.
