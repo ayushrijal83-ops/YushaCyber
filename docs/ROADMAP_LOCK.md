@@ -49,14 +49,17 @@ In today's implementation this loop is **partially wired**:
 - **Knowledge Check** — a per-module `Quiz` (32 exist, one per module).
 - **Interactive Lab / Mission** — `app/labs/` (79 labs) and the terminal
   mission engine (`app/core/missions/mission_loader.py`, 16 missions) are
-  both real and reachable, but **no lesson currently links to a lab or
-  mission** (verified: zero `url_for('labs...`, `missions...` references
-  anywhere in `app/templates/roadmap/` or `app/content/`). The **Lab
-  Mapping** and **Mission Mapping** sections below are the first
-  documented cross-reference between them — a foundation for wiring real
-  "Open Lab" / "Start Mission" links into `lesson.html` in a future
-  ticket, not a change made in this one (see Section 24 of the driving
-  spec: no new features in this pass).
+  both real and reachable. As of YC-036.2, no lesson linked to either
+  (verified: zero `url_for('labs...`, `missions...` references anywhere
+  in `app/templates/roadmap/` or `app/content/`) — the **Lab Mapping**
+  and **Mission Mapping** sections below were purely documentation, a
+  foundation for wiring real links in a future ticket. YC-036.4 is that
+  ticket, for one module: every `linux-fundamentals` lesson now links to
+  the free-practice terminal, and `hands-on-practice` additionally links
+  to the real `linux-basics` terminal mission (see "Content Status —
+  Linux Fundamentals" below). Every other module's lessons still have no
+  lab/mission link — this remains a real gap for whoever picks up the
+  next module.
 - **XP / Progress** — fully real: `award_xp()`, `UserLessonProgress`,
   `UserModuleProgress`, level-up, all wired and tested by manual
   verification below.
@@ -344,6 +347,73 @@ Known Issues #3) — reflected in both `flask roadmap-audit` and
 
 ---
 
+## Content Status — Linux Fundamentals (YC-036.4)
+
+The second module with real, authored lesson content. Unlike Python
+Programming, `introduction` already had genuine (if thin) content before
+this ticket — written for an earlier pass, 36 lines, no exercises or
+knowledge check. It was rewritten to the same depth standard as the other
+two lessons rather than left as-is, since "real content" here means every
+command taught follows an explain → demonstrate → show output → explain
+output → common mistake → exercise structure, which the original did not:
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | WEAK (real but shallow, no exercises/knowledge check) | Terminal vs. shell vs. command vs. program, `pwd` and `whoami` taught to the full command standard, `ls`/`ls -la`, hidden (dot) files, the four most common top-level directories | `app/content/roadmap/beginner/linux-fundamentals/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | The filesystem as one tree rooted at `/`, absolute vs. relative paths, `.`/`..`/`~`, navigating with `cd` (including a worked debugging exercise on a mistyped path), reading a file with `cat` | `app/content/roadmap/beginner/linux-fundamentals/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Creating (`touch`, `mkdir`), copying/moving (`cp`, `mv`), deleting (`rm`, `rm -r` — with an explicit "this is not a recycle bin" section), reading `ls -l` permission strings, changing permissions with `chmod` (symbolic and numeric), why permissions matter for least privilege, and a guided capstone walkthrough of the platform's real **Linux Basics** terminal mission | `app/content/roadmap/beginner/linux-fundamentals/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for Python Programming: a student who reads a lesson start to finish can
+explain the concept in their own words, and every command's example output
+shown in the lesson is accurate for the platform's actual simulated
+environment (the `/home/student` home directory and `Documents/welcome.txt`
+used throughout match the real `linux-basics` terminal mission's simulated
+filesystem in `app/core/missions/mission_loader.py`, not an invented one).
+
+This lowers the roadmap-wide "empty lessons" count from 91 to 89 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Terminal / mission cross-links (new in this ticket)
+
+Previously (see the Mission section above, "no lesson currently links to a
+lab or mission") this was purely documentation. YC-036.4 wires the first
+real links, scoped to the one module/lesson pair they were written for
+rather than guessed for all 32 modules:
+
+- Every lesson in `linux-fundamentals` now shows a **"Try it in the
+  Terminal"** link to the existing free-practice terminal (`/terminal`,
+  `terminal.terminal_page` — no new route).
+- `hands-on-practice` additionally shows a **"Linux Basics Mission"**
+  link to the existing terminal mission (`/terminal/mission/linux-basics`,
+  `terminal.mission_page` — no new route, no new mission).
+
+Implemented as a small static mapping in `app/roadmap/services.py`
+(`_LESSON_MISSION_LINKS`, `_TERMINAL_PRACTICE_MODULES`) consumed by
+`get_lesson_view_context()`'s `practice` key and rendered in
+`lesson.html`'s new `.rm-practice` section — additive only; every other
+module's lesson page is unaffected (`practice` is `{}` for them, and the
+template renders nothing when it's falsy).
+
+### CyberMentor lesson context (new in this ticket)
+
+`lesson.html` now sets `current_lab = "<module title> — <lesson title>"`
+immediately before including `components/ai_chat.html`, which already
+reads a `current_lab` template variable (the same hook labs and terminal
+missions use — see `app/labs/routes.py`, `app/core/terminal/routes.py`).
+No new AI context channel was built: `MentorContext.summary()` already
+renders this as "Currently on: ..." in CyberMentor's system prompt
+(`app/core/ai/types.py`), and `context_engine.collector.collect_learning`
+already looks up a matching `Lab` row by slug when one exists — for a
+lesson (not a lab), no `Lab` row matches, which is expected and harmless;
+the free-text label is still passed straight through as context. This
+change is not Linux-specific: it applies to every roadmap lesson page,
+closing a pre-existing gap where CyberMentor had no idea which lesson a
+student had open.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -404,7 +474,7 @@ Known Issues #3) — reflected in both `flask roadmap-audit` and
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 91/96 of today's lessons — Python Programming's 3 lessons are real as of YC-036.3) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 89/96 of today's lessons — Python Programming's 3 lessons (YC-036.3) and Linux Fundamentals' 3 lessons (YC-036.4) are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -462,10 +532,11 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **91 of 96 lessons have no real content** (94 at the time of
-   YC-036.2's audit). `linux-fundamentals/introduction` (real, 36 lines)
-   and all 3 of `python-programming`'s lessons (real, written for
-   YC-036.3) have genuine Markdown content; `computer-networking/
+3. **89 of 96 lessons have no real content** (94 at the time of
+   YC-036.2's audit, 91 after YC-036.3). All 3 of `python-programming`'s
+   lessons (YC-036.3) and all 3 of `linux-fundamentals`'s lessons
+   (YC-036.4 — `introduction` was rewritten from a 36-line stub, not
+   left as-is) have genuine Markdown content; `computer-networking/
    introduction` is still a 4-line stub (in fact a leftover XSS-
    sanitization test payload, `<script>alert(1)</script>`, harmlessly
    stripped by `_sanitise_lesson_html`/bleach on render — see `#3b`

@@ -384,6 +384,25 @@
     gap: 8px;
 }
 
+.rm-practice {
+    background: linear-gradient(150deg, rgba(0, 255, 136, 0.06), rgba(22, 27, 34, 0.6) 55%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-top: 20px;
+}
+
+.rm-practice__title {
+    font-size: 1rem;
+    margin-bottom: 12px;
+}
+
+.rm-practice__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 /* Rendered markdown prose */
 .lesson-content {
     background-color: var(--color-surface);

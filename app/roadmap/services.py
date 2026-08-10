@@ -312,6 +312,36 @@ def _sanitise_lesson_html(html: str) -> str:
     return html
 
 
+# Terminal/mission cross-links for specific lessons (YC-036.4). Keyed by
+# (module_slug, lesson_slug); a lesson not listed here simply gets no
+# practice block. See docs/ROADMAP_LOCK.md "Mission Mapping" — this is
+# the first lesson-to-mission link actually wired into the UI, scoped
+# deliberately to the one lesson it was written to reinforce rather than
+# guessed for every module.
+_LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
+    ("linux-fundamentals", "hands-on-practice"): {
+        "mission_slug": "linux-basics",
+        "mission_title": "Linux Basics",
+    },
+}
+
+# Modules whose lessons should all offer the free-practice terminal link,
+# even lessons with no scored mission attached to them specifically.
+_TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals"}
+
+
+def _lesson_practice_links(module_slug: str, lesson_slug: str) -> dict[str, Any]:
+    """Terminal/mission cross-links for a lesson, or {} if none apply."""
+    if module_slug not in _TERMINAL_PRACTICE_MODULES:
+        return {}
+    links: dict[str, Any] = {"show_terminal": True}
+    mission = _LESSON_MISSION_LINKS.get((module_slug, lesson_slug))
+    if mission is not None:
+        links["mission_slug"] = mission["mission_slug"]
+        links["mission_title"] = mission["mission_title"]
+    return links
+
+
 def get_lesson_view_context(
     user: User, module_slug: str, lesson_slug: str
 ) -> Optional[dict[str, Any]]:
@@ -363,6 +393,7 @@ def get_lesson_view_context(
         # rather than rendering real content when this is True, so
         # locked modules can no longer be read/completed via direct URL.
         "locked": lesson_locked_for_user(user, module, lesson),
+        "practice": _lesson_practice_links(module.slug, lesson.slug),
         "nav_items": get_nav_items(active="roadmap"),
     }
 

@@ -68,6 +68,23 @@
                 {% endif %}
             </article>
 
+            {# ---- Practice (terminal / mission cross-links, YC-036.4) ---- #}
+            {% if practice %}
+            <section class="rm-practice" aria-labelledby="practice-title">
+                <h2 id="practice-title" class="rm-practice__title">Practice What You Learned</h2>
+                <div class="rm-practice__links">
+                    {% if practice.show_terminal %}
+                    <a href="{{ url_for('terminal.terminal_page') }}" class="btn btn--outline btn--sm"
+                       target="_blank" rel="noopener">🖥 Try it in the Terminal</a>
+                    {% endif %}
+                    {% if practice.mission_slug %}
+                    <a href="{{ url_for('terminal.mission_page', slug=practice.mission_slug) }}"
+                       class="btn btn--primary btn--sm" target="_blank" rel="noopener">🎯 {{ practice.mission_title }} Mission</a>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
+
             {# ---- Footer navigation ---- #}
             <nav class="lesson-nav" aria-label="Lesson navigation">
                 {% if prev_slug %}
@@ -109,6 +126,12 @@
 
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+{# CyberMentor lesson context (YC-036.4): the ai_chat include reads
+   `current_lab` and shows it as "Currently on: ..." in the mentor's
+   system context — reusing that existing hook to tell CyberMentor
+   which lesson/module the student is reading, instead of building a
+   second context channel. #}
+{% set current_lab = module.title ~ " — " ~ lesson.title %}
 {% include "components/ai_chat.html" %}
 </body>
 </html>

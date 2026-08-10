@@ -4,13 +4,13 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (91 of 96
-lessons still empty as of YC-036.3, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (89 of 96
+lessons still empty as of YC-036.4, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
-added silently. Python Programming's 3 lessons (YC-036.3) are the
-first real content in the roadmap; this file also pins that they stay
-real.
+added silently. Python Programming (YC-036.3) and Linux Fundamentals
+(YC-036.4) are the first real content in the roadmap; this file also
+pins that both stay real.
 """
 
 from __future__ import annotations
@@ -273,9 +273,12 @@ class TestContentBaseline:
 
             empty = sum(1 for lesson in lessons if _lesson_content_state(lesson)[0])
             placeholder = sum(1 for lesson in lessons if _lesson_content_state(lesson)[1])
-            # 94 -> 91 as of YC-036.3: Python Programming's 3 lessons now
-            # have real content (see TestPythonProgrammingContent below).
-            assert empty == 91
+            # 94 -> 91 as of YC-036.3 (Python Programming's 3 lessons), then
+            # 91 -> 89 as of YC-036.4: Linux Fundamentals' core-concepts and
+            # hands-on-practice lessons now have real content too (its
+            # introduction lesson already had real content before YC-036.3;
+            # see TestLinuxFundamentalsContent below).
+            assert empty == 89
             assert placeholder == 1
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -583,6 +586,157 @@ class TestPythonProgrammingContent:
                 body = r.data.decode("utf-8")
                 assert "coming soon" not in body.lower()
                 assert "<pre>" in body
+
+
+# ═══════════════════════════════════════════
+# Linux Fundamentals lesson content (YC-036.4)
+# ═══════════════════════════════════════════
+class TestLinuxFundamentalsContent:
+    """Guards the real content written for YC-036.4 — not just that a
+    file exists, but that each lesson still contains its actual taught
+    material and isn't quietly regressed back to a stub. Also guards the
+    lesson -> terminal/mission cross-links wired in this ticket."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "pwd", "whoami", "working directory", "hidden", "/etc", "/home",
+        ],
+        "core-concepts": [
+            "absolute path", "relative path", "cd ..", "cat", "~",
+        ],
+        "hands-on-practice": [
+            "chmod", "rwx", "least privilege", "mkdir", "rm -r", "Linux Basics",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(f"roadmap/beginner/linux-fundamentals/{slug}.md")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="linux-fundamentals").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2."""
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="linux-fundamentals").first()
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [l.slug for l in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [l.xp_reward for l in lessons] == [25, 50, 100]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_practice_links_only_on_hands_on_practice(self, app, student):
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug, expect_mission in (
+                ("introduction", False),
+                ("core-concepts", False),
+                ("hands-on-practice", True),
+            ):
+                ctx = get_lesson_view_context(student_user, "linux-fundamentals", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert practice.get("show_terminal") is True
+                assert bool(practice.get("mission_slug")) is expect_mission
+
+    def test_terminal_and_mission_links_point_to_real_routes(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            # Must not raise — these are the exact endpoints lesson.html calls.
+            assert url_for("terminal.terminal_page") == "/terminal"
+            assert url_for("terminal.mission_page", slug="linux-basics") == (
+                "/terminal/mission/linux-basics"
+            )
+
+    def test_linux_basics_mission_still_exists_and_is_reused_not_duplicated(self, app):
+        from app.core.missions.mission_loader import MISSIONS
+        assert "linux-basics" in MISSIONS
+        mission = MISSIONS["linux-basics"]
+        assert mission["title"] == "Linux Basics"
+        objective_commands = {o["validate"]["match"] for o in mission["objectives"]}
+        assert {"pwd", "ls", "ls -la", "history"} <= objective_commands
+
+    def test_lesson_pages_render_over_http(self, app, student):
+        """linux-fundamentals is the first module of the first category,
+        unlocked automatically for every user — no manual unlock needed,
+        unlike python-programming in the equivalent YC-036.3 test."""
+        uname, _uid = student
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/linux-fundamentals/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
+            # Practice CTA only appears where the service context provides it.
+            r = c.get("/roadmap/linux-fundamentals/hands-on-practice/")
+            body = r.data.decode("utf-8")
+            assert "Try it in the Terminal" in body
+            assert "Linux Basics Mission" in body
+
+    def test_cybermentor_receives_lesson_context(self, app, student):
+        """The CyberMentor include reads `current_lab`, set in lesson.html
+        to "<module title> — <lesson title>" (YC-036.4) — confirm it
+        actually reaches the rendered page's mentor data attribute."""
+        uname, _uid = student
+        with app.test_client() as c:
+            _login(c, uname)
+            r = c.get("/roadmap/linux-fundamentals/introduction/")
+            body = r.data.decode("utf-8")
+            assert 'data-mentor-lab="Linux Fundamentals' in body
+            assert "Introduction" in body
 
 
 # ═══════════════════════════════════════════
