@@ -4,13 +4,14 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (87 of 96
-lessons still empty as of YC-036.5, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (84 of 96
+lessons still empty as of YC-036.6, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
-(YC-036.4), and Computer Networking (YC-036.5) are the first real
-content in the roadmap; this file also pins that all three stay real.
+(YC-036.4), Computer Networking (YC-036.5), and Web Fundamentals
+(YC-036.6) are the first real content in the roadmap; this file also
+pins that all four stay real.
 """
 
 from __future__ import annotations
@@ -53,6 +54,17 @@ def app():
         from app.roadmap.seed import _insert_curriculum
         if RoadmapCategory.query.filter_by(title="Beginner").first() is None:
             _insert_curriculum()
+        # Same reasoning as above, for the lab rows TestWebFundamentalsContent
+        # checks (YC-036.6): seed_labs() is normally only run via the
+        # `flask seed-labs` CLI command, not automatically in create_app().
+        # Other test modules (e.g. test_cloud_lab.py) happen to call it on
+        # the shared physical sqlite file, but this file must not depend on
+        # collection order/another module running first — seed it here,
+        # by name, exactly like the curriculum guard above.
+        from app.labs.models import Lab
+        if Lab.query.filter_by(slug="websec-http").first() is None:
+            from app.labs.seed import seed_labs
+            seed_labs()
     yield a
 
 
@@ -280,9 +292,12 @@ class TestContentBaseline:
             # Computer Networking's core-concepts and hands-on-practice
             # were EMPTY, and its introduction was the one PLACEHOLDER
             # lesson (a leftover XSS test payload — see Known Issues #3b)
-            # — all 3 are real now, so placeholder drops to 0. See
-            # TestNetworkingFundamentalsContent below.
-            assert empty == 87
+            # — all 3 are real now, so placeholder drops to 0. Then 87 ->
+            # 84 as of YC-036.6: Web Fundamentals' all 3 lessons were
+            # EMPTY (no content file at all). See
+            # TestNetworkingFundamentalsContent /
+            # TestWebFundamentalsContent below.
+            assert empty == 84
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -912,6 +927,185 @@ class TestNetworkingFundamentalsContent:
             r = c.get("/roadmap/computer-networking/introduction/")
             body = r.data.decode("utf-8")
             assert 'data-mentor-lab="Computer Networking' in body
+            assert "Introduction" in body
+
+
+# ═══════════════════════════════════════════
+# Web Fundamentals lesson content (YC-036.6)
+# ═══════════════════════════════════════════
+class TestWebFundamentalsContent:
+    """Guards the real content written for YC-036.6 — mirrors
+    TestNetworkingFundamentalsContent's discipline: not just that a file
+    exists, but that each lesson still contains its actual taught
+    material, and that the lesson -> mission/lab cross-links wired in
+    this ticket keep pointing at real routes."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "scheme", "fragment", "client-side", "Content-Security-Policy",
+        ],
+        "core-concepts": [
+            "401 Unauthorized", "403 Forbidden",
+            "application/x-www-form-urlencoded", "Cache-Control",
+        ],
+        "hands-on-practice": [
+            "Set-Cookie", "HttpOnly", "SameSite", "Bearer training-token-001",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(f"roadmap/beginner/web-fundamentals/{slug}.md")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="web-fundamentals").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2."""
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="web-fundamentals").first()
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [l.slug for l in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [l.xp_reward for l in lessons] == [25, 50, 100]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_practice_links_scoped_to_commands_that_actually_work(self, app, student):
+        """The free-practice terminal (`/terminal`) never attaches a
+        simulated web app to the shell (only the mission runner does —
+        see `MissionRunner._attach_web_lab`), so web-fundamentals lessons
+        must NOT offer that link. All three lessons use `open`/`headers`/
+        `cookies`/`response` directly, so all three get the mission link;
+        only core-concepts and hands-on-practice additionally get a
+        reinforcing-lab link, matched to their actual content."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            student_user = User.query.get(uid)
+            expected_labs = {
+                "introduction": None,
+                "core-concepts": "websec-http",
+                "hands-on-practice": "websec-cookies",
+            }
+            for slug, expected_lab in expected_labs.items():
+                ctx = get_lesson_view_context(student_user, "web-fundamentals", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert "show_terminal" not in practice
+                assert practice.get("mission_slug") == "web-fundamentals"
+                assert practice.get("lab_slug") == expected_lab
+
+    def test_mission_link_points_to_a_real_route_and_real_mission(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("terminal.mission_page", slug="web-fundamentals") == (
+                "/terminal/mission/web-fundamentals"
+            )
+        from app.core.missions.mission_loader import MISSIONS
+        assert "web-fundamentals" in MISSIONS
+        mission = MISSIONS["web-fundamentals"]
+        assert mission["title"] == "Web Fundamentals"
+        objective_ids = {o["id"] for o in mission["objectives"]}
+        assert {"wb-1", "wb-6", "wb-9", "wb-12"} <= objective_ids
+
+    def test_lab_links_point_to_real_routes_and_real_labs(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("labs.detail", slug="websec-http") == "/labs/websec-http"
+            assert url_for("labs.detail", slug="websec-cookies") == "/labs/websec-cookies"
+        with app.app_context():
+            from app.labs.models import Lab
+            http_lab = Lab.query.filter_by(slug="websec-http").first()
+            cookies_lab = Lab.query.filter_by(slug="websec-cookies").first()
+            assert http_lab is not None and http_lab.is_active
+            assert cookies_lab is not None and cookies_lab.is_active
+
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        """introduction is a preview and always reachable; core-concepts
+        and hands-on-practice require the module unlocked."""
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="web-fundamentals").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/web-fundamentals/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
+                assert "Web Fundamentals Mission" in body
+                assert "Try it in the Terminal" not in body
+            r = c.get("/roadmap/web-fundamentals/core-concepts/")
+            assert "HTTP Requests &amp; Responses Lab" in r.data.decode("utf-8")
+            r = c.get("/roadmap/web-fundamentals/hands-on-practice/")
+            assert "Cookie Security Flags Lab" in r.data.decode("utf-8")
+
+    def test_cybermentor_receives_lesson_context(self, app, student):
+        uname, _uid = student
+        with app.test_client() as c:
+            _login(c, uname)
+            r = c.get("/roadmap/web-fundamentals/introduction/")
+            body = r.data.decode("utf-8")
+            assert 'data-mentor-lab="Web Fundamentals' in body
             assert "Introduction" in body
 
 

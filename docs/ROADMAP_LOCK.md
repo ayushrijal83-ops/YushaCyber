@@ -53,17 +53,21 @@ In today's implementation this loop is **partially wired**:
   (verified: zero `url_for('labs...`, `missions...` references anywhere
   in `app/templates/roadmap/` or `app/content/`) — the **Lab Mapping**
   and **Mission Mapping** sections below were purely documentation, a
-  foundation for wiring real links in a future ticket. YC-036.4 and
-  YC-036.5 are that ticket, for two modules so far: every
+  foundation for wiring real links in a future ticket. YC-036.4, YC-036.5,
+  and YC-036.6 are that ticket, for three modules so far: every
   `linux-fundamentals` lesson links to the free-practice terminal, and
   its `hands-on-practice` additionally links to the real `linux-basics`
   terminal mission; `computer-networking`'s `introduction` and
   `hands-on-practice` link to the real `networking-fundamentals` terminal
   mission (no free-practice terminal link there — see "Content Status —
-  Computer Networking" below for why). No lab has been linked from any
-  lesson yet in either ticket — only missions. Every other module's
-  lessons still have no lab/mission link — this remains a real gap for
-  whoever picks up the next module.
+  Computer Networking" below for why); all three `web-fundamentals`
+  lessons link to the real `web-fundamentals` terminal mission (also no
+  free-practice link — see "Content Status — Web Fundamentals" below).
+  YC-036.4/.5 linked missions only; YC-036.6 additionally links two
+  `web-fundamentals` lessons to real interactive labs
+  (`websec-http`, `websec-cookies`) — the first lab links wired from any
+  lesson. Every other module's lessons still have no lab/mission link —
+  this remains a real gap for whoever picks up the next module.
 - **XP / Progress** — fully real: `award_xp()`, `UserLessonProgress`,
   `UserModuleProgress`, level-up, all wired and tested by manual
   verification below.
@@ -495,6 +499,114 @@ content pass, per the explicit instruction against inventing curriculum.
 
 ---
 
+## Content Status — Web Fundamentals (YC-036.6)
+
+The fourth module with real, authored lesson content. All three lessons
+were EMPTY (`content_path` pointed at a file that didn't exist —
+`app/content/roadmap/beginner/web-fundamentals/` was an empty
+directory) — none had the leftover-fixture problem Networking's
+`introduction` had:
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | URL anatomy (scheme/host/port/path/query/fragment, and which parts the server actually sees), the DNS → TCP → TLS → HTTP chain built directly on Computer Networking's DNS/TCP content, client vs. server and browser vs. web server, a first look at client-side vs. server-side, `open` taught to the full command standard | `app/content/roadmap/beginner/web-fundamentals/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | The request line / status line format, HTTP methods and their conventional semantics, status-code families with a worked 401-vs-403-vs-404 comparison using real simulator evidence, headers (what question each one answers, not a memorization dump), request bodies (form-encoded vs. JSON, why `Content-Type` matters), response bodies (HTML vs. JSON) | `app/content/roadmap/beginner/web-fundamentals/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Why HTTP is stateless and what problem cookies solve, the `Set-Cookie`/`Cookie` flow traced through a real login, cookie security attributes (`Secure`/`HttpOnly`/`SameSite`) explained by what each one changes, the session model, authentication vs. authorization made concrete with real 401/403 evidence, why authorization must be server-side, JSON APIs including two different real auth mechanisms (cookie session vs. bearer token) on the same server, HTTPS/TLS explained conceptually (and what it does *not* guarantee), `open`/`headers`/`cookies`/`response` taught to the full command standard, a malformed-JSON debugging exercise, and a capstone walkthrough of the real **Web Fundamentals** terminal mission | `app/content/roadmap/beginner/web-fundamentals/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY**. Every request/response
+example (`GET /products?id=42`, the `/admin` 401-vs-403 pair, the
+`/login` → `Set-Cookie` → `/profile` session flow, `/api/me` with both a
+bearer token and a cookie, and the malformed-JSON `/api/login` case) was
+captured by actually running `app/core/terminal/web.py`'s `WebApp`
+simulator (`build_request` + `WebApp.handle`) and copying its real
+output verbatim — not invented example data. The simulated site
+(`cybershop.training`, `app/core/terminal/web.py`) is the same one the
+**Web Fundamentals** and **HTTP Deep Dive** terminal missions, and every
+later `websec-*` interactive lab, already use — nothing new was built to
+generate these examples.
+
+This lowers the roadmap-wide "empty lessons" count from 87 to 84 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Mission cross-links — all three lessons, unlike Networking
+
+All three lessons show a **"Web Fundamentals Mission"** link
+(`/terminal/mission/web-fundamentals`, `terminal.mission_page` — no new
+route, no new mission). This module does not withhold a link from
+`core-concepts` the way Networking withheld one from its own
+addressing/subnetting lesson: `core-concepts`' Challenge exercise
+directly uses the `open`/`headers` terminal commands, so it genuinely
+needs the same practice link as the other two. **No lesson shows a "Try
+it in the Terminal" free-practice link**, for the same structural reason
+as Networking: `shell.web_lab` is `None` until
+`MissionRunner._attach_web_lab()` sets it (`app/core/missions/
+mission_runner.py`), which only happens inside a real mission — the bare
+`/terminal` sandbox never attaches a simulated web app, so `open`/
+`headers`/`cookies`/`response` would fail there
+(`_TERMINAL_PRACTICE_MODULES` in `app/roadmap/services.py` excludes
+`web-fundamentals`, same as `computer-networking`).
+
+### Lab cross-links — new in this ticket, not attempted by YC-036.4/.5
+
+YC-036.4 and YC-036.5 both deliberately scoped their cross-linking to
+missions only, explicitly leaving lab links as "a real gap for whoever
+picks up the next module" (see the Mission section near the top of this
+document). YC-036.6 is that pickup, still scoped narrowly: a new
+`_LESSON_LAB_LINKS` mapping (`app/roadmap/services.py`, additive
+alongside the existing `_LESSON_MISSION_LINKS`) links `core-concepts` to
+the real **HTTP Requests & Responses** lab (`websec-http`) and
+`hands-on-practice` to the real **Cookie Security Flags** lab
+(`websec-cookies`) — both already-existing, active, interactive labs in
+the `web-security` lab category, matched by actual content rather than
+one generic "web-fundamentals" lab guess. `lesson.html` gained one new
+conditional block (`practice.lab_slug` → a button to
+`labs.detail`), additive only — the existing `show_terminal`/
+`mission_slug` blocks are unchanged. `introduction` gets no lab link, by
+design: it's a URL/architecture overview with no hands-on lab
+counterpart yet. The remaining `web-fundamentals` lab-mapping candidate
+from the audited inventory, `websec-sessions` (Session Fixation), is
+left unlinked — it fits session *attacks*, which this module
+deliberately does not teach yet (see below).
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass, as topics for a possible future
+module or lesson expansion:
+
+- **HTML/CSS/JavaScript as their own dedicated lessons** — the driving
+  spec explicitly warns against turning this module into "a full
+  frontend-development course." Client-side vs. server-side is taught
+  conceptually (Introduction, Hands-on Practice), and the DOM/JavaScript
+  execution model is deferred entirely — `web-fundamentals` has no
+  lesson slot for it, and XSS Fundamentals (already real content, gated
+  behind Burp Suite in the Intermediate track) is where DOM-based
+  concerns actually get taught in this platform today.
+- **REST as its own theory lesson** — resources/endpoints/statelessness
+  are introduced inline in the APIs section (Hands-on Practice §8)
+  rather than as a separate theoretical treatment, per the driving
+  spec's own instruction to avoid "unnecessary theoretical complexity."
+- **Session attacks** (fixation, hijacking) — the *mechanism* (Set-
+  Cookie/Cookie, what a session identifier actually is) is taught in
+  depth; deliberately stops short of teaching the attacks themselves,
+  consistent with "understanding comes first." The real `websec-sessions`
+  (Session Fixation) lab exists and is ready to attach once a later
+  module teaches session attacks explicitly.
+- **A dedicated forms/HTML-forms lesson** — form submission is taught
+  through its HTTP consequence (the `application/x-www-form-urlencoded`
+  body in Core Concepts §7, and the real login form in Hands-on
+  Practice §4), not through HTML tag syntax.
+- **WebSockets, HTTP/2, HTTP/3** — out of scope; this module covers
+  HTTP/1.1 request/response semantics only, matching what the terminal
+  simulator (`app/core/terminal/web.py`) actually implements.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Web Security
+content pass (`burp-suite`, `owasp-top-10`), per the explicit instruction
+against inventing curriculum.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -613,12 +725,13 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **87 of 96 lessons have no real content** (94 at the time of
-   YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4). All 3 lessons
-   each of `python-programming` (YC-036.3), `linux-fundamentals`
-   (YC-036.4), and `computer-networking` (YC-036.5) have genuine
-   Markdown content; every other `content_path` resolves to nothing and
-   renders "This lesson is coming soon." This is the single largest
+3. **84 of 96 lessons have no real content** (94 at the time of
+   YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
+   YC-036.5). All 3 lessons each of `python-programming` (YC-036.3),
+   `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5), and
+   `web-fundamentals` (YC-036.6) have genuine Markdown content; every
+   other `content_path` resolves to nothing and renders "This lesson is
+   coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
    three modules — tracked here for whoever picks up the next module's
    lessons.

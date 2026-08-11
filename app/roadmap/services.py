@@ -338,25 +338,66 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "networking-fundamentals",
         "mission_title": "Networking Fundamentals",
     },
+    # web-fundamentals (YC-036.6): same reasoning as computer-networking —
+    # the free-practice terminal's bare sandbox never attaches a simulated
+    # web app (`shell.web_lab` is only ever set by the mission runner, see
+    # `app/core/missions/mission_runner.py:_attach_web_lab`), so `open`/
+    # `headers`/`cookies`/`response` (everything this module teaches) only
+    # work inside a real mission. Unlike computer-networking, all three
+    # lessons here use those commands directly (including core-concepts'
+    # Challenge exercise), so all three link to the mission.
+    ("web-fundamentals", "introduction"): {
+        "mission_slug": "web-fundamentals",
+        "mission_title": "Web Fundamentals",
+    },
+    ("web-fundamentals", "core-concepts"): {
+        "mission_slug": "web-fundamentals",
+        "mission_title": "Web Fundamentals",
+    },
+    ("web-fundamentals", "hands-on-practice"): {
+        "mission_slug": "web-fundamentals",
+        "mission_title": "Web Fundamentals",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
 # even lessons with no scored mission attached to them specifically. Only
 # for modules whose taught commands work in the bare, network-less
 # sandbox (filesystem commands) — see the note above for why
-# computer-networking is deliberately excluded.
+# computer-networking (and, as of YC-036.6, web-fundamentals) are
+# deliberately excluded.
 _TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals"}
+
+# Lesson -> real interactive lab cross-links (YC-036.6). Deliberately
+# scoped and additive, same discipline as _LESSON_MISSION_LINKS: only
+# real, existing lab slugs (see docs/ROADMAP_LOCK.md "Labs — audited
+# inventory"), picked because their actual content matches what that
+# specific lesson teaches — not one generic lab per module. Previous
+# tickets (YC-036.4/.5) documented lab-linking as a real gap left for
+# whoever picked up the next module; this is that pickup, still scoped
+# to the one module it was written for rather than guessed for all 32.
+_LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
+    ("web-fundamentals", "core-concepts"): {
+        "lab_slug": "websec-http",
+        "lab_title": "HTTP Requests & Responses",
+    },
+    ("web-fundamentals", "hands-on-practice"): {
+        "lab_slug": "websec-cookies",
+        "lab_title": "Cookie Security Flags",
+    },
+}
 
 
 def _lesson_practice_links(module_slug: str, lesson_slug: str) -> dict[str, Any]:
-    """Terminal/mission cross-links for a lesson, or {} if none apply.
+    """Terminal/mission/lab cross-links for a lesson, or {} if none apply.
 
-    The two link kinds are independent: a module's free-practice terminal
-    link (``show_terminal``) and a lesson's scored-mission link are looked
-    up separately, since a module may have real mission reinforcement
-    (computer-networking) without its taught commands working in the
-    bare, network-less free-practice sandbox (see the module-level notes
-    above `_LESSON_MISSION_LINKS` / `_TERMINAL_PRACTICE_MODULES`).
+    The link kinds are independent: a module's free-practice terminal link
+    (``show_terminal``), a lesson's scored-mission link, and a lesson's
+    reinforcing-lab link are looked up separately, since a module may have
+    real mission reinforcement (computer-networking, web-fundamentals)
+    without its taught commands working in the bare, network-less
+    free-practice sandbox (see the module-level notes above
+    `_LESSON_MISSION_LINKS` / `_TERMINAL_PRACTICE_MODULES`).
     """
     links: dict[str, Any] = {}
     if module_slug in _TERMINAL_PRACTICE_MODULES:
@@ -365,6 +406,10 @@ def _lesson_practice_links(module_slug: str, lesson_slug: str) -> dict[str, Any]
     if mission is not None:
         links["mission_slug"] = mission["mission_slug"]
         links["mission_title"] = mission["mission_title"]
+    lab = _LESSON_LAB_LINKS.get((module_slug, lesson_slug))
+    if lab is not None:
+        links["lab_slug"] = lab["lab_slug"]
+        links["lab_title"] = lab["lab_title"]
     return links
 
 

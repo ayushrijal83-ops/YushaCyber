@@ -81,6 +81,10 @@
                     <a href="{{ url_for('terminal.mission_page', slug=practice.mission_slug) }}"
                        class="btn btn--primary btn--sm" target="_blank" rel="noopener">🎯 {{ practice.mission_title }} Mission</a>
                     {% endif %}
+                    {% if practice.lab_slug %}
+                    <a href="{{ url_for('labs.detail', slug=practice.lab_slug) }}"
+                       class="btn btn--outline btn--sm" target="_blank" rel="noopener">🧪 {{ practice.lab_title }} Lab</a>
+                    {% endif %}
                 </div>
             </section>
             {% endif %}
