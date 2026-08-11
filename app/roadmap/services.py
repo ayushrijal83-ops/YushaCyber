@@ -358,6 +358,21 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "web-fundamentals",
         "mission_title": "Web Fundamentals",
     },
+    # operating-systems (YC-036.9): the real Linux Permissions mission
+    # (`whoami`/`id`/`groups`/`ls -l`/`chmod`/`chown` against a realistic
+    # filesystem) was already real but unused by any lesson anywhere —
+    # a genuine match for this lesson's identity/permissions material
+    # (Section 4), not a guessed link. Scoped to hands-on-practice only:
+    # introduction also teaches real bare-sandbox commands (`whoami`,
+    # `uname`) so it gets the free-practice terminal link below, but
+    # core-concepts is entirely conceptual (process/thread/memory theory,
+    # no commands at all) and correctly gets neither a mission nor a lab
+    # CTA — no practice link where there's nothing to practice, same
+    # discipline as computer-networking's core-concepts.
+    ("operating-systems", "hands-on-practice"): {
+        "mission_slug": "linux-permissions",
+        "mission_title": "Linux Permissions",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
@@ -365,8 +380,11 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
 # for modules whose taught commands work in the bare, network-less
 # sandbox (filesystem commands) — see the note above for why
 # computer-networking (and, as of YC-036.6, web-fundamentals) are
-# deliberately excluded.
-_TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals"}
+# deliberately excluded. operating-systems (YC-036.9) joins linux-
+# fundamentals here: `whoami`/`id`/`groups`/`uname`/`uname -a` (this
+# module's own commands, verified against app/core/terminal/commands.py)
+# all work in the bare sandbox with no mission/network attachment needed.
+_TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals", "operating-systems"}
 
 # Lesson -> real interactive lab cross-links (YC-036.6). Deliberately
 # scoped and additive, same discipline as _LESSON_MISSION_LINKS: only
@@ -384,6 +402,15 @@ _LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
     ("web-fundamentals", "hands-on-practice"): {
         "lab_slug": "websec-cookies",
         "lab_title": "Cookie Security Flags",
+    },
+    # operating-systems (YC-036.9): the real Processes lab (`ps`/`top`/
+    # `kill`/`jobs` against a simulated runaway process) reinforces this
+    # lesson's process-lifecycle material directly — matched by actual
+    # content, not a generic per-module guess. Not linked from
+    # introduction/core-concepts since neither teaches process commands.
+    ("operating-systems", "hands-on-practice"): {
+        "lab_slug": "linux-processes",
+        "lab_title": "Processes",
     },
 }
 

@@ -799,6 +799,108 @@ inventing curriculum.
 
 ---
 
+## Content Status — Operating Systems (YC-036.9)
+
+The seventh module with real, authored lesson content, and the first
+since `linux-fundamentals` (YC-036.4) to genuinely reuse existing
+lab/mission infrastructure rather than leave `practice` empty —
+`operating-systems` is module 6 of the Beginner category, next after
+`git-github` (YC-036.8) and before `cryptography-basics` (already
+real, YC-036.7).
+
+All 3 lessons were EMPTY (no content file at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | What an OS actually does as the control layer between applications and hardware; user space vs. kernel space and why the separation exists (security/stability/controlled hardware access); system calls, using a real file-read (`cat`) traced step by step; a first program-vs-process distinction, built directly on Linux Fundamentals' existing "program" definition | `app/content/roadmap/beginner/operating-systems/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | Program vs. process made concrete (browser tabs as separate processes, explicitly non-universal); the process lifecycle (Created/Ready/Running/Waiting/Terminated); scheduling, time slices, and context switching; threads vs. processes (shared memory as the key structural difference) and concurrency vs. parallelism; RAM vs. persistent storage as a durability distinction, not just "temporary vs. permanent"; virtual memory (address spaces, pages, page faults, swapping) with the explicit "not just using disk as RAM" correction; a Python Programming tie-in tracing a running `.py` script through every concept in the lesson | `app/content/roadmap/beginner/operating-systems/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Filesystems as an OS-managed resource (what `ls`/`cat` are actually asking the kernel to do, without re-teaching their syntax); permissions and identity as an OS-enforced security mechanism (`id`/`groups` against real, verified terminal output, tied to Linux Fundamentals' `chmod`); device drivers; networking from the OS's perspective (the kernel's network stack, tied to Computer Networking without repeating it); services/daemons; the boot process; an explicit "OS security together" section connecting every mechanism in the module to privilege escalation, malware analysis, endpoint security, and digital forensics later in this platform; a six-question capstone scenario forcing the student to trace processes/memory/permissions/network through one situation at once | `app/content/roadmap/beginner/operating-systems/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY**. Every terminal command
+example (`whoami`, `id`, `groups`, `uname`, `uname -a`) was verified
+against the actual implementation in
+`app/core/terminal/commands.py` before being written into the lesson
+— not invented output — the same discipline used for every prior
+content pass's platform-specific examples.
+
+This lowers the roadmap-wide "empty lessons" count from 78 to 75 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Lab and mission cross-links — real, existing, previously-unused resources
+
+Unlike Cryptography Basics (YC-036.7) and Git & GitHub (YC-036.8),
+this module has genuine, already-shipped infrastructure that matches
+its content and was sitting completely unlinked from any lesson:
+
+- **`linux-processes` lab** ("Processes" — `ps`/`top`/`kill`/`jobs`
+  against a simulated runaway process) reinforces `hands-on-practice`
+  §10's process-lifecycle material directly.
+- **`linux-permissions` mission** ("Linux Permissions" —
+  `ls -l`/`whoami`/`id`/`groups`/`chmod`/`chown` against a realistic
+  filesystem) reinforces `hands-on-practice` §4's identity/permissions
+  material directly.
+
+Both are added to `_LESSON_MISSION_LINKS`/`_LESSON_LAB_LINKS`
+(`app/roadmap/services.py`), scoped to `hands-on-practice` only —
+neither `introduction` nor `core-concepts` teaches process or
+permission *commands*, so neither gets a mission/lab CTA (same
+discipline as Computer Networking's `core-concepts`, which teaches no
+commands and gets no practice link at all).
+
+`operating-systems` also joins `_TERMINAL_PRACTICE_MODULES` alongside
+`linux-fundamentals`: `whoami`, `uname`, `uname -a`, `id`, and `groups`
+(this module's own commands, verified for real against the terminal's
+`@cmd` registry) all work in the bare, network-less free-practice
+sandbox with no mission attachment required. This is a module-level
+flag in the existing implementation (matching how `linux-fundamentals`
+already applies it uniformly), so it appears on all three lessons —
+including `core-concepts`, which itself teaches no commands directly.
+This is a deliberate, documented tradeoff rather than an oversight:
+the CTA is a standing "practice this module's commands here" invitation
+tied to the module as a whole, not a claim that the specific lesson
+you're reading uses the terminal, and the architecture has no
+per-lesson granularity for this particular flag today — a real,
+scoped gap for whoever revisits `_lesson_practice_links` next.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **CPU scheduling algorithms** (round-robin, priority queues, etc.) —
+  the *concept* of scheduling and time-slicing is taught in depth;
+  specific algorithms are explicitly out of scope for a beginner
+  module, per the driving ticket's own instruction not to overload
+  beginners with scheduler internals.
+- **A dedicated OS/process-inspection lab or mission built specifically
+  for this module** — the real `linux-processes` lab and
+  `linux-permissions` mission are strong, genuine matches and are now
+  linked, but neither was purpose-built for this lesson's exact
+  scenario (Section 11's browser/terminal/download/Python capstone has
+  no matching simulated environment). Documented as a possible future
+  enhancement, not built here.
+- **Filesystem types, journaling, or on-disk data structures** —
+  Section 3 explains the filesystem as an OS-managed resource
+  conceptually; it deliberately does not go into ext4/NTFS-level
+  implementation detail, consistent with "do not repeat the entire
+  Linux filesystem lesson."
+- **BIOS/UEFI internals** — the boot process (Section 8) stops at the
+  conceptual firmware → bootloader → kernel → services → login chain,
+  per the driving ticket's explicit instruction not to overcomplicate
+  this.
+- **Windows- or macOS-specific OS internals** — every concept is
+  taught generally (true of any general-purpose OS) with Linux as the
+  concrete, practicable example throughout, consistent with every
+  other module on this platform.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Beginner
+content pass (`virtualization` is the one remaining EMPTY Beginner
+module) or a future platform-infrastructure ticket, per the explicit
+instruction against inventing curriculum.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -859,7 +961,7 @@ inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 78/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), and Git & GitHub (YC-036.8) — 18 lessons total — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 75/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), and Operating Systems (YC-036.9) — 21 lessons total — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -917,19 +1019,21 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **78 of 96 lessons have no real content** (94 at the time of
+3. **75 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
-   YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8).
+   YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
+   75 after YC-036.9).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
-   `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7), and
-   `git-github` (YC-036.8) have genuine Markdown content; every
+   `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
+   `git-github` (YC-036.8), and `operating-systems` (YC-036.9) have
+   genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   six modules — tracked here for whoever picks up the next module's
-   lessons (`operating-systems` or `virtualization` are the two
-   remaining EMPTY Beginner modules).
+   seven modules — tracked here for whoever picks up the next module's
+   lessons (`virtualization` is the one remaining EMPTY Beginner
+   module).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw
    `<script>alert(1)</script>` payload (confirmed harmless at the time:
