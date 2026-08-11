@@ -714,6 +714,91 @@ inventing curriculum.
 
 ---
 
+## Content Status — Git & GitHub (YC-036.8)
+
+The sixth module with real, authored lesson content. Unlike
+Cryptography Basics (YC-036.7), this ticket had no naming ambiguity —
+`git-github` ("Git & GitHub") is module 5 of the Beginner category,
+next in `display_order` after `web-fundamentals` (YC-036.6) and
+before `operating-systems`, and was the lowest-order of the three
+remaining EMPTY Beginner modules (`git-github`, `operating-systems`,
+`virtualization`) at the time this ticket was picked up.
+
+All 3 lessons were EMPTY (no content file at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | The actual problem version control solves; the precise Git-vs-GitHub distinction (Git is standalone, offline software; GitHub is one hosting service built on it); the three-area mental model (working directory → staging area → repository); `git init`/`git status`/`git add`/`git commit` taught to the full command standard with real, accurate output | `app/content/roadmap/beginner/git-github/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | `git log`/`git log --oneline`; `git diff` vs. `git diff --staged` (the working-directory-vs-staged vs. staged-vs-last-commit distinction); branches as movable commit pointers, `git branch`/`git switch`/`git switch -c`; fast-forward merges; merge conflicts and the `<<<<<<<`/`=======`/`>>>>>>>` marker syntax; `.gitignore`; remotes (`git remote add`, `origin`) as the exact mechanism connecting to GitHub | `app/content/roadmap/beginner/git-github/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | `git clone` (and why it copies entire history, not just current files); what GitHub adds on top of Git specifically (README, Issues, forks, pull requests — none of them Git features); the full fork → clone → branch → commit → push → pull-request → review → merge workflow; `git push`; a dedicated security section on why a committed secret must be treated as compromised the instant it's pushed regardless of a later "fix" commit, why `.gitignore` can't retroactively help, why a private repository doesn't change the core risk, and the real fix (rotate the credential at its source) — connecting directly back to Cybersecurity Fundamentals' asset/credential framing; a capstone scenario (two students, a pull request, and an accidentally-committed password) | `app/content/roadmap/beginner/git-github/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the five prior content passes. Every command's output (`git
+init`, `git status`, `git add`, `git commit`, `git log`, `git diff`,
+`git branch`/`git switch`, `git merge`, `git remote -v`, `git clone`,
+`git push`) is real, accurate, standard Git CLI output — verified
+against actual Git behavior rather than invented, since (see below)
+this platform has no Git simulator to capture output from directly,
+unlike prior modules that quoted their platform's real simulator
+verbatim.
+
+This lowers the roadmap-wide "empty lessons" count from 81 to 78 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### No lab or mission cross-link — the terminal has no `git` command
+
+Audited directly against `app/core/terminal/commands.py`'s `@cmd`
+registry: there is no `git` command implemented anywhere in this
+platform's terminal simulator (the registry covers filesystem,
+networking, packet-capture, and HTTP commands only — see the file's
+full `@cmd(...)` list). Neither the free-practice terminal nor any
+terminal mission can run a single command this module teaches. This
+is a genuine, larger gap than Cryptography Basics' — Web Fundamentals,
+Computer Networking, and Linux Fundamentals could all be practiced
+on-platform because a real simulator already existed for each; Git
+has none. Rather than inventing a fake `git` terminal command or
+linking to an unrelated lab, `hands-on-practice` §8 documents this
+explicitly and directs students to their own machine's real Git
+installation — every command in this module is standard Git with no
+platform-specific behavior, so this loses nothing in accuracy, only
+the in-browser convenience prior modules had. `_LESSON_MISSION_LINKS` /
+`_LESSON_LAB_LINKS` in `app/roadmap/services.py` are **not** modified
+by this ticket — `git-github` resolves to an empty `practice` context,
+exactly as it did before. CyberMentor context needed no change: the
+generic `current_lab` hook (YC-036.4) applies here unchanged.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **A Git terminal simulation** — the real gap described above. Would
+  need its own in-memory repository model (commits, branches, a
+  working-directory/staging-area distinction) mirroring
+  `app/core/terminal/web.py`'s pattern for HTTP — a genuinely
+  substantial addition, not attempted here per the explicit
+  instruction against building new infrastructure in a content-only
+  ticket.
+- **Rebasing, cherry-picking, stashing, tags** — real Git features,
+  intentionally deferred as beyond a beginner module's scope; `merge`
+  is the only history-combining operation taught.
+- **GitHub Actions / CI** — mentioned by name once (as an example of
+  what GitHub adds beyond Git) but not taught; belongs closer to a
+  DevOps-adjacent module this roadmap doesn't currently have.
+- **Resolving a merge conflict end-to-end as a hands-on exercise** —
+  the marker syntax and reasoning are taught in depth (Core Concepts
+  §6); actually triggering and resolving one requires two real
+  branches with real conflicting edits, which the missing terminal
+  simulation (above) would make far more teachable than prose alone.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Beginner
+content pass (`operating-systems`, `virtualization`) or a future
+platform-infrastructure ticket, per the explicit instruction against
+inventing curriculum.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -774,7 +859,7 @@ inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 87/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), and Computer Networking (YC-036.5) — 9 lessons total — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 78/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), and Git & GitHub (YC-036.8) — 18 lessons total — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -832,16 +917,19 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **84 of 96 lessons have no real content** (94 at the time of
+3. **78 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
-   YC-036.5). All 3 lessons each of `python-programming` (YC-036.3),
-   `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5), and
-   `web-fundamentals` (YC-036.6) have genuine Markdown content; every
+   YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8).
+   All 3 lessons each of `python-programming` (YC-036.3),
+   `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
+   `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7), and
+   `git-github` (YC-036.8) have genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   three modules — tracked here for whoever picks up the next module's
-   lessons.
+   six modules — tracked here for whoever picks up the next module's
+   lessons (`operating-systems` or `virtualization` are the two
+   remaining EMPTY Beginner modules).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw
    `<script>alert(1)</script>` payload (confirmed harmless at the time:

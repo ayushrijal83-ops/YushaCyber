@@ -4,15 +4,15 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (81 of 96
-lessons still empty as of YC-036.7, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (78 of 96
+lessons still empty as of YC-036.8, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
 (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals
-(YC-036.6), and Cryptography Basics / Cybersecurity Fundamentals
-(YC-036.7) are the first real content in the roadmap; this file also
-pins that all five stay real.
+(YC-036.6), Cryptography Basics / Cybersecurity Fundamentals
+(YC-036.7), and Git & GitHub (YC-036.8) are the first real content in
+the roadmap; this file also pins that all six stay real.
 """
 
 from __future__ import annotations
@@ -297,10 +297,11 @@ class TestContentBaseline:
             # 84 as of YC-036.6: Web Fundamentals' all 3 lessons were
             # EMPTY (no content file at all). Then 84 -> 81 as of
             # YC-036.7: Cryptography Basics' all 3 lessons were EMPTY.
-            # See TestNetworkingFundamentalsContent /
-            # TestWebFundamentalsContent / TestCybersecurityFundamentalsContent
-            # below.
-            assert empty == 81
+            # Then 81 -> 78 as of YC-036.8: Git & GitHub's all 3 lessons
+            # were EMPTY. See TestNetworkingFundamentalsContent /
+            # TestWebFundamentalsContent / TestCybersecurityFundamentalsContent /
+            # TestGitGithubContent below.
+            assert empty == 78
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -1265,6 +1266,160 @@ class TestCybersecurityFundamentalsContent:
             r = c.get("/roadmap/cryptography-basics/introduction/")
             body = r.data.decode("utf-8")
             assert 'data-mentor-lab="Cryptography Basics' in body
+            assert "Introduction" in body
+
+
+# ═══════════════════════════════════════════
+# Git & GitHub lesson content (YC-036.8)
+# ═══════════════════════════════════════════
+class TestGitGithubContent:
+    """Guards the real content written for YC-036.8 — not just that a
+    file exists, but that each lesson still contains its actual taught
+    material and isn't quietly regressed back to a stub. Like
+    Cryptography Basics (YC-036.7), no lab or mission genuinely
+    reinforces this module: the platform's terminal simulator has no
+    `git` command (see app/core/terminal/commands.py's @cmd registry),
+    so the practice context is expected to stay empty rather than
+    gaining a fabricated link."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "Untracked files", "staging area", "root-commit", "Git is a program",
+        ],
+        "core-concepts": [
+            "git diff --staged", "Fast-forward", "merge conflict", ".gitignore",
+        ],
+        "hands-on-practice": [
+            "git clone", "pull request", "rotating the credential", "feature-branch",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(f"roadmap/beginner/git-github/{slug}.md")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="git-github").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2."""
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="git-github").first()
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [l.slug for l in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [l.xp_reward for l in lessons] == [25, 50, 100]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_no_fabricated_lab_or_mission_links(self, app, student):
+        """No real lab or mission exists for Git/GitHub on this
+        platform (no `git` terminal command, no matching lab category)
+        — the practice context must stay empty rather than pointing at
+        a guessed/unrelated lab or mission."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                ctx = get_lesson_view_context(student_user, "git-github", slug)
+                assert ctx is not None
+                assert ctx["practice"] == {}
+
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        """introduction is a preview and always reachable; core-concepts
+        and hands-on-practice require the module unlocked (this is the
+        5th module in the Beginner category, not auto-unlocked)."""
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="git-github").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/git-github/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
+
+    def test_cybermentor_receives_lesson_context(self, app, student):
+        uname, _uid = student
+        with app.app_context():
+            from app.auth.models import User
+            from app.extensions import db
+            from app.roadmap.models import RoadmapModule, UserModuleProgress
+            module = RoadmapModule.query.filter_by(slug="git-github").first()
+            u = User.query.filter_by(username=uname).first()
+            row = UserModuleProgress.query.filter_by(user_id=u.id, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=u.id, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            r = c.get("/roadmap/git-github/introduction/")
+            body = r.data.decode("utf-8")
+            # Jinja auto-escapes "&" to "&amp;" in the rendered attribute.
+            assert 'data-mentor-lab="Git &amp; GitHub' in body
             assert "Introduction" in body
 
 
