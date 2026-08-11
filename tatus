@@ -1,0 +1,75 @@
+[33mcommit 531caa2c159396ece3dfeaf1d83997cc0a78dca0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author:     ayushrijal83-ops <ayushrijal83@gmail.com>
+AuthorDate: Tue Aug 11 12:07:04 2026 +0545
+Commit:     ayushrijal83-ops <ayushrijal83@gmail.com>
+CommitDate: Tue Aug 11 12:07:04 2026 +0545
+
+    YC-036.6: Build Real Web Fundamentals Content
+    
+    Replace the Web Fundamentals module's three empty lessons with genuine,
+    technically accurate content built around the request/response
+    communication flow rather than definitions: URL anatomy and which parts
+    the server actually sees, the DNS -> TCP -> TLS -> HTTP chain built
+    directly on Computer Networking's DNS/TCP content, client/server vs.
+    browser/web server, HTTP request/response format, methods and their
+    conventional semantics, status-code families with a worked
+    401-vs-403-vs-404 comparison, headers, request/response bodies
+    (form-encoded vs. JSON), cookies and the Set-Cookie/Cookie session flow,
+    cookie security attributes, authentication vs. authorization made
+    concrete with real evidence, why authorization must be server-side, JSON
+    APIs including two different real auth mechanisms (cookie session vs.
+    bearer token) on the same server, HTTPS/TLS explained conceptually, and
+    a malformed-JSON debugging exercise.
+    
+    Every request/response example was captured by actually running
+    app/core/terminal/web.py's WebApp simulator (build_request +
+    WebApp.handle) and copying its real output verbatim - not invented
+    example data. The simulated site (cybershop.training) is the same one
+    the Web Fundamentals and HTTP Deep Dive terminal missions, and every
+    later websec-* interactive lab, already use.
+    
+    Wires lesson -> mission cross-links (all three lessons link to the real
+    web-fundamentals terminal mission - core-concepts' Challenge exercise
+    uses the open/headers terminal commands directly, unlike Networking's
+    core-concepts, so it needed the link too) but withholds the
+    free-practice terminal link this module's lessons would otherwise get:
+    the bare /terminal sandbox never attaches a simulated web app to the
+    shell (only MissionRunner._attach_web_lab does), so open/headers/
+    cookies/response would fail there.
+    
+    New in this ticket: lesson -> lab cross-links, additive alongside the
+    existing mission links. YC-036.4/.5 deliberately scoped to missions only
+    and documented lab-linking as a real gap for whoever picked up the next
+    module. Adds a small _LESSON_LAB_LINKS mapping (app/roadmap/services.py)
+    and one new conditional block in lesson.html: core-concepts links to the
+    real websec-http (HTTP Requests & Responses) lab, hands-on-practice
+    links to the real websec-cookies (Cookie Security Flags) lab - both
+    matched by actual content, not a generic guess.
+    
+    Roadmap structure, ordering, and lock (v1.0, YC-036.2) are unchanged per
+    the freeze - only lesson content and additive, scoped cross-links.
+    
+    Adds TestWebFundamentalsContent to tests/test_roadmap_lock.py (mirrors
+    TestNetworkingFundamentalsContent's discipline: real-content checks,
+    taught-term checks, mission/lab link scoping, real-route checks, XP/order
+    invariants, HTTP-level page renders, CyberMentor context) and makes the
+    shared `app` fixture self-seed lab rows by name (seed_labs(), guarded by
+    an idempotency check) so this test file no longer silently depends on
+    another test module's collection order for its lab-link assertions.
+    Updates docs/ROADMAP_LOCK.md's content-status tracking (87 -> 84 empty
+    lessons) plus a documented list of topics intentionally deferred to a
+    future pass (dedicated HTML/CSS/JS lessons, REST-as-theory, session
+    attacks, WebSockets/HTTP2/HTTP3).
+    
+    Verified via full pytest suite (1705 passed x2) and ruff (no new
+    violations - confirmed by diffing against the parent commit's version of
+    every touched file). Manually walked all three lessons in-browser:
+    content renders with no placeholder text, mission/lab links resolve to
+    real routes, CyberMentor receives "Web Fundamentals — <lesson>" context,
+    lesson completion awards the correct XP once (no duplication on
+    refresh), and completing all three lessons correctly awarded the +175
+    module bonus exactly once and unlocked the next module (Git & GitHub).
+    
+    Local commit only - not pushed to origin.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
