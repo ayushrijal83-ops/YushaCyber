@@ -607,6 +607,113 @@ against inventing curriculum.
 
 ---
 
+## Content Status — Cryptography Basics / Cybersecurity Fundamentals (YC-036.7)
+
+The fifth module with real, authored lesson content, and the first
+naming mismatch worth recording explicitly: the driving ticket for this
+pass was titled "Cybersecurity Fundamentals," but **no module by that
+name exists in the locked curriculum** — the Beginner category has no
+"misc security fundamentals" slot (Rule 2 above forbids inventing one).
+The closest real match is `cryptography-basics` (**Cryptography
+Basics**), which the Track-letter mapping table above already assigns
+to **F — Cybersecurity Fundamentals**. Rather than inventing a ninth
+Beginner module (a roadmap-structure change, forbidden by Rules 48/49)
+or renaming the existing one (forbidden by Rule "do not rename lessons
+unnecessarily"), this ticket targets `cryptography-basics` as-is,
+unchanged in title/slug/order, and uses its 3 real lesson slots to
+teach both the general security mental model the ticket asked for
+(CIA triad, Asset → Threat → Vulnerability → Risk → Control →
+Detection → Response → Recovery, controls, least privilege, defense in
+depth, ethics/authorization) *and* the module's own literal subject —
+cryptography (hashing vs. encryption vs. encoding, password security,
+digital signatures, certificates) — concentrated into `hands-on-practice`
+alongside a compressed treatment of malware, phishing, incident
+response, and backups. This is a scope decision, not a curriculum
+change — flagged here per Rule 49 ("if a curriculum integrity problem
+is found: STOP and report it") rather than silently resolved.
+
+All 3 lessons were EMPTY (no content file at all, same starting state
+as Web Fundamentals):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | What cybersecurity means and how it relates to information/computer security and the AppSec/NetSec/OpSec specialties; the CIA triad taught through a medical-record scenario where one incident can break more than one property; the full Asset → Threat → Vulnerability → Risk → Control → Detection → Response → Recovery reasoning chain, introduced as the module's throughline; the eight-question security mindset | `app/content/roadmap/beginner/cryptography-basics/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | Asset categories; threats vs. threat actors (motivation/capability/resources/target/opportunity, explicitly not "every threat is a hacker"); vulnerability vs. exploit vs. attack vs. risk kept as four distinct terms via one worked example; risk as likelihood + impact compared across two systems sharing the same vulnerability; attack surface; authentication/authorization/accounting (AAA) reusing Web Fundamentals' real 401-vs-403 `/admin` example verbatim; security controls by category (administrative/technical/physical) and function (preventive/detective/corrective), with explicit overlap; defense in depth and least privilege, the latter tied directly back to Linux Fundamentals' `chmod 777` warning | `app/content/roadmap/beginner/cryptography-basics/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Hashing vs. encryption vs. encoding (comparison table + why encoding is not security); password security (reuse/credential stuffing, managers, MFA, salting against rainbow tables); digital signatures and certificates taught correctly (not "encryption with a private key" — hash + asymmetric keys, authentication/integrity/non-repudiation as three distinct guarantees) and tied to Web Fundamentals' TLS/certificate content; malware by defining behavior (virus/worm/trojan/ransomware in depth, spyware/botnet/rootkit briefly); phishing and social engineering (why it works, real red flags, layered defenses, no operational templates); logs → detection → the 6-phase incident-response lifecycle via a fictional account-compromise walkthrough; backups as a control, with the "having backups" vs. "having *recoverable* backups" distinction; ethics and authorization as a hard line, stated explicitly ahead of every offensive-security module later in this platform; a full capstone scenario (**YushaBank**) that walks an unfamiliar system through the entire eight-link chain, Socratic (student reasons first) then worked | `app/content/roadmap/beginner/cryptography-basics/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the four prior content passes. Every cross-reference to another
+module's content (the `/admin` 401/403 pair, the `chmod 777` warning,
+TLS's three guarantees) quotes or matches that module's actual, already-
+written lesson text rather than inventing a new example — the same
+discipline Web Fundamentals used for its own Computer Networking
+references.
+
+This lowers the roadmap-wide "empty lessons" count from 84 to 81 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### No lab or mission cross-link — a real, documented gap, not an oversight
+
+Unlike Linux Fundamentals, Computer Networking, and Web Fundamentals,
+**no lesson in this module links to a lab or terminal mission.** The
+audited inventory above has no lab category or mission whose actual
+content matches general security-fundamentals/cryptography material —
+the closest candidates (`soc-*` labs, `digital-forensics` labs) belong
+to Blue Team/SOC territory this module doesn't teach, and inventing a
+link to a mismatched lab would violate the explicit "do not create fake
+links" rule. `_LESSON_MISSION_LINKS` / `_LESSON_LAB_LINKS` in
+`app/roadmap/services.py` are therefore **not** modified by this
+ticket — `cryptography-basics` correctly continues to resolve to an
+empty `practice` context, exactly as it did before, and exactly as the
+pre-existing Lab/Mission Mapping tables above already documented
+("None yet"). CyberMentor context still works with no change needed:
+the `current_lab` hook wired generically in YC-036.4 applies to every
+roadmap lesson page, this module included.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass, as topics for a possible future
+module or lesson expansion — the driving ticket's own list of 56
+sections could not fit 3 lesson slots without becoming a shallow survey
+instead of the connected mental model the ticket explicitly asked for:
+
+- **Zero trust** — not taught; it's a real architecture principle but
+  adds a fourth major topic to an already-dense `core-concepts` lesson
+  without a natural home yet.
+- **Threat modeling as a named, formal process** (STRIDE-style or
+  otherwise) — the *reasoning* (Asset → Threat → Vulnerability → Risk)
+  is taught throughout; a dedicated step-by-step threat-modeling
+  methodology lesson is not.
+- **Security by design** as its own named section — implicit in the
+  "control comes after risk, not before" framing (Introduction §5,
+  Core Concepts throughout) but never named as a standalone principle.
+- **Blue Team vs. Red Team vs. Purple Team** — not taught; this
+  platform's real SOC/Blue Team labs (`soc-simulator`,
+  `digital-forensics`) exist with no roadmap module yet (Track J,
+  already documented above) — this vocabulary fits better once that
+  track gets a lesson slot than bolted onto a cryptography module.
+- **Security policies** (acceptable-use, formal password policy
+  documents) as their own topic — password *security* is taught in
+  depth; the enterprise-policy-document framing of it is not.
+- **Cryptography depth beyond concepts** — symmetric vs. asymmetric
+  algorithms by name, key exchange, cipher modes — deliberately out of
+  scope, consistent with the driving ticket's own instruction to teach
+  "concepts, not advanced cryptographic implementation."
+- **A formal Quiz-engine knowledge-check** — this module's Knowledge
+  Check sections are markdown, embedded in the lesson content itself,
+  matching the pattern of every prior content pass; the separate `Quiz`
+  DB-row system (Known Issues #4, still placeholder/gameable
+  platform-wide) is unchanged, consistent with every prior ticket in
+  this series leaving that specific backlog item untouched.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Beginner or
+Intermediate content pass, per the explicit instruction against
+inventing curriculum.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
