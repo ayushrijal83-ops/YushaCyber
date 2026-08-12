@@ -277,7 +277,7 @@ fabricated link.
 | `git-github` | None yet |
 | `operating-systems` | None yet |
 | `cryptography-basics` | None yet |
-| `virtualization` | None yet (`cloud-security` category is adjacent, not a direct match) |
+| `virtualization` | `cloud-orientation` (category `cloud-security`) — **partial match, linked in YC-037.0**: its `list-vms`/`get-vm`/`network` commands are the only place on this platform showing real virtual machines (state, size, subnet, public IP) and a virtual network; its IAM/storage/`audit` objectives go beyond this module into cloud security proper. The lesson says so explicitly rather than overselling the fit. `cloud-open-ssh` is adjacent (exposed VM management port) but not linked — see Content Status below |
 | `nmap` | `nmap-basics`, `nmap-services`, `nmap-advanced` (category `nmap`) |
 | `wireshark` | `wireshark-basics`, `wireshark-protocols`, `wireshark-advanced` (category `wireshark`) |
 | `burp-suite` | `websec-http`, `websec-headers` (proxy-adjacent; no dedicated Burp lab) |
@@ -901,6 +901,133 @@ instruction against inventing curriculum.
 
 ---
 
+## Content Status — Virtualization (YC-037.0)
+
+The eighth module with real, authored lesson content, and the one that
+**completes the Beginner category** — `virtualization` is module 8 of
+Beginner, last in `display_order`, and was the single remaining EMPTY
+Beginner module after YC-036.9. All 24 Beginner lessons now have real
+content.
+
+All 3 lessons were EMPTY (`app/content/roadmap/beginner/virtualization/`
+did not exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | The problem virtualization solves (waste/fragility/inflexibility/irreversibility of one-OS-per-machine); virtualization defined by what software *presents* rather than by a product name; physical vs. virtual resources as a worked table; what a VM actually is and what physically exists of one when powered off (files — chiefly the virtual disk); the hypervisor introduced by analogy to the OS definition from YC-036.9; host vs. guest with four concrete consequences of confusing them; the physical hardware → hypervisor → VM → guest OS → applications stack read as a chain of requests, traced through a real guest file write | `app/content/roadmap/beginner/virtualization/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | Type 1 vs. Type 2 hypervisors with a real tradeoff table and an explicit "neither is universally better" plus a caution that the two-type model blurs in practice (Hyper-V's root partition, KVM-in-kernel); virtual hardware as configuration; vCPUs and the two-layer scheduling model, with the "1 vCPU = 1 physical core" oversimplification corrected head-on; memory virtualization as a *second* translation stacked on the guest's own virtual memory (guest virtual → guest physical → host physical), tied directly to OS Core Concepts §8; virtual disks (image formats, fixed vs. thin provisioning, persistence); virtual networking (NAT/bridged/host-only) built on Computer Networking's own NAT/addressing material; allocation, overcommitment and per-resource contention behaviour; a deliberately two-sided performance section (hardware-assisted virtualization, paravirtualized drivers) that neither claims virtualization is free nor that it is always slow; the VM lifecycle | `app/content/roadmap/beginner/virtualization/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Snapshots and the snapshot-chain mechanism; a dedicated section on why a snapshot is **not** a backup (7-row comparison, three consequences); images/templates, reproducibility, image provenance and baked-in secrets; an explicitly honest isolation section (strong boundary, four named dependencies, not a guarantee); VMs vs. containers built from the one structural difference (own kernel vs. shared kernel), including why Linux containers on Windows/macOS run inside a Linux VM; the cybersecurity connection in both directions — what virtualization enables (labs, CTFs, malware research, vulnerable machines, cloud) and what it risks (hypervisor vulnerabilities, VM escape *as a concept only*, insecure configuration, exposed management interfaces, weak credentials, excessive allocation, unpatched guests/hosts); Linux as host and as guest, with the "commands act on the guest" habit; the guest process → guest OS → virtual devices → hypervisor → physical resources trace tying the whole module back to YC-036.9; two practical exercises (a student's own VM settings, and the real Cloud Basics lab with verbatim simulator output); a 8-question laptop-lab design scenario (16 GB / 8 threads / 512 GB, Kali + vulnerable Ubuntu on a Windows host) with no single "correct" configuration handed out | `app/content/roadmap/beginner/virtualization/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the seven prior content passes.
+
+**No fabricated output anywhere.** This platform's terminal has no
+hypervisor, VM, or `lscpu`/`free`-style command (audited against
+`app/core/terminal/commands.py`'s `@cmd` registry — the same audit
+YC-036.8 ran for `git`), so rather than invent hypervisor CLI output,
+the module uses only two kinds of concrete material: labelled
+conceptual diagrams, and **real output captured by actually running
+`app/labs/cloud/engine.py`** (`format_vm_table`, `format_vm`) against
+the real `YUSHACLOUD_PROD` account definition. Every `list-vms` /
+`get-vm` line quoted in `hands-on-practice` §12 is verbatim from that
+run, and `tests/test_roadmap_lock.py::TestVirtualizationContent::
+test_quoted_lab_output_matches_the_real_simulator` re-runs the engine
+and fails if the lesson ever drifts from it. Product names
+(VirtualBox, VMware, Hyper-V, KVM, Xen, Proxmox, Parallels; `.vdi`/
+`.vmdk`/`.vhdx`/`.qcow2`; VT-x/AMD-V; EPT/NPT) are used only as
+accurate identification, never with invented output attached.
+
+This lowers the roadmap-wide "empty lessons" count from 75 to 72 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Lab cross-link — one, partial, and described as partial
+
+`hands-on-practice` links to the real **Cloud Basics: Tour the Account**
+lab (`cloud-orientation`, `/labs/cloud-orientation`, `labs.detail` — no
+new route, no new lab), added to `_LESSON_LAB_LINKS` in
+`app/roadmap/services.py`. The Lab Mapping table above previously read
+"None yet (`cloud-security` category is adjacent, not a direct match)";
+that judgement was made at *module* granularity. At command
+granularity it is too strong: `list-vms` and `get-vm` return a VM's
+state, size, subnet, security group and public IP, and `network` shows
+the VPC/subnet layout those VMs sit in — that is precisely this
+module's virtual-hardware and virtual-networking material, and it is
+the only place on this platform where a student can inspect a real
+VM's configuration at all. The lab's other four objectives (IAM,
+storage, `audit`) genuinely do go beyond this module, so the lesson
+says that outright in §12 rather than implying the whole lab is a
+virtualization exercise.
+
+`cloud-open-ssh` ("SSH Open to the World") is a plausible second link
+for §8's *exposed management interface* material and was deliberately
+**not** wired: one well-matched link per lesson, same restraint every
+prior pass in this series used.
+
+### No mission link, and no free-practice terminal link
+
+- **Missions**: none of the 16 terminal missions involves
+  virtualization in any form (audited against
+  `app/core/missions/mission_loader.py`'s `MISSIONS` dict).
+  `_LESSON_MISSION_LINKS` is untouched by this ticket.
+- **Free-practice terminal**: `virtualization` is deliberately **not**
+  added to `_TERMINAL_PRACTICE_MODULES`. Unlike `linux-fundamentals`
+  and `operating-systems`, this module teaches no command that exists
+  in the terminal's `@cmd` registry — a "Try it in the Terminal" CTA
+  would send students somewhere nothing in the module works, the same
+  reasoning that excluded `computer-networking` and `web-fundamentals`
+  for their own (different) structural reasons. `introduction` and
+  `core-concepts` therefore resolve to an empty `practice` context and
+  show no CTA at all, consistent with computer-networking's
+  `core-concepts`.
+
+CyberMentor context needed no change: the generic `current_lab` hook
+(YC-036.4) applies here unchanged and passes
+"Virtualization — <lesson title>" through to the mentor's system
+prompt.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **A virtualization lab or terminal simulation built for this module**
+  — the real gap. `cloud-orientation` is a genuine but partial match
+  (above); nothing on this platform simulates a hypervisor, a VM
+  settings page, snapshot chains, or a `host-only`-vs-`bridged`
+  experiment. A lab in the shape of "inspect this VM's configuration,
+  then predict what it can reach" would reinforce
+  `hands-on-practice` §11 far better than prose plus an off-platform
+  exercise does. Not attempted here, per the instruction against
+  building new infrastructure in a content-only ticket; documented as
+  the module's clearest future enhancement.
+- **Hypervisor internals** — trap-and-emulate, binary translation,
+  ring/privilege-level mechanics, VMCS/VMCB structures. Hardware-
+  assisted virtualization and second-level address translation are
+  named and explained *by what they achieve*; their implementation is
+  out of scope for a beginner module.
+- **Container tooling** — Docker/Podman/Kubernetes commands, image
+  layers, registries, orchestration. §7 teaches the VM-vs-container
+  *distinction* (which the driving ticket asked for) and stops there;
+  a container track would be its own module, and none exists.
+- **Live migration, clustering, HA, storage tiering** — enterprise
+  virtualization operations, well beyond a Beginner-category module.
+- **VM escape as technique** — the concept is taught (§8) precisely
+  because it is what makes "it's in a VM" a mitigation rather than a
+  guarantee; exploitation is explicitly out of scope and stated as
+  such in the lesson itself.
+- **Cloud as its own roadmap module** — no `cloud` module exists in the
+  locked structure, though 6 real `cloud-security` labs do. §12 borrows
+  one of them; a proper cloud module remains Future Curriculum.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next content pass
+(the Beginner category is now complete; `nmap` is the lowest-order
+EMPTY module remaining, in Intermediate) or a future
+platform-infrastructure ticket, per the explicit instruction against
+inventing curriculum.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -961,7 +1088,7 @@ instruction against inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 75/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), and Operating Systems (YC-036.9) — 21 lessons total — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 72/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), and Virtualization (YC-037.0) — 24 lessons total, the entire Beginner category — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -1019,21 +1146,24 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **75 of 96 lessons have no real content** (94 at the time of
+3. **72 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
    YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
-   75 after YC-036.9).
+   75 after YC-036.9, 72 after YC-037.0).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
    `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
-   `git-github` (YC-036.8), and `operating-systems` (YC-036.9) have
+   `git-github` (YC-036.8), `operating-systems` (YC-036.9), and
+   `virtualization` (YC-037.0) have
    genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   seven modules — tracked here for whoever picks up the next module's
-   lessons (`virtualization` is the one remaining EMPTY Beginner
-   module).
+   eight modules. **The Beginner category is now complete** — all 8 of
+   its modules / 24 of its lessons are real; the remaining 72 empty
+   lessons are all in Intermediate, Red Team, and AI Security, tracked
+   here for whoever picks up the next module's lessons (`nmap` is the
+   lowest-order EMPTY module remaining).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw
    `<script>alert(1)</script>` payload (confirmed harmless at the time:

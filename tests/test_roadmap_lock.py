@@ -4,16 +4,17 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (75 of 96
-lessons still empty as of YC-036.9, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (72 of 96
+lessons still empty as of YC-037.0, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
 (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals
 (YC-036.6), Cryptography Basics / Cybersecurity Fundamentals
-(YC-036.7), Git & GitHub (YC-036.8), and Operating Systems (YC-036.9)
-are the first real content in the roadmap; this file also pins that
-all seven stay real.
+(YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9),
+and Virtualization (YC-037.0 — completing the Beginner category) are
+the real content in the roadmap; this file also pins that all eight
+stay real.
 """
 
 from __future__ import annotations
@@ -304,7 +305,11 @@ class TestContentBaseline:
             # TestNetworkingFundamentalsContent /
             # TestWebFundamentalsContent / TestCybersecurityFundamentalsContent /
             # TestGitGithubContent / TestOperatingSystemsContent below.
-            assert empty == 75
+            # Then 75 -> 72 as of YC-037.0: Virtualization's all 3
+            # lessons were EMPTY — the last EMPTY module in the Beginner
+            # category, which is now complete. See
+            # TestVirtualizationContent below.
+            assert empty == 72
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -1606,6 +1611,277 @@ class TestOperatingSystemsContent:
             body = r.data.decode("utf-8")
             assert 'data-mentor-lab="Operating Systems' in body
             assert "Introduction" in body
+
+
+# ═══════════════════════════════════════════
+# Virtualization — real content (YC-037.0)
+# ═══════════════════════════════════════════
+class TestVirtualizationContent:
+    """Guards the real content written for YC-037.0 — the last EMPTY
+    Beginner module. Pins not just that files exist but that each lesson
+    still teaches its actual material, that the module's one genuine lab
+    cross-link (Cloud Basics, the only place on this platform showing
+    real VMs) resolves to a real route and a real lab row, and that
+    `virtualization` deliberately gets NO free-practice terminal link —
+    the terminal has no hypervisor/VM command at all."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "hypervisor", "host", "guest", "virtual machine",
+        ],
+        "core-concepts": [
+            "Type 1", "Type 2", "vCPU", "overcommitment", "contention",
+            "bridged", "host-only", "NAT",
+        ],
+        "hands-on-practice": [
+            "snapshot", "container", "VM escape", "list-vms",
+        ],
+    }
+
+    # Claims this module must never quietly lose — each one is a
+    # correction of a specific, common misconception the driving ticket
+    # named explicitly. Substring-matched against the rendered HTML.
+    _REQUIRED_CORRECTIONS: ClassVar[dict[str, list[str]]] = {
+        "core-concepts": [
+            # a vCPU is not a reserved physical core
+            "not a physical core reserved",
+            # configuring memory does not create memory
+            "does not create 24 GB of RAM",
+        ],
+        "hands-on-practice": [
+            # a snapshot is not a backup
+            "A Snapshot Is Not a Backup",
+            # VM isolation is not absolute
+            "not an absolute guarantee",
+            # containers are not small VMs
+            "shares the host",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(f"roadmap/beginner/virtualization/{slug}.md")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_keep_their_misconception_corrections(self, app):
+        """The claims this module exists to correct — a vCPU isn't a
+        reserved core, configured RAM isn't new RAM, a snapshot isn't a
+        backup, VM isolation isn't absolute, a container isn't a small
+        VM. Losing any of these would make the module technically wrong,
+        not merely thinner."""
+        for slug, claims in self._REQUIRED_CORRECTIONS.items():
+            html = self._render(app, slug)
+            for claim in claims:
+                assert claim in html, f"{slug}: lost required correction {claim!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="virtualization").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2,
+        and the module still sits at Beginner display_order 8."""
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="virtualization").first()
+            assert module.display_order == 8
+            assert module.xp_reward == 175
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [l.slug for l in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [l.display_order for l in lessons] == [1, 2, 3]
+            assert [l.xp_reward for l in lessons] == [25, 50, 100]
+            assert [l.estimated_minutes for l in lessons] == [10, 20, 30]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_practice_links_scoped_to_hands_on_only_and_no_terminal_link(self, app, student):
+        """Only hands-on-practice links out, and only to the Cloud Basics
+        lab. No lesson offers the free-practice terminal: nothing this
+        module teaches exists as a terminal command, so that CTA would
+        send students somewhere none of it works."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug, expect_lab in (
+                ("introduction", False),
+                ("core-concepts", False),
+                ("hands-on-practice", True),
+            ):
+                ctx = get_lesson_view_context(student_user, "virtualization", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert not practice.get("show_terminal")
+                assert not practice.get("mission_slug")
+                assert bool(practice.get("lab_slug")) is expect_lab
+                if expect_lab:
+                    assert practice["lab_slug"] == "cloud-orientation"
+
+    def test_lab_link_points_to_a_real_route_and_a_real_lab(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("labs.detail", slug="cloud-orientation") == (
+                "/labs/cloud-orientation"
+            )
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(slug="cloud-orientation").first()
+            assert lab is not None and lab.is_active and lab.is_interactive
+            assert lab.title == "Cloud Basics: Tour the Account"
+
+    def test_quoted_lab_output_matches_the_real_simulator(self, app):
+        """Section 12 quotes `list-vms` / `get-vm` output verbatim. If the
+        cloud lab's VM inventory or formatting ever changes, the lesson
+        becomes fabricated output — fail here rather than ship a lie."""
+        from app.labs.cloud import engine
+        from app.labs.cloud.accounts import YUSHACLOUD_PROD
+
+        deployment = engine.build_deployment(YUSHACLOUD_PROD)
+        vm_table = engine.format_vm_table(deployment)
+        web01 = engine.format_vm(deployment, engine.find_vm(deployment, "web-01"))
+        app01 = engine.format_vm(deployment, engine.find_vm(deployment, "app-01"))
+
+        raw = self._raw_lesson("hands-on-practice")
+        for block in (vm_table, web01, app01):
+            for line in block.splitlines():
+                assert line in raw, f"lesson no longer matches real lab output: {line!r}"
+
+    @staticmethod
+    def _raw_lesson(slug):
+        from pathlib import Path
+
+        import app as app_pkg
+        path = (Path(app_pkg.__file__).parent / "content" / "roadmap"
+                / "beginner" / "virtualization" / f"{slug}.md")
+        return path.read_text(encoding="utf-8")
+
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        """introduction is a preview and always reachable; core-concepts
+        and hands-on-practice require the module unlocked (this is the
+        8th and last module in the Beginner category)."""
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="virtualization").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/virtualization/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
+            r = c.get("/roadmap/virtualization/hands-on-practice/")
+            body = r.data.decode("utf-8")
+            assert "Cloud Basics: Tour the Account Lab" in body
+            # No terminal/mission CTA anywhere in this module.
+            r = c.get("/roadmap/virtualization/introduction/")
+            body = r.data.decode("utf-8")
+            assert "Try it in the Terminal" not in body
+
+    def test_cybermentor_receives_lesson_context(self, app, student):
+        uname, uid = student
+        with app.app_context():
+            from app.extensions import db
+            from app.roadmap.models import RoadmapModule, UserModuleProgress
+            module = RoadmapModule.query.filter_by(slug="virtualization").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            r = c.get("/roadmap/virtualization/core-concepts/")
+            body = r.data.decode("utf-8")
+            assert 'data-mentor-lab="Virtualization' in body
+            assert "Core Concepts" in body
+
+    def test_completion_awards_xp_exactly_once(self, app, student):
+        """Completing a Virtualization lesson awards its XP once; a
+        repeat POST (the refresh case) must not award it again."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="virtualization").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+
+        with app.test_client() as c:
+            _login(c, uname)
+            c.post("/roadmap/virtualization/core-concepts/complete", follow_redirects=True)
+            with app.app_context():
+                after_first = User.query.get(uid).xp
+            c.post("/roadmap/virtualization/core-concepts/complete", follow_redirects=True)
+            with app.app_context():
+                after_second = User.query.get(uid).xp
+
+        assert after_first == before + 50, "core-concepts should award exactly 50 XP"
+        assert after_second == after_first, "XP awarded twice for one lesson"
 
 
 # ═══════════════════════════════════════════

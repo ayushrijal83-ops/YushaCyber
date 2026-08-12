@@ -412,6 +412,25 @@ _LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "lab_slug": "linux-processes",
         "lab_title": "Processes",
     },
+    # virtualization (YC-037.0): the real Cloud Basics lab is the only
+    # place on this platform where a student can inspect actual virtual
+    # machines — `list-vms`/`get-vm` return a VM's state, size, subnet
+    # and public IP, and `network` shows the virtual network they sit
+    # in, which is precisely this lesson's Section 12 material. Linked
+    # for those commands specifically (the lab's IAM/storage/audit
+    # objectives go beyond this module into cloud security proper, which
+    # the lesson says outright rather than overselling the match).
+    # Scoped to hands-on-practice only: introduction and core-concepts
+    # are conceptual and teach no commands at all, so neither gets a
+    # practice CTA — same discipline as computer-networking's
+    # core-concepts. `virtualization` is deliberately NOT added to
+    # _TERMINAL_PRACTICE_MODULES: the terminal's @cmd registry has no
+    # hypervisor/VM command whatsoever, so a free-practice link would
+    # send students somewhere nothing in this module works.
+    ("virtualization", "hands-on-practice"): {
+        "lab_slug": "cloud-orientation",
+        "lab_title": "Cloud Basics: Tour the Account",
+    },
 }
 
 
