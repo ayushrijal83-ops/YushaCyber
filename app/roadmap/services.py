@@ -373,6 +373,19 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "linux-permissions",
         "mission_title": "Linux Permissions",
     },
+    # nmap (YC-037.1): the real Nmap Fundamentals mission runs the exact
+    # authorized lab network (10.10.10.0/24 — web01/fileserver/dns01/
+    # training) this lesson's exercises use and quote real output from;
+    # its objectives cover host discovery, targeted scanning, service/
+    # version detection, TCP vs. UDP scanning, and OS detection on the
+    # same ping-blocking host the lesson's Exercise 6 investigates.
+    # Scoped to hands-on-practice only — introduction and core-concepts
+    # teach the model and the commands, but the mission is where a
+    # student actually runs them, same discipline as every prior module.
+    ("nmap", "hands-on-practice"): {
+        "mission_slug": "nmap-fundamentals",
+        "mission_title": "Nmap Fundamentals",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
@@ -430,6 +443,19 @@ _LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
     ("virtualization", "hands-on-practice"): {
         "lab_slug": "cloud-orientation",
         "lab_title": "Cloud Basics: Tour the Account",
+    },
+    # nmap (YC-037.1): "Nmap: Your First Scan" is the natural entry-level
+    # pairing for this lesson's basic-scan and port-discovery exercises
+    # (Sections 6-7) — the same first-scan skill the lab is built around.
+    # Two further real labs exist (`nmap-services`, `nmap-advanced`,
+    # reinforcing service detection and OS detection respectively) and
+    # are referenced by name in the lesson text as natural next steps,
+    # but only one lab_slug fits this field per lesson (same structural
+    # limit every prior module's single lab link worked within), so only
+    # the closest match is wired here rather than picking arbitrarily.
+    ("nmap", "hands-on-practice"): {
+        "lab_slug": "nmap-basics",
+        "lab_title": "Nmap: Your First Scan",
     },
 }
 

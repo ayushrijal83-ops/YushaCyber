@@ -278,7 +278,7 @@ fabricated link.
 | `operating-systems` | None yet |
 | `cryptography-basics` | None yet |
 | `virtualization` | `cloud-orientation` (category `cloud-security`) — **partial match, linked in YC-037.0**: its `list-vms`/`get-vm`/`network` commands are the only place on this platform showing real virtual machines (state, size, subnet, public IP) and a virtual network; its IAM/storage/`audit` objectives go beyond this module into cloud security proper. The lesson says so explicitly rather than overselling the fit. `cloud-open-ssh` is adjacent (exposed VM management port) but not linked — see Content Status below |
-| `nmap` | `nmap-basics`, `nmap-services`, `nmap-advanced` (category `nmap`) |
+| `nmap` | `nmap-basics` (category `nmap`) — **linked in YC-037.1**, scoped to `hands-on-practice`; `nmap-services`/`nmap-advanced` are real and audited here but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
 | `wireshark` | `wireshark-basics`, `wireshark-protocols`, `wireshark-advanced` (category `wireshark`) |
 | `burp-suite` | `websec-http`, `websec-headers` (proxy-adjacent; no dedicated Burp lab) |
 | `owasp-top-10` | `websec-auth`, `websec-idor`, `websec-sqli`, `websec-xss`, `websec-csrf`, `websec-upload`, `websec-headers` (category `web-security`) |
@@ -1028,6 +1028,131 @@ inventing curriculum.
 
 ---
 
+## Content Status — Nmap (YC-037.1)
+
+The ninth module with real, authored lesson content, and the first in
+the **Intermediate** category — `nmap` is module 1 of Intermediate,
+the lowest-order EMPTY module remaining after the Beginner category's
+completion in YC-037.0. Framed throughout as reconnaissance and
+enumeration (discovery → evidence → next investigation), not as an
+exploitation module — this platform's offensive-technique modules are
+later, gated content, and this module explicitly stops before them.
+
+All 3 lessons were EMPTY (`app/content/roadmap/intermediate/nmap/` did
+not exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | What Nmap is and the investigation-tool framing (infer, not know); host/port/service vocabulary; why a port number is not proof of a service (well-known/registered/dynamic ranges); TCP vs. UDP conceptually (built on Computer Networking, not re-taught); the three port states (open/closed/filtered) with the exact beginner-misconception corrections; host discovery vs. port scanning, demonstrated with real `-sn` output | `app/content/roadmap/intermediate/nmap/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | The default scan explained precisely (what it does and doesn't test); targeted port scanning (`-p`) and ranges (`-p 1-1000`) with the coverage/time tradeoff; scanning all TCP ports (`-p-`); service/version detection (`-sV`) framed as evidence with real confidence, not certainty; TCP vs. UDP scanning in practice (`-sT`/`-sU`); host discovery failure and `-Pn`; OS detection (`-O`) as inference; NSE scripting (`-sC`) conceptually, explicitly not as automatic vulnerability discovery; all four WRONG/CORRECT corrections from the driving spec, restated in context; TCP connect vs. SYN scanning (`-sS`) at the network level, explicitly not as evasion; responsible scanning/timing; output formats, briefly | `app/content/roadmap/intermediate/nmap/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | The six-question enumeration mindset; a dedicated security-ethics section (authorization boundary, IDS/IPS/firewall/SIEM/rate-limit consequences, no detection-evasion framing); six practical exercises (host discovery, open ports, a specific port, a port range, service/version detection, interpret-and-decide) each with objective/command/real output/reasoning/interpretation/common mistake; a full evidence-based investigation write-up (Target/Host/Open ports/Services/Versions/Findings/Next investigation) using real data, stopping at "worth investigating further" rather than a vulnerability claim; the six-stage Reconnaissance→Enumeration→Service identification→Vulnerability research→Validation→Remediation methodology, with Nmap's role in it stated explicitly; cross-track callbacks to Computer Networking, Linux Fundamentals, Web Fundamentals, Operating Systems, Cryptography Basics, and Virtualization | `app/content/roadmap/intermediate/nmap/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the eight prior content passes.
+
+**No fabricated output anywhere.** This platform's terminal has a real,
+deterministic simulated `nmap` command (`app/core/terminal/commands.py`
+`_nmap`, backed by `app/core/terminal/network.py`'s `VirtualNetwork`) —
+every scan quoted in all three lessons (`-sn`, the default scan, `-p`,
+port ranges, `-sV`, `-sT`, `-sU`, `-Pn -O`, and the combined
+`-Pn -O -sV`) was captured by actually running that real command
+handler against the real, authorized lab network already declared in
+the real **Nmap Fundamentals** mission (`app/core/missions/
+mission_loader.py`, `10.10.10.0/24`: web01/fileserver/dns01/training)
+— not invented example data, and re-verified a second time against the
+exact `_nmap()` command handler (not just the lower-level engine
+functions) before being written into the lessons.
+`tests/test_roadmap_lock.py::TestNmapContent::
+test_quoted_scan_output_matches_the_real_simulator` re-runs the same
+command handler and fails if a lesson's quoted output ever drifts from
+it. Two things are deliberately described only in prose, with no
+output claimed: `-p 1-1000` (the real output is 1,000 lines; quoting
+it in full would be unreadable, so only the command's real, verified
+effect is described) and `-sC` (the simulator accepts the flag without
+error but does not model script-specific output, so NSE is taught
+conceptually with an explicit note that no simulated script result
+exists to quote).
+
+This lowers the roadmap-wide "empty lessons" count from 72 to 69 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Lab and mission cross-links — both real, both scoped to hands-on-practice
+
+- **Mission**: the real **Nmap Fundamentals** mission
+  (`/terminal/mission/nmap-fundamentals`, `terminal.mission_page` — no
+  new route, no new mission) is linked from `hands-on-practice`. Its
+  ten objectives (basic scan, port identification, targeted scanning,
+  service/version detection, TCP connect scanning, UDP scanning, OS
+  detection on a ping-blocking host, a final full-recon challenge) map
+  directly onto this lesson's six exercises — a genuine rehearsal of
+  the same investigation, not an adjacent guess. Added to
+  `_LESSON_MISSION_LINKS` (`app/roadmap/services.py`).
+- **Lab**: the real **Nmap: Your First Scan** lab (`nmap-basics`,
+  `/labs/nmap-basics`, `labs.detail` — no new route, no new lab) is
+  linked from `hands-on-practice` as the natural entry-level pairing
+  for the lesson's basic-scan and port-discovery material. Two further
+  real labs exist and are referenced by name in the lesson text as
+  natural next steps (`nmap-services` for service enumeration,
+  `nmap-advanced` for OS detection) but are **not** wired as links —
+  the lesson→lab mapping is one `lab_slug` per lesson (the same
+  structural shape every prior module's link worked within), so only
+  the closest single match is wired rather than picked arbitrarily.
+  Added to `_LESSON_LAB_LINKS` (`app/roadmap/services.py`).
+- **Free-practice terminal**: `nmap` is deliberately **not** added to
+  `_TERMINAL_PRACTICE_MODULES`. Audited directly against
+  `app/core/terminal/services.py`'s `start_shell()`: the bare `/terminal`
+  sandbox never attaches a simulated network (only a mission's runner
+  does — the same reasoning that excluded `computer-networking`,
+  `web-fundamentals`, and `virtualization`), so the `nmap` command would
+  report "no network configured for this session" there. Sending
+  students to the bare sandbox would be actively misleading; the real
+  mission link is the correct, working alternative.
+- `introduction` and `core-concepts` intentionally get no lab/mission
+  CTA — both are conceptual-plus-command-reference lessons; the actual
+  hands-on investigation, and the real link to practice it, live in
+  `hands-on-practice`, consistent with every prior module's discipline
+  of not offering a practice CTA where a lesson doesn't call for one.
+
+CyberMentor context needed no change: the generic `current_lab` hook
+(YC-036.4) applies here unchanged and passes "Nmap — <lesson title>"
+through to the mentor's system prompt.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **NSE script output in the simulator** — the real gap named above.
+  Adding script-specific simulated output (e.g. a default-script HTTP
+  title grab) would need new engine behavior in
+  `app/core/terminal/network.py`, not attempted here per the explicit
+  instruction against building new infrastructure in a content-only
+  ticket.
+- **Vulnerability research and validation** — the methodology in
+  Hands-on Practice §13 names these as the next two stages after this
+  module's scope; neither is taught here, consistent with this being a
+  reconnaissance/enumeration module and with the platform's later,
+  more advanced modules (Metasploit, the Red Team track) being the
+  appropriate home for that material.
+- **`nmap-services` and `nmap-advanced` as wired lesson links** — both
+  real and referenced by name in the lesson text; not wired as
+  `_LESSON_LAB_LINKS` entries because the current schema fits one
+  `lab_slug` per lesson. A future enhancement to that data shape (a
+  list instead of a single dict) would let all three real nmap labs be
+  linked from one lesson without picking a single "best" one.
+- **Automation/output-format depth (`-oN`/`-oX`/scripting a scan
+  pipeline)** — mentioned by name in Core Concepts §15 as a capability
+  that exists, not taught as a skill; out of scope for a foundational
+  reconnaissance module.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Intermediate
+content pass (`wireshark` is the next lowest-order EMPTY module) or a
+future platform-infrastructure ticket, per the explicit instruction
+against inventing curriculum.
+
+---
+
 ## XP Philosophy
 
 - A lesson's XP scales with depth: preview/`introduction` = 25, core
@@ -1088,7 +1213,7 @@ inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 72/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), and Virtualization (YC-037.0) — 24 lessons total, the entire Beginner category — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 69/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), first in Intermediate — 27 lessons total — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -1146,23 +1271,24 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **72 of 96 lessons have no real content** (94 at the time of
+3. **69 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
    YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
-   75 after YC-036.9, 72 after YC-037.0).
+   75 after YC-036.9, 72 after YC-037.0, 69 after YC-037.1).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
    `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
-   `git-github` (YC-036.8), `operating-systems` (YC-036.9), and
-   `virtualization` (YC-037.0) have
+   `git-github` (YC-036.8), `operating-systems` (YC-036.9),
+   `virtualization` (YC-037.0), and `nmap` (YC-037.1) have
    genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   eight modules. **The Beginner category is now complete** — all 8 of
-   its modules / 24 of its lessons are real; the remaining 72 empty
-   lessons are all in Intermediate, Red Team, and AI Security, tracked
-   here for whoever picks up the next module's lessons (`nmap` is the
+   nine modules. **The Beginner category is complete** — all 8 of its
+   modules / 24 of its lessons are real; Intermediate has its first
+   real module (`nmap`, 1 of 8). The remaining 69 empty lessons span
+   the rest of Intermediate, Red Team, and AI Security, tracked here
+   for whoever picks up the next module's lessons (`wireshark` is the
    lowest-order EMPTY module remaining).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw

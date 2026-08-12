@@ -4,17 +4,17 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (72 of 96
-lessons still empty as of YC-037.0, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (69 of 96
+lessons still empty as of YC-037.1, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
 (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals
 (YC-036.6), Cryptography Basics / Cybersecurity Fundamentals
 (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9),
-and Virtualization (YC-037.0 — completing the Beginner category) are
-the real content in the roadmap; this file also pins that all eight
-stay real.
+Virtualization (YC-037.0 — completing the Beginner category), and
+Nmap (YC-037.1 — the first real module in Intermediate) are the real
+content in the roadmap; this file also pins that all nine stay real.
 """
 
 from __future__ import annotations
@@ -308,8 +308,10 @@ class TestContentBaseline:
             # Then 75 -> 72 as of YC-037.0: Virtualization's all 3
             # lessons were EMPTY — the last EMPTY module in the Beginner
             # category, which is now complete. See
-            # TestVirtualizationContent below.
-            assert empty == 72
+            # TestVirtualizationContent below. Then 72 -> 69 as of
+            # YC-037.1: Nmap's all 3 lessons were EMPTY — the first real
+            # module in Intermediate. See TestNmapContent below.
+            assert empty == 69
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -1882,6 +1884,394 @@ class TestVirtualizationContent:
 
         assert after_first == before + 50, "core-concepts should award exactly 50 XP"
         assert after_second == after_first, "XP awarded twice for one lesson"
+
+
+# ═══════════════════════════════════════════
+# Nmap — real content (YC-037.1)
+# ═══════════════════════════════════════════
+class TestNmapContent:
+    """Guards the real content written for YC-037.1 — the first real
+    module in Intermediate. Pins not just that files exist but that
+    each lesson teaches its actual material, that every quoted scan
+    output is byte-for-byte what this platform's real Nmap simulator
+    (`app/core/terminal/commands.py::_nmap`) actually produces against
+    the real Nmap Fundamentals mission network, and that the module's
+    lab (`nmap-basics`) and mission (`nmap-fundamentals`) links are
+    real routes scoped to `hands-on-practice` only."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "host", "port", "service", "open", "closed", "filtered",
+        ],
+        "core-concepts": [
+            "-sV", "-p-", "-O", "-sC", "SYN",
+        ],
+        "hands-on-practice": [
+            "enumeration mindset", "-Pn", "IDS", "Vulnerability research",
+        ],
+    }
+
+    # Claims this module must never quietly lose — the exact WRONG/
+    # CORRECT corrections the driving spec named explicitly.
+    _REQUIRED_CORRECTIONS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "Closed means the host responded but no service is listening",
+            "Filtered means Nmap cannot determine whether the port is open",
+        ],
+        "core-concepts": [
+            ("Port 80 is conventionally associated with HTTP, but service "
+             "detection provides stronger evidence"),
+            "Nmap primarily provides discovery and enumeration capabilities",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(f"roadmap/intermediate/nmap/{slug}.md")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_keep_their_misconception_corrections(self, app):
+        """The exact WRONG/CORRECT corrections the driving spec required:
+        closed != offline, filtered != closed, port 80 != proof of HTTP,
+        Nmap != automatic vulnerability scanner. Losing any of these
+        would make the module technically wrong, not merely thinner."""
+        for slug, claims in self._REQUIRED_CORRECTIONS.items():
+            html = self._render(app, slug)
+            for claim in claims:
+                assert claim in html, f"{slug}: lost required correction {claim!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    def test_no_exploitation_or_evasion_framing(self, app):
+        """Permanent safety rule: this module teaches reconnaissance and
+        enumeration, never exploitation or detection evasion. Guards
+        against the module ever drifting into content this ticket was
+        explicitly told not to write."""
+        banned = ("exploit the", "bypass authorization", "evade detection",
+                  "avoid being detected", "hide from the firewall")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains unsafe framing {phrase!r}"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="nmap").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2,
+        and the module still sits at Intermediate display_order 1."""
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="nmap").first()
+            assert module.id == 9
+            assert module.display_order == 1
+            assert module.xp_reward == 175
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [l.id for l in lessons] == [25, 26, 27]
+            assert [l.slug for l in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [l.display_order for l in lessons] == [1, 2, 3]
+            assert [l.xp_reward for l in lessons] == [25, 50, 100]
+            assert [l.estimated_minutes for l in lessons] == [10, 20, 30]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_practice_links_scoped_to_hands_on_only_and_no_terminal_link(self, app, student):
+        """Only hands-on-practice links out, to both the real lab and
+        the real mission. No lesson offers the free-practice terminal:
+        the bare sandbox has no simulated network, so `nmap` would fail
+        there with 'no network configured for this session'."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug, expect_link in (
+                ("introduction", False),
+                ("core-concepts", False),
+                ("hands-on-practice", True),
+            ):
+                ctx = get_lesson_view_context(student_user, "nmap", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert not practice.get("show_terminal")
+                assert bool(practice.get("lab_slug")) is expect_link
+                assert bool(practice.get("mission_slug")) is expect_link
+                if expect_link:
+                    assert practice["lab_slug"] == "nmap-basics"
+                    assert practice["mission_slug"] == "nmap-fundamentals"
+
+    def test_lab_link_points_to_a_real_route_and_a_real_lab(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("labs.detail", slug="nmap-basics") == "/labs/nmap-basics"
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(slug="nmap-basics").first()
+            assert lab is not None and lab.is_active and lab.is_interactive
+            assert lab.title == "Nmap: Your First Scan"
+
+    def test_mission_link_points_to_a_real_route_and_a_real_mission(self, app):
+        from app.core.missions.mission_loader import MISSIONS
+
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("terminal.mission_page", slug="nmap-fundamentals") == (
+                "/terminal/mission/nmap-fundamentals"
+            )
+        assert "nmap-fundamentals" in MISSIONS
+        assert MISSIONS["nmap-fundamentals"]["title"] == "Nmap Fundamentals"
+
+    def test_quoted_scan_output_matches_the_real_simulator(self, app):
+        """Every scan quoted in all three lessons was captured by
+        actually running the real `_nmap()` terminal command handler
+        against the real Nmap Fundamentals mission network. If the
+        simulator's network topology or output formatting ever
+        changes, the lessons become fabricated output — fail here
+        rather than ship a lie."""
+        from app.core.missions.mission_loader import MISSIONS
+        from app.core.terminal.commands import _nmap
+        from app.core.terminal.network import build_network
+
+        class _FakeShell:
+            pass
+
+        net = build_network(MISSIONS["nmap-fundamentals"]["network"])
+
+        def scan(args):
+            sh = _FakeShell()
+            sh.network = net
+            return _nmap(sh, args)
+
+        checks = {
+            "introduction": [
+                ["-sn", "10.10.10.0/24"],
+            ],
+            "core-concepts": [
+                ["10.10.10.10"],
+                ["-p", "20-30", "10.10.10.30"],
+                ["-sV", "10.10.10.10"],
+                ["-sT", "10.10.10.10"],
+                ["-sU", "10.10.10.53"],
+                ["10.10.10.40"],
+                ["-Pn", "-O", "10.10.10.40"],
+            ],
+            "hands-on-practice": [
+                ["-sn", "10.10.10.0/24"],
+                ["10.10.10.10"],
+                ["-p", "22", "10.10.10.30"],
+                ["-p", "20-30", "10.10.10.30"],
+                ["-sV", "10.10.10.10"],
+                ["-sV", "10.10.10.30"],
+                ["10.10.10.40"],
+                ["-Pn", "-O", "-sV", "10.10.10.40"],
+            ],
+        }
+        for slug, commands in checks.items():
+            raw = self._raw_lesson(slug)
+            for args in commands:
+                output = scan(args)
+                for line in output.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    assert line in raw, (
+                        f"{slug}: quoted output no longer matches real "
+                        f"simulator for `nmap {' '.join(args)}` — {line!r}"
+                    )
+
+    @staticmethod
+    def _raw_lesson(slug):
+        from pathlib import Path
+
+        import app as app_pkg
+        path = (Path(app_pkg.__file__).parent / "content" / "roadmap"
+                / "intermediate" / "nmap" / f"{slug}.md")
+        return path.read_text(encoding="utf-8")
+
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        """introduction is a preview and always reachable; core-concepts
+        and hands-on-practice require the module unlocked (this is
+        Intermediate's first module, unlocked in parallel with Beginner
+        for a new user)."""
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="nmap").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/nmap/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
+            r = c.get("/roadmap/nmap/hands-on-practice/")
+            body = r.data.decode("utf-8")
+            assert "Nmap: Your First Scan" in body
+            assert "Nmap Fundamentals" in body
+            # No terminal free-practice CTA anywhere in this module.
+            r = c.get("/roadmap/nmap/introduction/")
+            body = r.data.decode("utf-8")
+            assert "Try it in the Terminal" not in body
+
+    def test_cybermentor_receives_lesson_context(self, app, student):
+        uname, uid = student
+        with app.app_context():
+            from app.extensions import db
+            from app.roadmap.models import RoadmapModule, UserModuleProgress
+            module = RoadmapModule.query.filter_by(slug="nmap").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            r = c.get("/roadmap/nmap/core-concepts/")
+            body = r.data.decode("utf-8")
+            assert 'data-mentor-lab="Nmap' in body
+            assert "Core Concepts" in body
+
+    def test_completion_awards_xp_exactly_once(self, app, student):
+        """Completing an Nmap lesson awards its XP once; a repeat POST
+        (the refresh case) must not award it again."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="nmap").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+
+        with app.test_client() as c:
+            _login(c, uname)
+            c.post("/roadmap/nmap/core-concepts/complete", follow_redirects=True)
+            with app.app_context():
+                after_first = User.query.get(uid).xp
+            c.post("/roadmap/nmap/core-concepts/complete", follow_redirects=True)
+            with app.app_context():
+                after_second = User.query.get(uid).xp
+
+        assert after_first == before + 50, "core-concepts should award exactly 50 XP"
+        assert after_second == after_first, "XP awarded twice for one lesson"
+
+    def test_module_completion_awards_bonus(self, app, student):
+        """Completing all three Nmap lessons completes the module and
+        awards its 175 XP bonus exactly once. Asserts a *delta*, not an
+        absolute total: `student` is module-scoped and shared with
+        every other class in this file, including
+        TestCompletionAwardsXpExactlyOnce above (which already
+        completed `nmap/core-concepts` for this same user) — so
+        completing it again here is correctly a no-op XP-wise, and the
+        user's XP already carries whatever every earlier class in this
+        file awarded it for other modules."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import (
+            Lesson,
+            RoadmapModule,
+            UserLessonProgress,
+            UserModuleProgress,
+        )
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="nmap").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+            lessons_already_done = {
+                lesson.slug for lesson in
+                Lesson.query.filter_by(module_id=module.id).join(
+                    UserLessonProgress,
+                    (UserLessonProgress.lesson_id == Lesson.id)
+                    & (UserLessonProgress.user_id == uid)
+                    & (UserLessonProgress.completed.is_(True)),
+                ).all()
+            }
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                c.post(f"/roadmap/nmap/{slug}/complete", follow_redirects=True)
+
+        xp_by_slug = {"introduction": 25, "core-concepts": 50, "hands-on-practice": 100}
+        expected_lesson_xp = sum(
+            xp for slug, xp in xp_by_slug.items() if slug not in lessons_already_done
+        )
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="nmap").first()
+            row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            assert row.completed is True
+            assert row.bonus_awarded is True
+            after = User.query.get(uid).xp
+            assert after == before + expected_lesson_xp + 175
 
 
 # ═══════════════════════════════════════════
