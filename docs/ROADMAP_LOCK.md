@@ -279,7 +279,7 @@ fabricated link.
 | `cryptography-basics` | None yet |
 | `virtualization` | `cloud-orientation` (category `cloud-security`) — **partial match, linked in YC-037.0**: its `list-vms`/`get-vm`/`network` commands are the only place on this platform showing real virtual machines (state, size, subnet, public IP) and a virtual network; its IAM/storage/`audit` objectives go beyond this module into cloud security proper. The lesson says so explicitly rather than overselling the fit. `cloud-open-ssh` is adjacent (exposed VM management port) but not linked — see Content Status below |
 | `nmap` | `nmap-basics` (category `nmap`) — **linked in YC-037.1**, scoped to `hands-on-practice`; `nmap-services`/`nmap-advanced` are real and audited here but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
-| `wireshark` | `wireshark-basics`, `wireshark-protocols`, `wireshark-advanced` (category `wireshark`) |
+| `wireshark` | `wireshark-basics` (category `wireshark`) — **linked in YC-037.2**, scoped to `hands-on-practice`; `wireshark-protocols`/`wireshark-advanced` are real, audited here, and named in the lesson text as next steps, but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
 | `burp-suite` | `websec-http`, `websec-headers` (proxy-adjacent; no dedicated Burp lab) |
 | `owasp-top-10` | `websec-auth`, `websec-idor`, `websec-sqli`, `websec-xss`, `websec-csrf`, `websec-upload`, `websec-headers` (category `web-security`) |
 | `active-directory-basics` | `ad-orientation`, `ad-inactive-account` (category `active-directory`) |
@@ -318,7 +318,7 @@ Track J.
 | `computer-networking` | `networking-fundamentals`, `network-troubleshooting`, `network-reconnaissance` |
 | `web-fundamentals` | `web-fundamentals`, `http-deep-dive` |
 | `nmap` | `nmap-fundamentals` |
-| `wireshark` | `wireshark-fundamentals` |
+| `wireshark` | `wireshark-fundamentals` — **linked in YC-037.2**, scoped to `hands-on-practice` |
 | `burp-suite` | `burp-fundamentals` |
 | `owasp-top-10` | `authentication-sessions`, `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
 | `web-pentesting` | `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
@@ -1148,6 +1148,182 @@ Deliberately left out of this pass:
 None of these were silently added as new roadmap rows — they're
 documented here as candidates for whoever scopes the next Intermediate
 content pass (`wireshark` is the next lowest-order EMPTY module) or a
+future platform-infrastructure ticket, per the explicit instruction
+against inventing curriculum.
+
+---
+
+## Content Status — Wireshark (YC-037.2)
+
+The tenth module with real, authored lesson content, and the second in
+the **Intermediate** category — `wireshark` is module 2 of Intermediate,
+the lowest-order EMPTY module remaining after YC-037.1. Framed as
+authorized, defensive packet analysis throughout: observe → filter →
+inspect → correlate → interpret → hypothesise → validate with evidence.
+The module's throughline is the separation of **observation** from
+**interpretation** from **conclusion**, and it is deliberately taught as
+analysis rather than as a filter cheat-sheet.
+
+All 3 lessons were EMPTY (`app/content/roadmap/intermediate/wireshark/`
+did not exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | What Wireshark is (capture vs. analysis) and its seven real professional uses; the authorization boundary stated once and permanently; what a capture actually represents (past tense, partial by construction, time-bounded) and the reasoning that follows; live vs. saved capture and what an interface decides; the module's mental model; frame/packet/segment taught through encapsulation with the "use the word that matches the layer" rule; the protocol stack seen in one packet; the packet list column by column (including time gaps as evidence); the packet details pane with real `show 1` output mapped layer-by-layer to what each contributes; an explicit note that real Wireshark's packet-bytes pane exists and this simulator has none; endpoints, direction, and ephemeral-vs-well-known port roles with the "port 80 is not proof of HTTP" correction restated one layer down from Nmap; MAC vs. IP vs. port with scope for each; an honest section on exactly what this platform models and what does not transfer | `app/content/roadmap/intermediate/wireshark/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | What a TCP connection is (state at both ends, which is why it's visible at all); the three-way handshake packet-by-packet, each step stated as *what it means* / *what evidence demonstrates it* / *what you cannot yet conclude*, including the 66-vs-74-byte length difference as real evidence; the five recognisable TCP flags with the PSH correction; the full connection lifecycle from the real `http` capture, with acknowledgement-vs-answer separated; an explicit "real traffic is messier" section; retransmissions and RST taught **conceptually with no quoted output**, because neither exists in this platform's captures (§4 says so outright); DNS query/response analysis from real output plus the four record types worth knowing; the six DNS investigation questions and the "long domain ≠ malicious" correction; HTTP analysis with the full encapsulation stack in one packet, plus one clearly-labelled *illustrative* header block for what real Wireshark's stream view shows; TLS/HTTPS — six categories of metadata that survive encryption and what does not; display filters with real output and the full supported-filter table; **capture filters vs. display filters** as a dedicated section (`tcp port 80` vs `tcp.port == 80`, reversibility, which to default to and why); broad→narrow filter reasoning worked end to end on the noisy capture; a real, verified simulator behaviour (`filter tcp` missing HTTP-labelled packets that `filter tcp.port == 80` finds) used to teach that an empty filter result must be cross-checked; Follow TCP Stream; what evidence each protocol layer yields; protocol identification as a decoded conclusion rather than a transmitted fact | `app/content/roadmap/intermediate/wireshark/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Authorization first, including the "treat a capture file as sensitive by default" point and an explicit list of what this module does not teach; the lab environment (six captures, no host-role table — deriving roles from behaviour is part of Exercise 1, not a prerequisite); the seven-step investigation workflow with ORIENT named as the step people skip; six exercises, each with objective / real commands / real output / required reasoning / what you cannot conclude / common mistake — find the conversation (ICMP, including why there are no ports), the handshake with reasoning required rather than pattern-matching, DNS investigation answering "what evidence proves this was DNS" with four independent signals, HTTP investigation connected to Web Fundamentals and re-contextualised via `follow`, progressive filtering of the noisy capture with a stated reason per narrowing, and a full investigation report on the `investigation` capture; a deliberate detour on four incomplete connections that teaches restraint rather than alarm; the full report template; the observation/interpretation/conclusion section worked twice; cross-track connections to Computer Networking, Web Fundamentals, Operating Systems, Cryptography Basics and Nmap (with the "what might exist" vs. "what is actually happening" framing stated directly) | `app/content/roadmap/intermediate/wireshark/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the nine prior content passes.
+
+**No fabricated output anywhere.** This platform has a real,
+deterministic simulated packet-analysis engine
+(`app/core/terminal/packets.py`) driven by real terminal command
+handlers (`app/core/terminal/commands.py`: `capture`, `packets`,
+`show`/`packet`, `follow`, `filter`). Every capture listing, packet
+detail, filter result and followed conversation quoted in all three
+lessons was captured by actually running those handlers against the
+real `PacketLab` the **Wireshark Fundamentals** mission declares
+(`packet_captures: [handshake, dns, http, icmp, mixed, investigation]`).
+`tests/test_roadmap_lock.py::TestWiresharkContent::
+test_quoted_capture_output_matches_the_real_simulator` re-runs every
+one of those command sequences and fails if a lesson's quoted output
+ever drifts; a companion
+`test_partially_quoted_output_matches_the_real_simulator` covers the
+two listings quoted as excerpts (the 32-packet `mixed` listing's first
+nine rows, and rows 26–29 of the 45-packet `investigation` listing)
+as exact line-slices of the real output, so even the excerpts cannot
+drift. Writing these lessons is what caught one real defect: the first
+draft's `show 4` / `show 6` quotes had dropped the simulator's
+`Application: HTTP` block — the test failed, and the *lesson* was
+corrected rather than the assertion weakened.
+
+Four things are deliberately described in prose with **no output
+claimed**, each stated openly in the lesson text rather than hidden:
+
+- **TCP RST and retransmissions** — the simulator's captures contain
+  neither (verified: the only flags present anywhere are `SYN`,
+  `SYN, ACK`, `ACK`, `FIN, ACK`, `PSH, ACK`). Both are taught
+  conceptually, with Core Concepts §4 saying outright that no example
+  exists to quote and why inventing one would be exactly the
+  fabrication the module tells students to distrust. Pinned by
+  `test_flags_taught_as_absent_really_are_absent`.
+- **TLS/HTTPS** — no TLS traffic exists in any capture, so §13 teaches
+  the metadata-survives-encryption reasoning with no quoted output.
+- **HTTP headers** — the simulator summarises each HTTP packet as a
+  single line (request line or status line) and models no individual
+  headers, so the `Host`/`User-Agent`/`Content-Type` block in Core
+  Concepts §11 is explicitly labelled **"Illustrative example — not
+  captured output"** and Hands-on §8 says plainly that `Host` is not
+  visible in this capture and why.
+- **Capture filters (BPF)** — the platform has no capture-filter stage
+  at all (its captures are fixed datasets), so §15's `tcp port 80`
+  form is presented as real-Wireshark/`tcpdump` syntax being contrasted
+  with the display-filter syntax, never as something to run here.
+
+One further honesty note worth recording, because it became a teaching
+asset: the simulator's `filter tcp` matches a packet's single protocol
+*label*, so it excludes HTTP-labelled packets that are unquestionably
+TCP segments — real Wireshark's `tcp` filter would match all of them.
+Core Concepts §17 quotes both the real `filter tcp` and
+`filter tcp.port == 80` results side by side, states plainly that this
+is a simulator simplification and how real Wireshark differs, and uses
+it to teach the "an empty or short filter result must be cross-checked"
+habit. The same behaviour is shown for `filter udp` on the DNS capture.
+
+This lowers the roadmap-wide "empty lessons" count from 69 to 66 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Lab and mission cross-links — both real, both scoped to hands-on-practice
+
+- **Mission**: the real **Wireshark Fundamentals** mission
+  (`/terminal/mission/wireshark-fundamentals`, `terminal.mission_page`
+  — no new route, no new mission) is linked from `hands-on-practice`.
+  Its twelve objectives (open a capture, read the IP layer, filter TCP,
+  recognise the handshake, identify ports, filter DNS, analyse an HTTP
+  request, follow a conversation, `ip.addr` and `tcp.port` filters,
+  read mixed traffic, and a final investigation recording the anomalous
+  host/port) map directly onto this lesson's six exercises, against the
+  identical captures — a genuine rehearsal, not an adjacent guess.
+  Added to `_LESSON_MISSION_LINKS` (`app/roadmap/services.py`).
+- **Lab**: the real **Wireshark: Capture & Inspect** lab
+  (`wireshark-basics`, `/labs/wireshark-basics`, `labs.detail` — no new
+  route, no new lab) is linked from `hands-on-practice`. It is wired
+  *alongside* the mission rather than instead of it because it runs on
+  a different simulator with a genuinely complementary shape: the
+  mission analyses captures handed to the student, while the lab has
+  them **generate** traffic themselves (`ping`/`nslookup`/`nmap` on a
+  simulated network) and then inspect what their own actions produced.
+  The lesson says outright that the two simulators' command syntaxes
+  are not interchangeable. Two further real labs in the same category
+  (`wireshark-protocols`, `wireshark-advanced`) are named in the lesson
+  text as next steps but not wired — one `lab_slug` per lesson, the
+  same structural limit every prior module worked within. Their
+  existence and titles are pinned by
+  `test_further_labs_named_in_lesson_text_are_real`, since naming a lab
+  is still a claim about reality even when it isn't a link. Added to
+  `_LESSON_LAB_LINKS` (`app/roadmap/services.py`).
+- **Free-practice terminal**: `wireshark` is deliberately **not** added
+  to `_TERMINAL_PRACTICE_MODULES`. Audited directly against
+  `app/core/terminal/services.py`'s `start_shell()`, which never sets
+  `sh.packet_lab` (only a mission's runner does — the same reasoning
+  that excluded `computer-networking`, `web-fundamentals`,
+  `virtualization` and `nmap`), so every command this module teaches
+  answers `capture: no packet lab configured for this session` in the
+  bare sandbox. Asserted rather than assumed by
+  `test_free_practice_terminal_really_has_no_packet_lab`, so the
+  exclusion gets revisited if that ever changes.
+- `introduction` and `core-concepts` intentionally get no lab/mission
+  CTA — both are conceptual-plus-command-reference lessons; the actual
+  investigation, and the real link to practise it, live in
+  `hands-on-practice`.
+
+CyberMentor context needed no change: the generic `current_lab` hook
+(YC-036.4) applies here unchanged and passes "Wireshark — <lesson
+title>" through to the mentor's system prompt.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **RST and retransmission traffic in the simulator** — the real gap
+  named above. Adding a capture containing a refused connection and a
+  retransmitted segment would let Core Concepts §§7–8 quote real
+  evidence instead of teaching the concepts in prose. That needs new
+  capture builders in `app/core/terminal/packets.py`, not attempted
+  here per the instruction against building new infrastructure in a
+  content-only ticket.
+- **A TLS/HTTPS capture** — same shape of gap. A capture containing a
+  TLS handshake would make §13's "metadata survives encryption" point
+  demonstrable rather than only explicable.
+- **HTTP header modelling** — the simulator's one-line-per-HTTP-packet
+  summary is why §11's header block is illustrative. Modelling real
+  headers would also make a `Host`-based exercise possible.
+- **Field-level display filters** (`dns.qry.name == "..."`,
+  boolean `and`/`or`/`not`, `!=`/`>`/`<`) — named in Core Concepts §14
+  as real Wireshark capability the simulator does not implement, so
+  students know it exists; not taught as a runnable skill here.
+- **`wireshark-protocols` / `wireshark-advanced` as wired links** —
+  real, named in the lesson, unwired for the one-`lab_slug`-per-lesson
+  reason above. A future change to that data shape (a list instead of
+  a single dict) would let all three real Wireshark labs be linked
+  from one lesson.
+- **IPv6, ARP, and protocol breadth generally** — the captures model
+  IPv4 with TCP/UDP/DNS/HTTP/ICMP only. `filter arp` and `filter tls`
+  both correctly return no matches, verified.
+- **The Wireshark module quiz** — `Quiz` id 10's ten questions remain
+  the generic seeded placeholders shared by every module (Known Issues
+  #4, roadmap-wide, unchanged since YC-036.2). Consistent with all nine
+  prior content passes, knowledge checks live in the lesson markdown
+  (13 questions in Core Concepts, 12 in Hands-on Practice, 8 in
+  Introduction — all reasoning questions, none trivia); rewriting the
+  seeded quiz bank is a separate roadmap-wide ticket, not a
+  Wireshark-only one.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Intermediate
+content pass (`burp-suite` is the next lowest-order EMPTY module) or a
 future platform-infrastructure ticket, per the explicit instruction
 against inventing curriculum.
 

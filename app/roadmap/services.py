@@ -386,6 +386,22 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "nmap-fundamentals",
         "mission_title": "Nmap Fundamentals",
     },
+    # wireshark (YC-037.2): the real Wireshark Fundamentals mission loads
+    # the exact six packet captures (handshake/dns/http/icmp/mixed/
+    # investigation, app/core/terminal/packets.py) this lesson's six
+    # exercises are built on and quote real output from; its twelve
+    # objectives walk the same investigation — open a capture, read the
+    # IP layer, filter TCP, recognise the handshake, identify ports,
+    # filter DNS, analyse an HTTP request, follow a conversation, apply
+    # ip.addr/tcp.port filters, read mixed traffic, and finally record
+    # the anomalous host/port from the `investigation` capture that
+    # Exercise 6 investigates. Scoped to hands-on-practice only, same
+    # discipline as nmap: introduction and core-concepts teach the model
+    # and the commands; the mission is where a student runs them.
+    ("wireshark", "hands-on-practice"): {
+        "mission_slug": "wireshark-fundamentals",
+        "mission_title": "Wireshark Fundamentals",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
@@ -397,6 +413,12 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
 # fundamentals here: `whoami`/`id`/`groups`/`uname`/`uname -a` (this
 # module's own commands, verified against app/core/terminal/commands.py)
 # all work in the bare sandbox with no mission/network attachment needed.
+# wireshark (YC-037.2) is deliberately excluded for the same structural
+# reason as computer-networking/web-fundamentals/nmap: `start_shell()`
+# never sets `sh.packet_lab` (only a mission's runner does), so every
+# command this module teaches — `capture`/`packets`/`show`/`follow`/
+# `filter` — answers "no packet lab configured for this session" in the
+# bare sandbox. The real mission link above is the working alternative.
 _TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals", "operating-systems"}
 
 # Lesson -> real interactive lab cross-links (YC-036.6). Deliberately
@@ -456,6 +478,22 @@ _LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
     ("nmap", "hands-on-practice"): {
         "lab_slug": "nmap-basics",
         "lab_title": "Nmap: Your First Scan",
+    },
+    # wireshark (YC-037.2): "Wireshark: Capture & Inspect" is the
+    # entry-level lab of the real `wireshark` lab category, and it
+    # complements the mission rather than duplicating it — the mission
+    # analyses fixed captures handed to the student, while the lab has
+    # them GENERATE traffic themselves (ping/nslookup/nmap on a simulated
+    # network) and then inspect what their own actions produced. That
+    # reversal is genuinely worth having, which is why it's wired
+    # alongside the mission rather than instead of it. Two further real
+    # labs continue it (`wireshark-protocols`, `wireshark-advanced`) and
+    # are named in the lesson text as next steps, but only one lab_slug
+    # fits per lesson (the same structural limit every prior module
+    # worked within), so the entry-level match is the one wired.
+    ("wireshark", "hands-on-practice"): {
+        "lab_slug": "wireshark-basics",
+        "lab_title": "Wireshark: Capture & Inspect",
     },
 }
 

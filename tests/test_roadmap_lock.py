@@ -4,17 +4,18 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (69 of 96
-lessons still empty as of YC-037.1, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (66 of 96
+lessons still empty as of YC-037.2, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
 (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals
 (YC-036.6), Cryptography Basics / Cybersecurity Fundamentals
 (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9),
-Virtualization (YC-037.0 — completing the Beginner category), and
-Nmap (YC-037.1 — the first real module in Intermediate) are the real
-content in the roadmap; this file also pins that all nine stay real.
+Virtualization (YC-037.0 — completing the Beginner category), Nmap
+(YC-037.1 — the first real module in Intermediate), and Wireshark
+(YC-037.2) are the real content in the roadmap; this file also pins
+that all ten stay real.
 """
 
 from __future__ import annotations
@@ -310,8 +311,10 @@ class TestContentBaseline:
             # category, which is now complete. See
             # TestVirtualizationContent below. Then 72 -> 69 as of
             # YC-037.1: Nmap's all 3 lessons were EMPTY — the first real
-            # module in Intermediate. See TestNmapContent below.
-            assert empty == 69
+            # module in Intermediate. See TestNmapContent below. Then
+            # 69 -> 66 as of YC-037.2: Wireshark's all 3 lessons were
+            # EMPTY. See TestWiresharkContent below.
+            assert empty == 66
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -2268,6 +2271,512 @@ class TestNmapContent:
         with app.app_context():
             module = RoadmapModule.query.filter_by(slug="nmap").first()
             row = UserModuleProgress.query.filter_by(user_id=uid, module_id=module.id).first()
+            assert row.completed is True
+            assert row.bonus_awarded is True
+            after = User.query.get(uid).xp
+            assert after == before + expected_lesson_xp + 175
+
+
+class TestWiresharkContent:
+    """Guards the real content written for YC-037.2 — Wireshark, module 2
+    of Intermediate. Pins that each lesson teaches its actual material,
+    that every quoted capture/filter/follow output is byte-for-byte what
+    this platform's real packet-analysis simulator
+    (`app/core/terminal/packets.py` driven through the real
+    `capture`/`packets`/`show`/`follow`/`filter` command handlers in
+    `app/core/terminal/commands.py`) actually produces, and that the
+    module's lab (`wireshark-basics`) and mission
+    (`wireshark-fundamentals`) links are real routes scoped to
+    `hands-on-practice` only."""
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "frame", "segment", "encapsulation", "MAC address",
+            "endpoint", "packet list",
+        ],
+        "core-concepts": [
+            "SYN", "SYN, ACK", "FIN", "RST", "PSH",
+            "three-way handshake", "retransmission",
+            "display filter", "capture filter", "TLS",
+            "ip.addr", "tcp.port", "Follow TCP Stream",
+        ],
+        "hands-on-practice": [
+            "investigation", "baseline", "OBSERVATION",
+            "INTERPRETATION", "CONCLUSION", "CONFIDENCE",
+            "authorization", "Wireshark Fundamentals",
+        ],
+    }
+
+    # Claims this module must never quietly lose — the exact WRONG/
+    # CORRECT corrections the driving spec named explicitly. Losing any
+    # of these makes the module technically wrong, not merely thinner.
+    _REQUIRED_CORRECTIONS: ClassVar[dict[str, list[str]]] = {
+        "core-concepts": [
+            "Retransmissions mean an attack",
+            ("Retransmissions usually reflect ordinary network behaviour "
+             "— loss, congestion, or timing"),
+            "A RST means an attacker reset the connection",
+            "A display filter changes what was captured",
+            ("A display filter changes what is currently shown from an "
+             "existing capture"),
+            "It's HTTPS, so Wireshark shows nothing",
+            ("Encryption protects the application payload. A substantial "
+             "amount of metadata remains fully visible"),
+            "Wireshark says it's HTTP, so it's HTTP",
+            "A PSH flag proves an application event happened",
+        ],
+        "introduction": [
+            "Destination port 80, so this is HTTP",
+        ],
+    }
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(
+                f"roadmap/intermediate/wireshark/{slug}.md"
+            )
+
+    @staticmethod
+    def _raw_lesson(slug):
+        from pathlib import Path
+
+        import app as app_pkg
+        path = (Path(app_pkg.__file__).parent / "content" / "roadmap"
+                / "intermediate" / "wireshark" / f"{slug}.md")
+        return path.read_text(encoding="utf-8")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_keep_their_misconception_corrections(self, app):
+        for slug, claims in self._REQUIRED_CORRECTIONS.items():
+            html = self._render(app, slug)
+            for claim in claims:
+                assert claim in html, f"{slug}: lost required correction {claim!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    def test_no_unauthorized_capture_or_credential_framing(self, app):
+        """Permanent safety rule: this module teaches authorized,
+        defensive packet analysis. It must never drift into teaching
+        interception of third-party traffic, credential harvesting,
+        session hijacking, or monitoring evasion."""
+        banned = ("harvest credentials", "steal the session",
+                  "hijack the session", "capture your neighbour",
+                  "evade detection", "avoid being detected",
+                  "bypass encryption", "decrypt any https")
+        for slug in ("introduction", "core-concepts", "hands-on-practice"):
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains unsafe framing {phrase!r}"
+
+    def test_authorization_boundary_is_stated(self, app):
+        """Every lesson touching capture must state the boundary; the
+        hands-on lesson must state it explicitly and up front."""
+        intro = self._render(app, "introduction")
+        assert "authorization boundary" in intro.lower()
+        hands = self._render(app, "hands-on-practice")
+        assert "Authorization Comes First" in hands
+        for phrase in ("interception", "does not teach"):
+            assert phrase in hands.lower(), f"hands-on-practice: missing {phrase!r}"
+
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="wireshark").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2,
+        and the module still sits at Intermediate display_order 2."""
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="wireshark").first()
+            assert module.id == 10
+            assert module.display_order == 2
+            assert module.xp_reward == 175
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [lesson.id for lesson in lessons] == [28, 29, 30]
+            assert [lesson.slug for lesson in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [lesson.display_order for lesson in lessons] == [1, 2, 3]
+            assert [lesson.xp_reward for lesson in lessons] == [25, 50, 100]
+            assert [lesson.estimated_minutes for lesson in lessons] == [10, 20, 30]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_practice_links_scoped_to_hands_on_only_and_no_terminal_link(self, app, student):
+        """Only hands-on-practice links out, to both the real lab and
+        the real mission. No lesson offers the free-practice terminal:
+        `start_shell()` never attaches a PacketLab, so every command
+        this module teaches fails there with 'no packet lab configured
+        for this session'."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug, expect_link in (
+                ("introduction", False),
+                ("core-concepts", False),
+                ("hands-on-practice", True),
+            ):
+                ctx = get_lesson_view_context(student_user, "wireshark", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert not practice.get("show_terminal")
+                assert bool(practice.get("lab_slug")) is expect_link
+                assert bool(practice.get("mission_slug")) is expect_link
+                if expect_link:
+                    assert practice["lab_slug"] == "wireshark-basics"
+                    assert practice["mission_slug"] == "wireshark-fundamentals"
+
+    def test_free_practice_terminal_really_has_no_packet_lab(self, app):
+        """The reason `wireshark` is excluded from
+        _TERMINAL_PRACTICE_MODULES, asserted rather than assumed — if
+        the bare sandbox ever gains a PacketLab, this fails and the
+        exclusion should be revisited."""
+        from app.core.terminal.shell import Shell
+
+        sh = Shell()
+        assert sh.packet_lab is None
+        assert sh.execute("capture handshake") == (
+            "capture: no packet lab configured for this session"
+        )
+
+    def test_lab_link_points_to_a_real_route_and_a_real_lab(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("labs.detail", slug="wireshark-basics") == (
+                "/labs/wireshark-basics"
+            )
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(slug="wireshark-basics").first()
+            assert lab is not None and lab.is_active and lab.is_interactive
+            assert lab.title == "Wireshark: Capture & Inspect"
+
+    def test_mission_link_points_to_a_real_route_and_a_real_mission(self, app):
+        from app.core.missions.mission_loader import MISSIONS
+
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("terminal.mission_page", slug="wireshark-fundamentals") == (
+                "/terminal/mission/wireshark-fundamentals"
+            )
+        assert "wireshark-fundamentals" in MISSIONS
+        assert MISSIONS["wireshark-fundamentals"]["title"] == "Wireshark Fundamentals"
+
+    def test_further_labs_named_in_lesson_text_are_real(self, app):
+        """hands-on-practice names two further labs as next steps rather
+        than linking them. Named-but-unlinked is still a claim about
+        reality, so it gets verified too."""
+        raw = self._raw_lesson("hands-on-practice")
+        with app.app_context():
+            from app.labs.models import Lab
+            for slug, title in (
+                ("wireshark-protocols", "Wireshark: Protocol Analysis"),
+                ("wireshark-advanced", "Wireshark: Advanced Analysis"),
+            ):
+                lab = Lab.query.filter_by(slug=slug).first()
+                assert lab is not None and lab.is_active, f"{slug}: not a real lab"
+                assert lab.title == title
+                assert title in raw, f"{title!r} named in lesson but lab check drifted"
+
+    # ── Real-evidence guard ────────────────────────────────────────────
+    # Every command sequence whose FULL output a lesson quotes verbatim.
+    # Each entry is (capture_to_open_first, [commands...]); the capture
+    # name is None for the bare `capture` listing.
+    _FULL_OUTPUT_CHECKS: ClassVar[dict[str, list[tuple]]] = {
+        "introduction": [
+            ("handshake", ["capture handshake", "packets", "show 1"]),
+        ],
+        "core-concepts": [
+            ("handshake", ["capture handshake", "packets",
+                           "show 1", "show 2", "show 3"]),
+            ("http", ["capture http", "packets", "show 4", "show 6",
+                      "filter tcp", "filter tcp.port == 80", "follow 4"]),
+            ("dns", ["capture dns", "packets", "show 1", "show 2",
+                     "filter udp", "filter udp.port == 53"]),
+            ("mixed", ["capture mixed", "filter dns",
+                       "filter ip.addr == 10.10.10.99"]),
+        ],
+        "hands-on-practice": [
+            (None, ["capture"]),
+            ("icmp", ["capture icmp", "packets", "show 1"]),
+            ("handshake", ["capture handshake", "packets"]),
+            ("dns", ["capture dns", "packets"]),
+            ("http", ["capture http", "filter http", "follow 4"]),
+            ("mixed", ["capture mixed", "filter http",
+                       "filter tcp.port == 80"]),
+            ("investigation", ["capture investigation", "filter http",
+                               "filter ip.addr == 10.10.10.77",
+                               "show 42", "show 45", "follow 42"]),
+        ],
+    }
+
+    # Sequences a lesson quotes only PARTIALLY (the full listing would be
+    # unreadable). Checked as a line-slice of the real output so the
+    # quoted excerpt still can't drift from the simulator.
+    _PARTIAL_OUTPUT_CHECKS: ClassVar[list[tuple]] = [
+        # hands-on §9 quotes the header plus the first 9 rows of the
+        # 32-packet `mixed` listing, then says the listing continues.
+        ("hands-on-practice", "mixed", "packets", 0, 10),
+        # hands-on §10 step 3 quotes rows 26-29 of the 45-packet
+        # `investigation` listing (the incomplete-connection detour).
+        ("hands-on-practice", "investigation", "packets", 26, 30),
+    ]
+
+    @staticmethod
+    def _shell():
+        from app.core.terminal.packets import CAPTURE_REGISTRY, build_packet_lab
+        from app.core.terminal.shell import Shell
+
+        sh = Shell()
+        sh.packet_lab = build_packet_lab(list(CAPTURE_REGISTRY.keys()))
+        return sh
+
+    def test_quoted_capture_output_matches_the_real_simulator(self, app):
+        """Every capture, packet listing, packet detail, filter result
+        and followed conversation quoted in all three lessons was
+        captured by actually running the real terminal command handlers
+        against the real PacketLab the Wireshark Fundamentals mission
+        loads. If the simulator's datasets or output formatting ever
+        change, the lessons become fabricated output — fail here rather
+        than ship a lie."""
+        for slug, groups in self._FULL_OUTPUT_CHECKS.items():
+            raw = self._raw_lesson(slug)
+            for capture_name, commands in groups:
+                sh = self._shell()
+                if capture_name is not None:
+                    sh.execute(f"capture {capture_name}")
+                for command in commands:
+                    output = sh.execute(command)
+                    for line in output.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        assert line in raw, (
+                            f"{slug}: quoted output no longer matches the real "
+                            f"simulator for `{command}` on capture "
+                            f"{capture_name!r} — {line!r}"
+                        )
+
+    def test_partially_quoted_output_matches_the_real_simulator(self, app):
+        for slug, capture_name, command, start, stop in self._PARTIAL_OUTPUT_CHECKS:
+            raw = self._raw_lesson(slug)
+            sh = self._shell()
+            sh.execute(f"capture {capture_name}")
+            lines = sh.execute(command).splitlines()[start:stop]
+            assert lines, f"{slug}: partial slice for `{command}` is empty"
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                assert line in raw, (
+                    f"{slug}: partially quoted output drifted from the real "
+                    f"simulator for `{command}` on {capture_name!r} — {line!r}"
+                )
+
+    def test_capture_packet_counts_claimed_in_lessons_are_real(self, app):
+        """hands-on §3 tabulates each capture's packet count, and the
+        lessons state counts in prose. Pinned against the real
+        datasets."""
+        from app.core.terminal.packets import CAPTURE_REGISTRY, build_packet_lab
+
+        lab = build_packet_lab(list(CAPTURE_REGISTRY.keys()))
+        expected = {"handshake": 3, "dns": 2, "http": 8, "icmp": 2,
+                    "mixed": 32, "investigation": 45}
+        actual = {name: len(cap.packets) for name, cap in lab.captures.items()}
+        assert actual == expected
+
+    def test_flags_taught_as_absent_really_are_absent(self, app):
+        """Core Concepts §4/§7/§8 state plainly that no RST and no
+        retransmission exists in this platform's captures, and teach
+        both concepts without quoting output for exactly that reason.
+        If a capture ever gains a RST, that honesty claim becomes false
+        and the lessons should quote the real thing instead."""
+        from app.core.terminal.packets import CAPTURE_REGISTRY, build_packet_lab
+
+        lab = build_packet_lab(list(CAPTURE_REGISTRY.keys()))
+        flags = {p.tcp_flags for cap in lab.captures.values()
+                 for p in cap.packets if p.tcp_flags}
+        assert flags == {"SYN", "SYN, ACK", "ACK", "FIN, ACK", "PSH, ACK"}
+        assert not any("RST" in f for f in flags)
+
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="wireshark").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/wireshark/{slug}/")
+                assert r.status_code == 200
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower()
+                assert "<pre>" in body
+            r = c.get("/roadmap/wireshark/hands-on-practice/")
+            body = r.data.decode("utf-8")
+            assert "Wireshark: Capture &amp; Inspect" in body
+            assert "Wireshark Fundamentals" in body
+            assert "/labs/wireshark-basics" in body
+            assert "/terminal/mission/wireshark-fundamentals" in body
+            # No terminal free-practice CTA anywhere in this module.
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                r = c.get(f"/roadmap/wireshark/{slug}/")
+                assert "Try it in the Terminal" not in r.data.decode("utf-8")
+
+    def test_cybermentor_receives_lesson_context(self, app, student):
+        uname, uid = student
+        with app.app_context():
+            from app.extensions import db
+            from app.roadmap.models import RoadmapModule, UserModuleProgress
+            module = RoadmapModule.query.filter_by(slug="wireshark").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            r = c.get("/roadmap/wireshark/core-concepts/")
+            body = r.data.decode("utf-8")
+            assert 'data-mentor-lab="Wireshark' in body
+            assert "Core Concepts" in body
+
+    def test_completion_awards_xp_exactly_once(self, app, student):
+        """Completing a Wireshark lesson awards its XP once; a repeat
+        POST (the refresh case) must not award it again."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="wireshark").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+
+        with app.test_client() as c:
+            _login(c, uname)
+            c.post("/roadmap/wireshark/core-concepts/complete", follow_redirects=True)
+            with app.app_context():
+                after_first = User.query.get(uid).xp
+            c.post("/roadmap/wireshark/core-concepts/complete", follow_redirects=True)
+            with app.app_context():
+                after_second = User.query.get(uid).xp
+
+        assert after_first == before + 50, "core-concepts should award exactly 50 XP"
+        assert after_second == after_first, "XP awarded twice for one lesson"
+
+    def test_module_completion_awards_bonus(self, app, student):
+        """Completing all three Wireshark lessons completes the module
+        and awards its 175 XP bonus exactly once. Asserts a *delta*, not
+        an absolute total — `student` is module-scoped and shared with
+        every other class in this file, including
+        test_completion_awards_xp_exactly_once above."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import (
+            Lesson,
+            RoadmapModule,
+            UserLessonProgress,
+            UserModuleProgress,
+        )
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="wireshark").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+            lessons_already_done = {
+                lesson.slug for lesson in
+                Lesson.query.filter_by(module_id=module.id).join(
+                    UserLessonProgress,
+                    (UserLessonProgress.lesson_id == Lesson.id)
+                    & (UserLessonProgress.user_id == uid)
+                    & (UserLessonProgress.completed.is_(True)),
+                ).all()
+            }
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in ("introduction", "core-concepts", "hands-on-practice"):
+                c.post(f"/roadmap/wireshark/{slug}/complete", follow_redirects=True)
+
+        xp_by_slug = {"introduction": 25, "core-concepts": 50, "hands-on-practice": 100}
+        expected_lesson_xp = sum(
+            xp for slug, xp in xp_by_slug.items() if slug not in lessons_already_done
+        )
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="wireshark").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
             assert row.completed is True
             assert row.bonus_awarded is True
             after = User.query.get(uid).xp
