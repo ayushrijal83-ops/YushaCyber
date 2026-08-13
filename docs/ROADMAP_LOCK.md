@@ -66,8 +66,12 @@ In today's implementation this loop is **partially wired**:
   YC-036.4/.5 linked missions only; YC-036.6 additionally links two
   `web-fundamentals` lessons to real interactive labs
   (`websec-http`, `websec-cookies`) — the first lab links wired from any
-  lesson. Every other module's lessons still have no lab/mission link —
-  this remains a real gap for whoever picks up the next module.
+  lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2 and YC-037.3 each
+  wired their own module's links the same way — see the **Lab Mapping**
+  and **Mission Mapping** tables, which are kept current, for exactly
+  which lessons link where today. Every module not named in those tables
+  still has no lab/mission link — this remains a real gap for whoever
+  picks up the next module.
 - **XP / Progress** — fully real: `award_xp()`, `UserLessonProgress`,
   `UserModuleProgress`, level-up, all wired and tested by manual
   verification below.
@@ -280,7 +284,7 @@ fabricated link.
 | `virtualization` | `cloud-orientation` (category `cloud-security`) — **partial match, linked in YC-037.0**: its `list-vms`/`get-vm`/`network` commands are the only place on this platform showing real virtual machines (state, size, subnet, public IP) and a virtual network; its IAM/storage/`audit` objectives go beyond this module into cloud security proper. The lesson says so explicitly rather than overselling the fit. `cloud-open-ssh` is adjacent (exposed VM management port) but not linked — see Content Status below |
 | `nmap` | `nmap-basics` (category `nmap`) — **linked in YC-037.1**, scoped to `hands-on-practice`; `nmap-services`/`nmap-advanced` are real and audited here but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
 | `wireshark` | `wireshark-basics` (category `wireshark`) — **linked in YC-037.2**, scoped to `hands-on-practice`; `wireshark-protocols`/`wireshark-advanced` are real, audited here, and named in the lesson text as next steps, but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
-| `burp-suite` | `websec-http`, `websec-headers` (proxy-adjacent; no dedicated Burp lab) |
+| `burp-suite` | `websec-http` (category `web-security`) — **linked in YC-037.3**, scoped to `hands-on-practice`. `websec-headers` is real and proxy-adjacent but deliberately **not** wired: every websec lab except `websec-http` sits behind a linear `prerequisite_lab_id` chain (`websec-cookies`→`websec-http`, `websec-sessions`→`websec-cookies`, … `websec-headers` is tenth), and `labs.detail` redirects a locked lab back to the catalogue, so linking it would be a dead CTA for anyone reaching this module. `websec-http` is the only one with no prerequisite. Note it is the same lab `web-fundamentals`/`core-concepts` links (YC-036.6) — reused deliberately, and the lesson text says so |
 | `owasp-top-10` | `websec-auth`, `websec-idor`, `websec-sqli`, `websec-xss`, `websec-csrf`, `websec-upload`, `websec-headers` (category `web-security`) |
 | `active-directory-basics` | `ad-orientation`, `ad-inactive-account` (category `active-directory`) |
 | `metasploit` | None yet |
@@ -319,7 +323,7 @@ Track J.
 | `web-fundamentals` | `web-fundamentals`, `http-deep-dive` |
 | `nmap` | `nmap-fundamentals` |
 | `wireshark` | `wireshark-fundamentals` — **linked in YC-037.2**, scoped to `hands-on-practice` |
-| `burp-suite` | `burp-fundamentals` |
+| `burp-suite` | `burp-fundamentals` — **linked in YC-037.3**, scoped to `core-concepts` *and* `hands-on-practice` (the first module to link a mission from two lessons since `web-fundamentals`: core-concepts §14 is a real command-driven Repeater experiment, so it has something to practise; `introduction`'s exercises are reasoning questions about output already printed in the lesson, so it correctly gets no CTA) |
 | `owasp-top-10` | `authentication-sessions`, `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
 | `web-pentesting` | `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
 | all other modules | None yet |
@@ -1323,7 +1327,136 @@ Deliberately left out of this pass:
 
 None of these were silently added as new roadmap rows — they're
 documented here as candidates for whoever scopes the next Intermediate
-content pass (`burp-suite` is the next lowest-order EMPTY module) or a
+content pass or a future platform-infrastructure ticket, per the
+explicit instruction against inventing curriculum. (`burp-suite`, named
+here as the next lowest-order EMPTY module, was written in YC-037.3 —
+see below.)
+
+---
+
+## Content Status — Burp Suite (YC-037.3)
+
+The eleventh module with real, authored lesson content, and the third in
+the **Intermediate** category — `burp-suite` is module 3 of Intermediate,
+the lowest-order EMPTY module remaining after YC-037.2. Framed
+throughout as **authorized** HTTP testing: observe → understand →
+intercept → modify → replay → compare → hypothesise → validate →
+document. Burp is presented as an instrument for understanding and
+testing HTTP behaviour, explicitly **not** as a vulnerability scanner,
+and the module's throughline is the same observation/interpretation/
+conclusion separation the Wireshark module installs, applied to
+request/response evidence instead of packets.
+
+All 3 lessons were EMPTY (`app/content/roadmap/intermediate/burp-suite/`
+did not exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | Why an intercepting proxy asks a different question than Wireshark ("what is happening?" vs. "what happens if I send *this*?"); the authorization boundary stated before any technique, with an allowed/not-allowed table and the two defences people get wrong ("I only looked" and "it's my own account"); what Burp Suite actually is, its real tool set (Proxy, HTTP history, Repeater, Intruder, Decoder/Comparer, Scanner) and its editions, with the "Burp is a vulnerability scanner" correction made immediately; what a proxy is, with the honest HTTPS/CA-trust correction and why that is *why* proxying someone else's traffic is not quietly possible; the module's 13-step mental model with INSPECT named as the step beginners skip; request anatomy read part-by-part from real captured output, including a `POST` with a body and the "every header is client-controlled input" point; response anatomy with both halves treated as evidence; interception (forward / modify-then-forward / drop) with the baseline habit of forwarding unmodified once; HTTP history as evidence stronger than the page, read as a story, plus the caution that the summary line omits the query string; this platform's proxy environment and its command table; proxy scope as the authorization boundary expressed as a technical control; five reasoning exercises with discussions (not vocabulary questions); six misconception corrections; 12 knowledge-check questions | `app/content/roadmap/intermediate/burp-suite/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | The full working method as a 12-step loop; the Proxy precisely (records always / intercepts on request) with request- vs. response-interception compared and **"the browser is not the security boundary. The server is."** stated as the reason request interception matters; HTTP history as a workflow rather than a log; Repeater as controlled repetition with the "Repeater exploits the server" correction and the Proxy-is-capture/Repeater-is-experiment distinction; **change one variable at a time** as the methodology section, worked end-to-end on the `id` parameter with real `compare` output and written out as observation/interpretation/conclusion — including the explicit refusal to call it a vulnerability, plus reproduce-before-you-report and record-as-you-go; the six places parameters hide (query, path, form body, JSON body, header, cookie) with the "a parameter is just an input" framing; headers taught by ordinary purpose first, then why they matter to a tester; the `Authorization: Bearer` header demonstrated with three real requests (absent / valid training token / wrong token) and the point that one application can run several auth mechanisms with different strictness; cookies and sessions with the full `Set-Cookie`→`Cookie` cycle in real output and a `compare` of the same request with and without a session, framed as a complete session test needing nobody else's session; authentication vs. authorization with real `403`/`401`/`200` on one URL and the logout `Set-Cookie: session_id=; Max-Age=0`; authorization-testing reasoning taught as a 7-step procedure with an outcome table (including "200 with A's own data" and why a status code alone proves nothing) *before* any acronym, with the hidden-button correction; how to compare responses properly and the case where identical responses still hide a change; status codes read as evidence, with 401/403/404 taken apart and a real known-nonexistent `404` baseline; the Repeater experiment exercise with a full recording template and four one-variable extensions; observation/interpretation/conclusion; eight misconception corrections; 15 knowledge-check questions | `app/content/roadmap/intermediate/burp-suite/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Authorization first, with the real out-of-scope refusal quoted and an explicit list of what the module does not teach, plus where to practise afterwards (self-installed deliberately-vulnerable apps); the environment, its real route list, the three fixed training accounts and why being *handed* them is what makes Exercise 5 an authorized comparison rather than a credential attack; the workflow; six exercises run as **one continuous session** so every quoted history number is real — capture a request (with the "what the history line isn't telling you" question), intercept/inspect/forward-unchanged, parameter investigation with `compare` and the required conclusion that it is *not* a finding, session investigation comparing your own authenticated and unauthenticated requests, authorization investigation producing real `403`/`401`/`200` on one URL across two training accounts, and finally the `200 OK` that did nothing — a real silent-ignore defect in this platform's simulator, found by method and proved by read-back rather than by status code; the full evidence report with confidence stated per claim and an explicit "what was not tested"; observation/interpretation/conclusion applied; eight common mistakes; the platform practice section; 12 knowledge-check questions | `app/content/roadmap/intermediate/burp-suite/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the ten prior content passes.
+
+**No fabricated HTTP evidence anywhere.** This platform has a real,
+deterministic simulated web application and intercepting proxy
+(`app/core/terminal/web.py` — no HTTP client of any kind in it, and an
+out-of-scope host is rejected before a request object is even built)
+driven by real terminal command handlers
+(`app/core/terminal/commands.py`: `web`, `proxy`, `intercept`, `open`,
+`forward`, `drop`, `edit`, `requests`, `headers`, `cookies`, `inspect`,
+`response`, `repeater`, `compare`). Every request, response, history
+listing, Repeater send and response comparison quoted in all three
+lessons was captured by actually running those handlers against the real
+`WebLab` the **Burp Suite Fundamentals** mission declares
+(`web_lab: "profile-mismatch"`).
+`tests/test_roadmap_lock.py::TestBurpSuiteContent::
+test_quoted_proxy_output_matches_the_real_simulator` replays all three
+sessions command-for-command and fails if any lesson's quoted output
+ever drifts; `test_introduction_history_excerpt_is_a_real_slice` covers
+the one listing quoted as an excerpt (Introduction §10's first eleven
+history entries) as an exact line-slice of the Hands-on session's real
+`requests` output, so even the excerpt cannot drift.
+
+Three further claims the lessons make about the environment are pinned
+by their own tests rather than trusted:
+`test_out_of_scope_host_is_really_refused` (asserts the state — no
+history entry, `blocked_count` incremented — not just the message),
+`test_admin_route_really_distinguishes_401_from_403`, and
+`test_silent_ignore_bug_investigated_in_lesson_is_real` (if the
+simulator's `Display_Name` silent-ignore is ever fixed, Hands-on §9's
+entire investigation becomes fiction, so the test fails first).
+`test_training_credentials_named_in_lessons_are_the_real_ones` pins
+every credential and token printed in the lessons against the
+simulator's own constants.
+
+Two things are described in prose with **no output claimed**, each
+stated openly in the lesson text rather than hidden:
+
+- **Real Burp Suite itself** — no Burp is installed and none is
+  simulated as a GUI. Introduction §11 says outright that this is a
+  command-driven Burp-*style* proxy, names exactly what the trade costs
+  (no GUI, no certificate setup, no Intruder or Scanner) and what it
+  buys (deterministic, unable to reach anything real). Real Burp's tool
+  set, editions and HTTPS/CA-trust requirement are taught as fact about
+  the product, never as something to run here.
+- **Cross-user resource access** — the classic "change `/orders/1041`
+  to `/orders/1042` as user A" test cannot be run, because the
+  simulator has no per-user resource endpoint. Core Concepts §11 and
+  Hands-on §8 both say so plainly and defer it to `owasp-top-10`,
+  rather than inventing a scenario. The *reasoning* is taught in full
+  (7-step procedure + outcome table); only the runnable example is
+  absent.
+
+Everything else the module teaches about authorization **is**
+demonstrated from real responses: `GET /admin` returns `401` with no
+session, `403` with the `student` session (with the server's own
+"authenticated, but not authorized" message), and `200` with the
+`admin` session — one URL, one variable, three outcomes.
+
+**Structure untouched.** Module id 11, `display_order` 3, category
+Intermediate, difficulty `intermediate`, `estimated_hours` 1,
+`xp_reward` 175; lesson ids 31/32/33, slugs
+`introduction`/`core-concepts`/`hands-on-practice`, order 1/2/3, XP
+25/50/100, minutes 10/20/30, `is_preview` True/False/False, content
+paths unchanged. The module description
+("Burp Suite — part of the Intermediate track.") is deliberately left
+as-is, consistent with every prior content pass. Pinned by
+`test_lesson_ids_and_order_unchanged_by_content_edit` and
+`test_intermediate_module_order_unchanged`.
+
+This lowers the roadmap-wide "empty lessons" count from 66 to 63 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+**Known gaps left open**, documented rather than papered over:
+
+- **No dedicated Burp lab** — the `web-security` lab category has no
+  proxy/Repeater lab at all. `websec-http` is wired as the closest real,
+  *reachable* match (see Lab Mapping above for why `websec-headers` is
+  not), and Hands-on §13 states honestly that the lab is a separate
+  simulator with its own commands, no proxy, no Repeater and no history.
+- **The websec prerequisite chain** — nine of the ten web-security labs
+  are unreachable from this module. They are named in Hands-on §13 as
+  belonging to `owasp-top-10`, and
+  `test_other_websec_labs_named_in_lesson_are_real_but_gated` verifies
+  both halves of that claim (they exist; they really are gated).
+- **One `lab_slug` per lesson** — the same structural limit every prior
+  module worked within.
+- **The Burp Suite module quiz** — `Quiz` id 11's questions remain the
+  generic seeded placeholders shared by every module (Known Issues #4,
+  roadmap-wide, unchanged since YC-036.2). Consistent with all ten prior
+  content passes, knowledge checks live in the lesson markdown (12
+  questions in Introduction, 15 in Core Concepts, 12 in Hands-on
+  Practice — all reasoning questions, none trivia).
+- **Intruder, Decoder, Comparer, Scanner, and response interception** —
+  named as real Burp capability so students know they exist; none is
+  simulated here, and none is taught as a runnable skill.
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Intermediate
+content pass (`owasp-top-10` is the next lowest-order EMPTY module) or a
 future platform-infrastructure ticket, per the explicit instruction
 against inventing curriculum.
 
@@ -1447,25 +1580,27 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **69 of 96 lessons have no real content** (94 at the time of
+3. **63 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
    YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
-   75 after YC-036.9, 72 after YC-037.0, 69 after YC-037.1).
+   75 after YC-036.9, 72 after YC-037.0, 69 after YC-037.1, 66 after
+   YC-037.2, 63 after YC-037.3).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
    `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
    `git-github` (YC-036.8), `operating-systems` (YC-036.9),
-   `virtualization` (YC-037.0), and `nmap` (YC-037.1) have
+   `virtualization` (YC-037.0), `nmap` (YC-037.1), `wireshark`
+   (YC-037.2), and `burp-suite` (YC-037.3) have
    genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   nine modules. **The Beginner category is complete** — all 8 of its
+   eleven modules. **The Beginner category is complete** — all 8 of its
    modules / 24 of its lessons are real; Intermediate has its first
-   real module (`nmap`, 1 of 8). The remaining 69 empty lessons span
-   the rest of Intermediate, Red Team, and AI Security, tracked here
-   for whoever picks up the next module's lessons (`wireshark` is the
-   lowest-order EMPTY module remaining).
+   three real modules (`nmap`, `wireshark`, `burp-suite`, 3 of 8). The
+   remaining 63 empty lessons span the rest of Intermediate, Red Team,
+   and AI Security, tracked here for whoever picks up the next module's
+   lessons (`owasp-top-10` is the lowest-order EMPTY module remaining).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw
    `<script>alert(1)</script>` payload (confirmed harmless at the time:

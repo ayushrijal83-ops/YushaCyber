@@ -402,6 +402,27 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "wireshark-fundamentals",
         "mission_title": "Wireshark Fundamentals",
     },
+    # burp-suite (YC-037.3): the real Burp Suite Fundamentals mission runs
+    # the exact simulated proxy + CyberShop site (app/core/terminal/web.py,
+    # driven through the `proxy`/`intercept`/`open`/`forward`/`drop`/
+    # `edit`/`requests`/`repeater`/`compare` handlers in commands.py) that
+    # every terminal block in these lessons was captured from; its
+    # fourteen objectives walk the same workflow the lessons teach, and
+    # its final investigation is the same silently-ignored `Display_Name`
+    # field Hands-on Practice §9 investigates. Linked from TWO lessons
+    # rather than one: unlike nmap/wireshark, this module's core-concepts
+    # ends in a real command-driven exercise (§14, the Repeater
+    # experiment), so it has something to practise. introduction is
+    # deliberately excluded — its exercises are reasoning questions about
+    # output already printed in the lesson, with no commands to run.
+    ("burp-suite", "core-concepts"): {
+        "mission_slug": "burp-fundamentals",
+        "mission_title": "Burp Suite Fundamentals",
+    },
+    ("burp-suite", "hands-on-practice"): {
+        "mission_slug": "burp-fundamentals",
+        "mission_title": "Burp Suite Fundamentals",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
@@ -419,6 +440,11 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
 # command this module teaches — `capture`/`packets`/`show`/`follow`/
 # `filter` — answers "no packet lab configured for this session" in the
 # bare sandbox. The real mission link above is the working alternative.
+# burp-suite (YC-037.3) is excluded on exactly the same grounds as
+# web-fundamentals: `start_shell()` never sets `sh.web_lab` either, so
+# `proxy`/`intercept`/`open`/`forward`/`repeater`/`compare` — every
+# command that module teaches — answer "no simulated web environment
+# configured for this session" outside a real mission.
 _TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals", "operating-systems"}
 
 # Lesson -> real interactive lab cross-links (YC-036.6). Deliberately
@@ -494,6 +520,25 @@ _LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
     ("wireshark", "hands-on-practice"): {
         "lab_slug": "wireshark-basics",
         "lab_title": "Wireshark: Capture & Inspect",
+    },
+    # burp-suite (YC-037.3): "HTTP Requests & Responses" is the only lab
+    # in the real `web-security` category a student reaching this module
+    # can actually open — every other websec lab sits behind a linear
+    # prerequisite chain (`websec-cookies` needs `websec-http`,
+    # `websec-sessions` needs `websec-cookies`, ... `websec-headers` is
+    # tenth), and `labs.detail` redirects a locked lab back to the
+    # catalogue, so linking any of them here would be a dead CTA. It is
+    # also a genuine content match rather than a fallback: inspecting one
+    # fixed HTTP exchange (`http`/`headers`/`status`) is precisely this
+    # module's request/response-anatomy material. It is deliberately the
+    # same lab web-fundamentals/core-concepts links (YC-036.6) — the
+    # lesson text says so outright and explains what the second visit
+    # adds, rather than pretending it's new. docs/ROADMAP_LOCK.md's Lab
+    # Mapping lists `websec-http` and `websec-headers` for this module;
+    # the prerequisite chain is why only the first is wired.
+    ("burp-suite", "hands-on-practice"): {
+        "lab_slug": "websec-http",
+        "lab_title": "HTTP Requests & Responses",
     },
 }
 
