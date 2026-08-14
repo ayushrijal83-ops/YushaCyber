@@ -423,6 +423,33 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "burp-fundamentals",
         "mission_title": "Burp Suite Fundamentals",
     },
+    # owasp-top-10 (YC-037.4): five real terminal missions match this
+    # module's categories (authentication-sessions, sql-injection-
+    # fundamentals, xss-fundamentals, csrf-fundamentals,
+    # file-upload-security) and none of them is gated — start_mission()
+    # has no prerequisite check, verified. Only one mission_slug fits per
+    # lesson, so each of the two command-driven lessons is wired to the
+    # mission closest to its own centre of gravity, and the other three
+    # are named by their real titles in hands-on-practice §12 as next
+    # steps (pinned by test_further_missions_named_in_lesson_text_are_real).
+    # core-concepts: A01 and A07 are the two categories it demonstrates
+    # from real responses end to end (401/403/200 on one URL; login,
+    # logout, expiry), which is exactly what Authentication & Sessions
+    # drills across its 15 objectives.
+    ("owasp-top-10", "core-concepts"): {
+        "mission_slug": "authentication-sessions",
+        "mission_title": "Authentication & Sessions",
+    },
+    # hands-on-practice: Exercise 2 is the lesson's deepest experiment
+    # and runs on the schema/query-visualiser pair this mission is built
+    # around; its 16 objectives walk the same investigation against the
+    # same simulated site. introduction gets no CTA — its exercises are
+    # reasoning questions about output already printed in the lesson,
+    # same discipline as burp-suite's introduction.
+    ("owasp-top-10", "hands-on-practice"): {
+        "mission_slug": "sql-injection-fundamentals",
+        "mission_title": "SQL Injection Fundamentals",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
@@ -537,6 +564,30 @@ _LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
     # Mapping lists `websec-http` and `websec-headers` for this module;
     # the prerequisite chain is why only the first is wired.
     ("burp-suite", "hands-on-practice"): {
+        "lab_slug": "websec-http",
+        "lab_title": "HTTP Requests & Responses",
+    },
+    # owasp-top-10 (YC-037.4): docs/ROADMAP_LOCK.md's Lab Mapping lists
+    # seven web-security labs for this module (websec-auth, websec-idor,
+    # websec-sqli, websec-xss, websec-csrf, websec-upload,
+    # websec-headers) and every one of them is real — but every one is
+    # also prerequisite-gated behind a linear chain whose only ungated
+    # entry is `websec-http`, and `labs.detail` redirects a locked lab
+    # back to the catalogue. Linking any of the seven directly would be a
+    # dead CTA for anyone who has not already worked the chain, so the
+    # chain's entry point is wired instead and hands-on-practice §12
+    # states the unlock order outright so the seven are reachable rather
+    # than merely mentioned.
+    #
+    # It is also a genuine content match rather than a fallback: the
+    # lab's second objective is "Check the response headers for
+    # information leakage", which is precisely Exercise 4's Security
+    # Misconfiguration material read against a different application's
+    # headers. It is the same lab web-fundamentals/core-concepts
+    # (YC-036.6) and burp-suite/hands-on-practice (YC-037.3) link — the
+    # lesson says so outright and says what this visit is for, rather
+    # than pretending it is new.
+    ("owasp-top-10", "hands-on-practice"): {
         "lab_slug": "websec-http",
         "lab_title": "HTTP Requests & Responses",
     },

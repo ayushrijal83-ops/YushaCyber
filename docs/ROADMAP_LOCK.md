@@ -66,8 +66,8 @@ In today's implementation this loop is **partially wired**:
   YC-036.4/.5 linked missions only; YC-036.6 additionally links two
   `web-fundamentals` lessons to real interactive labs
   (`websec-http`, `websec-cookies`) — the first lab links wired from any
-  lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2 and YC-037.3 each
-  wired their own module's links the same way — see the **Lab Mapping**
+  lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2, YC-037.3 and
+  YC-037.4 each wired their own module's links the same way — see the **Lab Mapping**
   and **Mission Mapping** tables, which are kept current, for exactly
   which lessons link where today. Every module not named in those tables
   still has no lab/mission link — this remains a real gap for whoever
@@ -285,7 +285,7 @@ fabricated link.
 | `nmap` | `nmap-basics` (category `nmap`) — **linked in YC-037.1**, scoped to `hands-on-practice`; `nmap-services`/`nmap-advanced` are real and audited here but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
 | `wireshark` | `wireshark-basics` (category `wireshark`) — **linked in YC-037.2**, scoped to `hands-on-practice`; `wireshark-protocols`/`wireshark-advanced` are real, audited here, and named in the lesson text as next steps, but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
 | `burp-suite` | `websec-http` (category `web-security`) — **linked in YC-037.3**, scoped to `hands-on-practice`. `websec-headers` is real and proxy-adjacent but deliberately **not** wired: every websec lab except `websec-http` sits behind a linear `prerequisite_lab_id` chain (`websec-cookies`→`websec-http`, `websec-sessions`→`websec-cookies`, … `websec-headers` is tenth), and `labs.detail` redirects a locked lab back to the catalogue, so linking it would be a dead CTA for anyone reaching this module. `websec-http` is the only one with no prerequisite. Note it is the same lab `web-fundamentals`/`core-concepts` links (YC-036.6) — reused deliberately, and the lesson text says so |
-| `owasp-top-10` | `websec-auth`, `websec-idor`, `websec-sqli`, `websec-xss`, `websec-csrf`, `websec-upload`, `websec-headers` (category `web-security`) |
+| `owasp-top-10` | `websec-http` (category `web-security`) — **linked in YC-037.4**, scoped to `hands-on-practice`. The seven labs this row previously listed (`websec-auth`, `websec-idor`, `websec-sqli`, `websec-xss`, `websec-csrf`, `websec-upload`, `websec-headers`) are all real and all still the right subject matter, but every one sits behind the linear `prerequisite_lab_id` chain whose only ungated entry is `websec-http`, and `labs.detail` redirects a locked lab back to the catalogue — so the chain's entry point is wired and the lesson states the full unlock order instead. `websec-http` is also a genuine match for the module's Security Misconfiguration exercise (its second objective is response-header information leakage). Same lab `web-fundamentals`/`core-concepts` (YC-036.6) and `burp-suite`/`hands-on-practice` (YC-037.3) link — the lesson says so. `soc-brute-force` (category `soc`, ungated) is *named* in the lesson as the defending-side counterpart for A09, not wired |
 | `active-directory-basics` | `ad-orientation`, `ad-inactive-account` (category `active-directory`) |
 | `metasploit` | None yet |
 | `windows-privilege-escalation` | None yet |
@@ -324,7 +324,7 @@ Track J.
 | `nmap` | `nmap-fundamentals` |
 | `wireshark` | `wireshark-fundamentals` — **linked in YC-037.2**, scoped to `hands-on-practice` |
 | `burp-suite` | `burp-fundamentals` — **linked in YC-037.3**, scoped to `core-concepts` *and* `hands-on-practice` (the first module to link a mission from two lessons since `web-fundamentals`: core-concepts §14 is a real command-driven Repeater experiment, so it has something to practise; `introduction`'s exercises are reasoning questions about output already printed in the lesson, so it correctly gets no CTA) |
-| `owasp-top-10` | `authentication-sessions`, `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
+| `owasp-top-10` | `authentication-sessions` — **linked in YC-037.4**, scoped to `core-concepts`; `sql-injection-fundamentals` — **linked in YC-037.4**, scoped to `hands-on-practice`. The first module to link *two different* missions from two different lessons (every prior multi-lesson case reused one mission). `xss-fundamentals`, `csrf-fundamentals` and `file-upload-security` are real, ungated, and named by their real titles in `hands-on-practice` §12 as next steps, but not wired — one `mission_slug` per lesson |
 | `web-pentesting` | `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
 | all other modules | None yet |
 
@@ -1456,9 +1456,255 @@ Known Issues #3) — reflected in both `flask roadmap-audit` and
 
 None of these were silently added as new roadmap rows — they're
 documented here as candidates for whoever scopes the next Intermediate
-content pass (`owasp-top-10` is the next lowest-order EMPTY module) or a
-future platform-infrastructure ticket, per the explicit instruction
+content pass (`owasp-top-10` was the next lowest-order EMPTY module and
+was written in YC-037.4 — see below) or a future
+platform-infrastructure ticket, per the explicit instruction
 against inventing curriculum.
+
+---
+
+## Content Status — OWASP Top 10 (YC-037.4)
+
+The twelfth module with real, authored lesson content, and the fourth in
+the **Intermediate** category — `owasp-top-10` is module 4 of
+Intermediate, the lowest-order EMPTY module remaining after YC-037.3.
+Framed throughout as **authorized**, evidence-driven web application
+security reasoning, on the chain the driving ticket specified:
+application → attack surface → input/request → trust boundary →
+application behavior → vulnerability → impact → evidence → mitigation →
+validation. The module's throughline is that **a vulnerability is a
+security assumption that turned out to be false**, not a payload — the
+same observation/interpretation/conclusion separation Wireshark and Burp
+Suite install, applied to named risk categories.
+
+All 3 lessons were EMPTY
+(`app/content/roadmap/intermediate/owasp-top-10/` did not exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | What OWASP actually is (and that ASVS/WSTG exist alongside the Top 10); the Top 10 defined as an *awareness document* of risk *categories*, with the four consequences that follow; a dedicated section on why it is **not exhaustive** (business logic flaws, race conditions, DoS, most client-side and infrastructure issues named as real and outside it) and the three honest uses it does have; the edition decision stated outright (see below) with the "always cite the edition" and "check what is current before you report" rules; the full ten-link reasoning chain; attack surface as a 12-row table built from the simulator's own real route list, with the three questions to ask of every surface; trust boundaries drawn as a diagram, ending in **"A restriction that exists only in the browser is not a security control."**; the nine sources of untrusted input including data read back out of your own database, with the "input is not dangerous, assumptions about input are dangerous" correction and the six ways input stops being data; validation vs. sanitisation vs. encoding as a comparison table, with the explicit refusal to present sanitisation as a substitute for parameterised queries or contextual encoding; vulnerability-as-failed-control mapped to all ten categories; the evidence loop with its three governing rules; observation/interpretation/conclusion worked once; the ten-category map (control that failed / evidence / misconception per row) plus the overlap and visible-from-outside notes; six misconception corrections; four discussion exercises; 8 knowledge-check questions | `app/content/roadmap/intermediate/owasp-top-10/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | All ten 2021 categories in order, each as *control that failed / evidence / impact / mitigation / misconception*. A01 taught deepest: authentication vs. authorization, the real 401→403→200 sequence on one unchanged URL across three sessions, the `302`-to-login pattern as an equally real access-control decision, vertical vs. horizontal, the 7-step IDOR procedure with a 5-outcome table, and an explicit statement that the horizontal test **cannot be run on this platform**; A02 with the four failure areas, a wrong-choices table, and the honest "no runnable cryptographic evidence" note plus the real `no-store`/`max-age=60` contrast; A03 as one formula covering SQL/OS/template/LDAP/NoSQL/XSS, worked through the real query visualiser (normal → error → boolean-true → parameterised, then the comment-sequence login bypass and its parameterised counterpart) and real reflected/encoded XSS markers; A04 as design-vs-implementation with the real `/transfer` vs. `/secure-transfer` pair (five requests, including the forged `Origin` that succeeds and the three that are rejected); A05 read twice off one real header block — what is present, what is absent, plus the verbose-database-error/generic-404 contrast; A06 with the four conditions that must hold before an old version means anything and the "current is not automatically safe" converse; A07 split into establishing vs. maintaining identity, with the real failed login and the expiry that rejects a byte-identical request; A08 with the real ten-step upload pipeline, the double-extension upload that is accepted and stored web-accessible, the read-back that proves it, and the `415` from the endpoint with more layers; A09 taught as the category that cannot be tested from outside, with the client-history-is-not-a-server-log distinction; A10 with the client-vs-server request diagram, impact categories, one clearly-labelled illustrative example and five mitigations; then category overlap worked on one finding, six collected misconceptions, and 10 knowledge-check questions | `app/content/roadmap/intermediate/owasp-top-10/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Authorization first, with an explicit list of what the module does not teach; the environment and its three training accounts; the 12-step workflow with ORIENT named as the step people skip; six exercises run as **one continuous session** so §9's request history is real — access control (four steps, including the control request that rules out "my session is invalid"), injection (baseline → one character → change the meaning → prove the defence), authentication (failed login, session, expiry, the byte-identical rejected request), security misconfiguration (headers read as present/absent, two error paths compared), SSRF as an explicitly reasoning-only exercise with five discussion questions, and the finding report; each exercise carries objective / hypothesis / real commands / real output / required OBSERVATION-INTERPRETATION-CONCLUSION / **what you cannot conclude** / common mistake; a 14-field report template and a fully worked example built only from evidence the lesson actually produced, including severity *reasoning*, validation strategy, confidence and NOT TESTED; observation/interpretation/conclusion applied twice; nine common mistakes; the practice section (five real missions, the ten-lab chain and its unlock order, the SOC lab for A09); and the five-module chain this module completes; 12 knowledge-check questions | `app/content/roadmap/intermediate/owasp-top-10/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the eleven prior content passes.
+
+### OWASP edition — a curriculum-level decision, recorded not hidden
+
+**The repository pins no OWASP edition anywhere.** Audited before
+writing: the module row's description is the generic
+"OWASP Top 10 — part of the Intermediate track."; `app/roadmap/seed.py`
+carries only the title string; `app/resources/seed.py` has an untitled
+"The OWASP Top 10 Overview" resource with no version; the
+`websec-*` labs and the five web-security terminal missions name
+techniques, never a Top 10 identifier; no test, migration or document
+mentions an edition. There was therefore nothing to read the project's
+intent off, and the ticket's own instruction was to report the ambiguity
+rather than resolve it silently.
+
+**Decision taken, and why:** the module teaches **OWASP Top 10 – 2021**
+(A01:2021 – A10:2021). The driving ticket's own scoping section lists
+exactly the 2021 categories in exactly the 2021 order, which is the only
+edition signal in evidence anywhere; and the platform's existing
+web-security labs and missions (access control, injection, XSS, CSRF,
+upload, headers, auth) map cleanly onto it. The alternative — blocking
+the whole module on a question the repository cannot answer — would have
+delivered nothing.
+
+Two things the lessons do because of this, rather than pretending the
+question does not exist:
+
+- `introduction` §6 states the edition explicitly, gives the revision
+  history, shows two concrete renames between editions, and instructs
+  students to **always cite the edition** and to **check what is current
+  on owasp.org before writing a professional report** — the list is
+  revised on its own schedule, and a report citing a superseded edition
+  without saying so misleads its reader.
+- Editions are never blended.
+  `tests/test_roadmap_lock.py::TestOwaspTop10Content::
+  test_no_other_edition_category_names_are_mixed_in` pins this
+  mechanically: the six other-edition category names may appear only in
+  the four places a lesson is explicitly explaining a rename, counted
+  exactly, and nowhere else.
+
+If the project later wants a different edition, that is a curriculum
+decision, and this section is the record of the one that was made.
+
+### Real evidence — no fabricated HTTP anywhere
+
+Every request, response, header listing, schema dump, query
+visualisation and request history quoted in all three lessons was
+captured by actually running this platform's real terminal command
+handlers (`app/core/terminal/commands.py`: `web`, `open`, `headers`,
+`cookies`, `schema`, `query`, `expire`, `requests`) against the real
+simulated web application (`app/core/terminal/web.py`) — the same
+`WebApp` the five web-security terminal missions load.
+`tests/test_roadmap_lock.py::TestOwaspTop10Content::
+test_quoted_simulator_output_matches_the_real_simulator` replays all
+three sessions command-for-command, in order, and fails if any lesson's
+quoted output ever drifts. Five further claims the lessons make about
+the environment are pinned by their own tests rather than trusted:
+`test_admin_route_really_distinguishes_401_403_and_200`,
+`test_injection_endpoints_really_differ`,
+`test_session_expiry_really_rejects_an_unchanged_request`,
+`test_out_of_scope_host_is_really_refused` (asserted on state — no
+history entry, `blocked_count` incremented — not only on the message),
+and `test_simulator_really_has_no_per_user_resource_endpoint`.
+
+That last one is the interesting one. Core Concepts §6 and Hands-on
+Exercise 1 both say outright that the classic horizontal/IDOR test
+(request A's record, change only the identifier to B's) **cannot be run
+here**, because the simulator has no per-user resource endpoint — the
+same gap YC-037.3 documented and deferred to this module. Rather than
+invent one, the reasoning is taught in full (7-step procedure plus a
+5-outcome table) and the runnable version is pointed at the real
+`websec-idor` lab. The test asserts the gap is still real, so if a
+per-user endpoint is ever added the honesty note fails first and the
+lessons get updated.
+
+**Three categories are described in prose with no output claimed**, each
+stated openly in the lesson text:
+
+- **A02 (Cryptographic Failures)** — the simulator has no TLS layer,
+  password store or key management. §9 says so and uses the one genuinely
+  adjacent real observation instead (`Cache-Control: no-store` on
+  account data vs. `max-age=60` on the public catalogue).
+- **A09 (Logging & Monitoring)** — the simulator models no server-side
+  log at all. §26 says so, and draws the useful distinction that the
+  `requests` history is the *client's* record, not the server's. The
+  real `soc-brute-force` lab is named as the defending-side counterpart.
+- **A10 (SSRF)** — no route fetches a URL on the server's behalf. §27
+  says so; its one request block is labelled **"illustrative only, not
+  captured output"**, and Exercise 5 is explicitly a reasoning exercise
+  rather than a fabricated lab. The out-of-scope-host refusal is used as
+  the *contrast* (a client-side scope control), clearly framed as such.
+
+Two further honesty notes worth recording. The `Server:
+CyberShop-Sim/1.0` header used for A06's version-disclosure material is
+the simulator's own fictional version string, and §18 says so rather
+than implying a real product. And the `Set-Cookie` in these lessons
+carries no `Secure`/`HttpOnly`/`SameSite` — Exercise 3's "what you cannot
+conclude" section names that as a property of a deliberately simplified
+training simulator, not a finding worth reporting against it.
+
+**Structure untouched.** Module id 12, `display_order` 4, category
+Intermediate, difficulty `intermediate`, `estimated_hours` 1,
+`xp_reward` 175; lesson ids 34/35/36, slugs
+`introduction`/`core-concepts`/`hands-on-practice`, order 1/2/3, XP
+25/50/100, minutes 10/20/30, `is_preview` True/False/False, content
+paths unchanged. The module description is deliberately left as-is,
+consistent with every prior content pass. Pinned by
+`test_lesson_ids_and_order_unchanged_by_content_edit` and
+`test_intermediate_module_order_unchanged`.
+
+This lowers the roadmap-wide "empty lessons" count from 63 to 60 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Lab and mission cross-links
+
+- **Missions**: this is the first module to link **two different**
+  missions from two different lessons. `core-concepts` links the real
+  **Authentication & Sessions** mission
+  (`/terminal/mission/authentication-sessions`, 15 objectives,
+  `web_lab: auth-lifecycle`) — A01 and A07 are the two categories that
+  lesson demonstrates from real responses end to end, and that mission
+  is exactly those two. `hands-on-practice` links the real **SQL
+  Injection Fundamentals** mission
+  (`/terminal/mission/sql-injection-fundamentals`, 16 objectives,
+  `web_lab: sqli-investigation`) — Exercise 2 is the lesson's deepest
+  experiment and runs on the same schema/query-visualiser pair. Both
+  added to `_LESSON_MISSION_LINKS` (`app/roadmap/services.py`). Verified
+  that missions are **not** gated: `start_mission()` has no prerequisite
+  check, so all five web-security missions are directly reachable. The
+  other three (`xss-fundamentals`, `csrf-fundamentals`,
+  `file-upload-security`) are named by their real titles in Hands-on §12
+  as next steps and pinned by
+  `test_further_missions_named_in_lesson_text_are_real`.
+  `introduction` correctly gets no CTA — its exercises are reasoning
+  questions about output already printed in the lesson, the same
+  discipline `burp-suite/introduction` used.
+- **Lab**: `hands-on-practice` links **HTTP Requests & Responses**
+  (`websec-http`, `/labs/websec-http`). The Lab Mapping table above
+  lists seven web-security labs for this module and every one of them is
+  real — but every one is also prerequisite-gated behind the linear
+  chain whose only ungated entry is `websec-http`, and `labs.detail`
+  redirects a locked lab back to the catalogue, so linking any of the
+  seven directly would be a dead CTA for anyone who has not worked the
+  chain. The chain's entry point is wired instead, and Hands-on §12
+  states the full unlock order outright so all ten are reachable rather
+  than merely mentioned. It is also a genuine content match rather than a
+  fallback: the lab's second objective is "Check the response headers for
+  information leakage", which is precisely Exercise 4's Security
+  Misconfiguration material read against a different application's
+  headers — and the lesson says outright that it is the same lab
+  `web-fundamentals/core-concepts` and `burp-suite/hands-on-practice`
+  already link, and what this visit is for.
+  `test_websec_lab_chain_named_in_lesson_is_real_and_really_gated`
+  verifies all ten labs exist with the titles the lesson prints, and
+  that the chain is genuinely linear in that order.
+- **`soc-brute-force`**: named (not linked — one `lab_slug` per lesson)
+  in Core Concepts §26 and Hands-on §12 as the one place on this platform
+  where the defending side of A09 can be seen. Verified real, active,
+  interactive and **ungated** by
+  `test_soc_lab_named_for_a09_is_real_and_ungated`. This is the first
+  time any roadmap lesson has referenced the SOC lab category, which
+  otherwise remains Track J / Future Curriculum.
+- **Free-practice terminal**: `owasp-top-10` is deliberately **not**
+  added to `_TERMINAL_PRACTICE_MODULES`, on exactly the grounds that
+  excluded `web-fundamentals` and `burp-suite`: `start_shell()` never
+  sets `sh.web_lab`, so every command this module teaches answers
+  "no simulated web environment configured for this session" in the bare
+  sandbox. Asserted rather than assumed by
+  `test_free_practice_terminal_really_has_no_web_lab`.
+
+CyberMentor context needed no change: the generic `current_lab` hook
+(YC-036.4) applies here unchanged and passes "OWASP Top 10 — <lesson
+title>" through to the mentor's system prompt.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **A per-user resource endpoint in the simulator** — the module's
+  clearest gap, and now the second ticket to document it (YC-037.3
+  deferred it here). Something in the shape of `/orders/<id>` owned by a
+  specific training account would make the horizontal access-control
+  test runnable and would let the module's strongest category be
+  *demonstrated* rather than only reasoned about. That needs new routes
+  and per-user state in `app/core/terminal/web.py`, not attempted here
+  per the instruction against building infrastructure in a content-only
+  ticket.
+- **An SSRF scenario** — same shape of gap, and the reason A10 is the
+  one category with no runnable exercise. A route that fetches a
+  client-supplied URL against a simulated internal network would make
+  Exercise 5 a real investigation.
+- **Server-side logging in the simulator** — would make A09 assessable
+  from the lesson rather than only explicable, and would connect the
+  roadmap to the real SOC lab category properly.
+- **XSS, CSRF and file-upload as their own wired lessons** — all three
+  have real, ungated missions and real (gated) labs, and all three are
+  taught here at category depth. Giving each the exercise treatment
+  Exercise 2 gives injection would need more lesson slots than the
+  locked three.
+- **The websec prerequisite chain as a lesson-linking constraint** —
+  one `lab_slug` per lesson, plus a linear chain, means six genuinely
+  well-matched labs cannot be wired from the module they belong to. A
+  future change to that data shape (a list instead of a single dict), or
+  a review of whether the chain should gate this late in the roadmap,
+  would fix it for this module more than for any other.
+- **The OWASP Top 10 module quiz** — `Quiz` id 12's questions remain the
+  generic seeded placeholders shared by every module (Known Issues #4,
+  roadmap-wide, unchanged since YC-036.2). Consistent with all eleven
+  prior content passes, knowledge checks live in the lesson markdown
+  (8 questions in Introduction, 10 in Core Concepts, 12 in Hands-on
+  Practice — all reasoning questions, none trivia).
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Intermediate
+content pass (`active-directory-basics` is the next lowest-order EMPTY
+module) or a future platform-infrastructure ticket, per the explicit
+instruction against inventing curriculum.
 
 ---
 
@@ -1522,7 +1768,7 @@ against inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 69/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), first in Intermediate — 27 lessons total — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 60/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), Wireshark (YC-037.2), Burp Suite (YC-037.3) and OWASP Top 10 (YC-037.4), the first four of Intermediate — 36 lessons total — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -1580,27 +1826,29 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **63 of 96 lessons have no real content** (94 at the time of
+3. **60 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
    YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
    75 after YC-036.9, 72 after YC-037.0, 69 after YC-037.1, 66 after
-   YC-037.2, 63 after YC-037.3).
+   YC-037.2, 63 after YC-037.3, 60 after YC-037.4).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
    `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
    `git-github` (YC-036.8), `operating-systems` (YC-036.9),
    `virtualization` (YC-037.0), `nmap` (YC-037.1), `wireshark`
-   (YC-037.2), and `burp-suite` (YC-037.3) have
-   genuine Markdown content; every
+   (YC-037.2), `burp-suite` (YC-037.3) and `owasp-top-10` (YC-037.4)
+   have genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   eleven modules. **The Beginner category is complete** — all 8 of its
+   twelve modules. **The Beginner category is complete** — all 8 of its
    modules / 24 of its lessons are real; Intermediate has its first
-   three real modules (`nmap`, `wireshark`, `burp-suite`, 3 of 8). The
-   remaining 63 empty lessons span the rest of Intermediate, Red Team,
+   four real modules (`nmap`, `wireshark`, `burp-suite`,
+   `owasp-top-10`, 4 of 8). The
+   remaining 60 empty lessons span the rest of Intermediate, Red Team,
    and AI Security, tracked here for whoever picks up the next module's
-   lessons (`owasp-top-10` is the lowest-order EMPTY module remaining).
+   lessons (`active-directory-basics` is the lowest-order EMPTY module
+   remaining).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw
    `<script>alert(1)</script>` payload (confirmed harmless at the time:

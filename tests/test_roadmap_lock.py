@@ -4,8 +4,8 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (66 of 96
-lessons still empty as of YC-037.2, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (60 of 96
+lessons still empty as of YC-037.4, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
@@ -14,8 +14,9 @@ added silently. Python Programming (YC-036.3), Linux Fundamentals
 (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9),
 Virtualization (YC-037.0 — completing the Beginner category), Nmap
 (YC-037.1 — the first real module in Intermediate), Wireshark
-(YC-037.2) and Burp Suite (YC-037.3) are the real content in the
-roadmap; this file also pins that all eleven stay real.
+(YC-037.2), Burp Suite (YC-037.3) and OWASP Top 10 (YC-037.4) are the
+real content in the roadmap; this file also pins that all twelve stay
+real.
 """
 
 from __future__ import annotations
@@ -315,8 +316,10 @@ class TestContentBaseline:
             # 69 -> 66 as of YC-037.2: Wireshark's all 3 lessons were
             # EMPTY. See TestWiresharkContent below. Then 66 -> 63 as of
             # YC-037.3: Burp Suite's all 3 lessons were EMPTY. See
-            # TestBurpSuiteContent below.
-            assert empty == 63
+            # TestBurpSuiteContent below. Then 63 -> 60 as of YC-037.4:
+            # OWASP Top 10's all 3 lessons were EMPTY. See
+            # TestOwaspTop10Content below.
+            assert empty == 60
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -3485,6 +3488,928 @@ class TestBurpSuiteContent:
             assert row.bonus_awarded is True
 
             nxt = RoadmapModule.query.filter_by(slug="owasp-top-10").first()
+            assert module_status(User.query.get(uid), nxt) == "available"
+
+
+# ═══════════════════════════════════════════
+# Content — OWASP Top 10 (YC-037.4)
+# ═══════════════════════════════════════════
+class TestOwaspTop10Content:
+    """Guards the real content written for YC-037.4 — OWASP Top 10,
+    module 4 of Intermediate. Pins that each lesson teaches its actual
+    material, that the module commits to exactly one OWASP edition
+    (2021) with no other edition's category names mixed in, that every
+    quoted request/response/query/header block is byte-for-byte what
+    this platform's real simulated web application
+    (`app/core/terminal/web.py`, driven through the real `open`/`web`/
+    `headers`/`cookies`/`schema`/`query`/`expire`/`requests` command
+    handlers in `app/core/terminal/commands.py`) actually produces, and
+    that the module's mission links (`authentication-sessions` on
+    core-concepts, `sql-injection-fundamentals` on hands-on-practice)
+    and lab link (`websec-http` on hands-on-practice) are real,
+    reachable routes."""
+
+    _SLUGS: ClassVar[tuple[str, ...]] = (
+        "introduction", "core-concepts", "hands-on-practice",
+    )
+
+    # The 2021 edition's ten categories, exactly as the module must name
+    # them. Losing or renaming one silently mixes editions.
+    _CATEGORIES_2021: ClassVar[tuple[tuple[str, str], ...]] = (
+        ("A01", "Broken Access Control"),
+        ("A02", "Cryptographic Failures"),
+        ("A03", "Injection"),
+        ("A04", "Insecure Design"),
+        ("A05", "Security Misconfiguration"),
+        ("A06", "Vulnerable and Outdated Components"),
+        ("A07", "Identification and Authentication Failures"),
+        ("A08", "Software and Data Integrity Failures"),
+        ("A09", "Security Logging and Monitoring Failures"),
+        ("A10", "Server-Side Request Forgery"),
+    )
+
+    # Category names that belong to OTHER editions only. If one of these
+    # appears in the teaching lessons the module has silently drifted.
+    _OTHER_EDITION_NAMES: ClassVar[tuple[str, ...]] = (
+        "Sensitive Data Exposure",
+        "XML External Entities",
+        "Broken Authentication",
+        "Insecure Deserialization",
+        "Using Components with Known Vulnerabilities",
+        "Insufficient Logging",
+    )
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "OWASP Top 10 – 2021", "attack surface", "trust boundary",
+            "Validation", "Sanitisation", "Encoding",
+            "awareness document", "allowlist",
+            "OBSERVATION", "INTERPRETATION", "CONCLUSION",
+            "Authorization Boundary", "baseline",
+        ],
+        "core-concepts": [
+            "Authentication", "Authorization", "401", "403", "200",
+            "parameterised", "placeholder", "prepared statement",
+            "SELECT * FROM products WHERE name = ?",
+            "Cross-Site Request Forgery", "SameSite",
+            "csrf_token", "session identifier",
+            "abuse case", "defence in depth", "allowlist",
+            "OBSERVATION", "INTERPRETATION", "CONCLUSION",
+            "illustrative only, not captured output",
+        ],
+        "hands-on-practice": [
+            "Authorization Comes First", "SEVERITY REASONING",
+            "VALIDATION STRATEGY", "CONFIDENCE", "NOT TESTED",
+            "OBSERVATION", "INTERPRETATION", "CONCLUSION",
+            "baseline", "one variable",
+            "illustrative example, not captured output",
+        ],
+    }
+
+    # The exact WRONG/CORRECT corrections the driving spec named. Losing
+    # any of these makes the module technically wrong, not merely thinner.
+    _REQUIRED_CORRECTIONS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "The OWASP Top 10 contains every vulnerability that matters.",
+            "It is a risk-awareness framework covering ten categories",
+            "If I'm authenticated, I'm allowed.",
+            "Authentication establishes <em>who you are</em>",
+            "This parameter takes user input, so it's vulnerable.",
+            "The application returned 403, so authorization is secure.",
+            "HTTPS solves web security.",
+            "The button isn't shown to this user, so this user can't do it.",
+        ],
+        "core-concepts": [
+            "An old version is not automatically vulnerable.",
+            "Injection means SQL injection.",
+            "Filtering dangerous characters prevents injection.",
+            "A 500 error proves SQL injection.",
+            "If it's behind a login, it's protected.",
+            "That's just the browser making a request.",
+            "in SSRF, the <em>server</em> makes the request",
+            "Checking the file extension is enough.",
+        ],
+    }
+
+    @staticmethod
+    def _render(app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(
+                f"roadmap/intermediate/owasp-top-10/{slug}.md"
+            )
+
+    @staticmethod
+    def _raw_lesson(slug):
+        from pathlib import Path
+
+        import app as app_pkg
+        path = (Path(app_pkg.__file__).parent / "content" / "roadmap"
+                / "intermediate" / "owasp-top-10" / f"{slug}.md")
+        return path.read_text(encoding="utf-8")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_keep_their_misconception_corrections(self, app):
+        for slug, claims in self._REQUIRED_CORRECTIONS.items():
+            html = self._render(app, slug)
+            for claim in claims:
+                assert claim in html, f"{slug}: lost required correction {claim!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        """Same guard every prior content pass uses, with one deliberate
+        narrowing: the bare word "placeholder" is a *taught term* in this
+        module (a parameterised query binds its data into a placeholder —
+        Core Concepts §12), so unfinished-content detection matches the
+        phrases that actually signal unfinished content instead."""
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder content",
+                  "placeholder text", "this is a placeholder",
+                  "to be written", "tbd")
+        for slug in self._SLUGS:
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    # ── Edition discipline ─────────────────────────────────────────────
+    def test_module_declares_the_2021_edition_explicitly(self, app):
+        """The repository pins no OWASP edition anywhere (verified during
+        YC-037.4's inspection pass), so the module has to say which one it
+        teaches rather than leaving a reader to guess."""
+        intro = self._raw_lesson("introduction")
+        assert "This module teaches the OWASP Top 10 – 2021 edition" in intro
+        assert "Always state the edition when you cite a category." in intro
+        assert "Check which edition is current before you write a professional report." in intro
+        assert "OWASP Top 10 – 2021" in self._raw_lesson("core-concepts")
+
+    def test_all_ten_2021_categories_are_taught_by_their_real_names(self, app):
+        core = self._render(app, "core-concepts")
+        intro = self._render(app, "introduction")
+        for ident, name in self._CATEGORIES_2021:
+            assert name in core, f"core-concepts: 2021 category {name!r} missing"
+            assert name in intro, f"introduction: 2021 category {name!r} missing"
+            assert f"{ident}:2021" in core, (
+                f"core-concepts: identifier {ident}:2021 missing"
+            )
+
+    def test_no_other_edition_category_names_are_mixed_in(self, app):
+        """Editions must not be blended. These names belong to editions
+        other than 2021, and are permitted *only* where a lesson is
+        explicitly explaining that a category was renamed between
+        editions — twice in the introduction's edition-history paragraph,
+        and twice in Core Concepts, where §8 and §21 each name the former
+        title of the category they introduce (both explicitly attributed
+        to the older edition). Every other occurrence, and every other
+        name, is drift."""
+        intro = self._raw_lesson("introduction")
+        core = self._raw_lesson("core-concepts")
+        hands = self._raw_lesson("hands-on-practice")
+
+        # The three permitted, rename-explaining mentions, pinned exactly.
+        assert intro.count("Broken Authentication") == 1
+        assert intro.count("Sensitive Data Exposure") == 1
+        assert '"Identification and Authentication Failures" in 2021' in intro
+        assert core.count("Sensitive Data Exposure") == 1
+        assert 'renamed this category from "Sensitive Data Exposure"' in core
+        assert core.count("Broken Authentication") == 1
+        assert 'Renamed from 2017\'s "Broken Authentication"' in core
+
+        allowed = {
+            "introduction": {"Broken Authentication": 1,
+                             "Sensitive Data Exposure": 1},
+            "core-concepts": {"Broken Authentication": 1,
+                              "Sensitive Data Exposure": 1},
+            "hands-on-practice": {},
+        }
+        for slug, raw in (("introduction", intro), ("core-concepts", core),
+                          ("hands-on-practice", hands)):
+            for name in self._OTHER_EDITION_NAMES:
+                assert raw.count(name) == allowed[slug].get(name, 0), (
+                    f"{slug}: other-edition name {name!r} appears "
+                    f"{raw.count(name)} time(s), expected "
+                    f"{allowed[slug].get(name, 0)}"
+                )
+
+    def test_top_ten_is_taught_as_non_exhaustive(self, app):
+        intro = self._render(app, "introduction")
+        assert "Why the Top 10 Is Not a Complete List" in intro
+        assert "business logic" in intro.lower()
+        assert "race condition" in intro.lower()
+
+    # ── Core reasoning the module exists to install ───────────────────
+    def test_authentication_versus_authorization_is_taught(self, app):
+        intro = self._render(app, "introduction")
+        core = self._render(app, "core-concepts")
+        assert "Authentication Is Not Authorization" in core
+        for html in (intro, core):
+            assert "who are you?" in html
+        assert ("You are authenticated, but not authorized to access this "
+                "resource.") in core
+
+    def test_client_side_is_never_a_security_boundary(self, app):
+        """The single most load-bearing claim in the module."""
+        intro = self._render(app, "introduction")
+        assert ("A restriction that exists only in the browser is not a "
+                "security control.") in intro
+
+    def test_parameterised_queries_taught_as_the_injection_defence(self, app):
+        core = self._render(app, "core-concepts")
+        assert ("Parameterisation does not clean your input. It makes your "
+                "input structurally incapable of being anything but data.") in core
+        assert "Sanitisation is not a substitute for parameterised queries" in (
+            self._render(app, "introduction")
+        )
+
+    def test_observation_interpretation_conclusion_used_in_every_lesson(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug)
+            for word in ("OBSERVATION", "INTERPRETATION", "CONCLUSION"):
+                assert word in html, f"{slug}: missing {word}"
+
+    def test_finding_report_template_requires_evidence_and_impact(self, app):
+        hands = self._render(app, "hands-on-practice")
+        for field in ("FINDING:", "OWASP CATEGORY:", "AFFECTED ENDPOINT:",
+                      "INPUT:", "ORIGINAL REQUEST:", "MODIFIED REQUEST:",
+                      "OBSERVED RESPONSE:", "EVIDENCE:", "SECURITY IMPACT:",
+                      "SEVERITY REASONING:", "RECOMMENDED FIX:",
+                      "VALIDATION STRATEGY:", "CONFIDENCE:", "NOT TESTED:"):
+            assert field in hands, f"hands-on-practice: report field {field!r} missing"
+
+    def test_six_practical_exercises_exist(self, app):
+        hands = self._render(app, "hands-on-practice")
+        for heading in ("Exercise 1 — Broken Access Control",
+                        "Exercise 2 — Injection",
+                        "Exercise 3 — Identification and Authentication Failures",
+                        "Exercise 4 — Security Misconfiguration",
+                        "Exercise 5 — Server-Side Request Forgery",
+                        "Exercise 6 — The Finding Report"):
+            assert heading in hands, f"hands-on-practice: {heading!r} missing"
+
+    # ── Safety ────────────────────────────────────────────────────────
+    def test_no_unauthorized_or_offensive_framing(self, app):
+        """Permanent safety rule: this module teaches authorized,
+        evidence-driven web application testing. It must never drift into
+        teaching session theft, credential attacks against real accounts,
+        attacks on cloud metadata services, destructive injection, or
+        detection evasion."""
+        banned = ("steal the session", "steal a session", "hijack the session",
+                  "steal the cookie", "forge a session", "forge the cookie",
+                  "evade detection", "avoid being detected",
+                  "drop table", "any public website", "any live site",
+                  "169.254.169.254")
+        for slug in self._SLUGS:
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains unsafe framing {phrase!r}"
+
+    def test_authorization_boundary_is_stated(self, app):
+        intro = self._render(app, "introduction")
+        assert "The Authorization Boundary" in intro
+        assert "explicit written permission" in intro
+        hands = self._render(app, "hands-on-practice")
+        assert "Authorization Comes First" in hands
+        core = self._render(app, "core-concepts")
+        for html, slug in ((intro, "introduction"), (core, "core-concepts"),
+                           (hands, "hands-on-practice")):
+            assert "authoriz" in html.lower(), f"{slug}: no authorization framing"
+
+    def test_ssrf_is_taught_without_operational_attack_detail(self, app):
+        """A10 has no runnable scenario on this platform. The lesson must
+        say so, must label its one example as illustrative, and must not
+        hand out operational detail for attacking internal networks."""
+        core = self._raw_lesson("core-concepts")
+        assert ("This platform has no SSRF scenario, and none is invented "
+                "here.") in core
+        assert "illustrative only, not captured output" in core
+        hands = self._raw_lesson("hands-on-practice")
+        assert ("this platform has no SSRF scenario and none is invented "
+                "here") in hands
+        assert "illustrative example, not captured output" in hands
+
+    def test_categories_with_no_runnable_evidence_say_so(self, app):
+        """A02, A09 and A10 cannot be demonstrated on this platform. Each
+        must state that outright rather than quietly implying the absent
+        material was covered."""
+        core = self._raw_lesson("core-concepts")
+        assert "This module has no runnable cryptographic evidence" in core, "A02"
+        assert "The simulator models no server-side log at all" in core, "A09"
+        assert "This platform has no SSRF scenario" in core, "A10"
+
+    # ── Structure untouched ───────────────────────────────────────────
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="owasp-top-10").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2, and
+        the module still sits at Intermediate display_order 4."""
+        from app.roadmap.models import Lesson, RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="owasp-top-10").first()
+            assert module.id == 12
+            assert module.display_order == 4
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            assert module.category_id == intermediate.id
+            assert module.difficulty == "intermediate"
+            assert module.estimated_hours == 1
+            assert module.xp_reward == 175
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [lesson.id for lesson in lessons] == [34, 35, 36]
+            assert [lesson.slug for lesson in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [lesson.display_order for lesson in lessons] == [1, 2, 3]
+            assert [lesson.xp_reward for lesson in lessons] == [25, 50, 100]
+            assert [lesson.estimated_minutes for lesson in lessons] == [10, 20, 30]
+            assert [lesson.content_path for lesson in lessons] == [
+                "roadmap/intermediate/owasp-top-10/introduction.md",
+                "roadmap/intermediate/owasp-top-10/core-concepts.md",
+                "roadmap/intermediate/owasp-top-10/hands-on-practice.md",
+            ]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_intermediate_module_order_unchanged(self, app):
+        """Nmap < Wireshark < Burp Suite < OWASP Top 10, still 1/2/3/4."""
+        from app.roadmap.models import RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            order = [
+                (m.slug, m.display_order) for m in
+                RoadmapModule.query.filter_by(category_id=intermediate.id)
+                .order_by(RoadmapModule.display_order).limit(5).all()
+            ]
+            assert order == [("nmap", 1), ("wireshark", 2), ("burp-suite", 3),
+                             ("owasp-top-10", 4),
+                             ("active-directory-basics", 5)]
+
+    # ── Practice links ────────────────────────────────────────────────
+    def test_practice_links_are_scoped_and_no_terminal_link(self, app, student):
+        """introduction has no practice CTA (its exercises are reasoning
+        questions about output already printed in the lesson);
+        core-concepts links the Authentication & Sessions mission;
+        hands-on-practice links the SQL Injection Fundamentals mission and
+        the HTTP Requests & Responses lab. No lesson offers the
+        free-practice terminal."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        expected = {
+            "introduction": (None, False),
+            "core-concepts": ("authentication-sessions", False),
+            "hands-on-practice": ("sql-injection-fundamentals", True),
+        }
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug, (mission, want_lab) in expected.items():
+                ctx = get_lesson_view_context(student_user, "owasp-top-10", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert not practice.get("show_terminal"), slug
+                assert practice.get("mission_slug") == mission, slug
+                assert bool(practice.get("lab_slug")) is want_lab, slug
+                if want_lab:
+                    assert practice["lab_slug"] == "websec-http"
+                    assert practice["lab_title"] == "HTTP Requests & Responses"
+
+    def test_free_practice_terminal_really_has_no_web_lab(self, app):
+        """The reason `owasp-top-10` is excluded from
+        _TERMINAL_PRACTICE_MODULES, asserted rather than assumed."""
+        from app.core.terminal.shell import Shell
+
+        sh = Shell()
+        assert sh.web_lab is None
+        assert sh.execute("open https://cybershop.training/admin") == (
+            "open: no simulated web environment configured for this session"
+        )
+        assert sh.execute("query") == (
+            "query: no simulated web environment configured for this session"
+        )
+
+    def test_lab_link_points_to_a_real_reachable_lab(self, app):
+        """`websec-http` is real, active, interactive AND has no
+        prerequisite — the reason it is the one websec lab this module can
+        link without producing a dead CTA."""
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("labs.detail", slug="websec-http") == "/labs/websec-http"
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(slug="websec-http").first()
+            assert lab is not None and lab.is_active and lab.is_interactive
+            assert lab.title == "HTTP Requests & Responses"
+            assert lab.prerequisite_lab_id is None
+
+    def test_websec_lab_chain_named_in_lesson_is_real_and_really_gated(self, app):
+        """hands-on §12 states the ten web-security labs unlock in a fixed
+        order and names each by its real title. Both halves get verified:
+        the labs exist with those titles, and the chain really is linear
+        with `websec-http` as its only ungated entry."""
+        raw = self._raw_lesson("hands-on-practice")
+        chain = ["websec-http", "websec-cookies", "websec-sessions",
+                 "websec-auth", "websec-idor", "websec-sqli", "websec-xss",
+                 "websec-csrf", "websec-upload", "websec-headers"]
+        with app.app_context():
+            from app.labs.models import Lab
+            previous = None
+            for slug in chain:
+                lab = Lab.query.filter_by(slug=slug).first()
+                assert lab is not None and lab.is_active, f"{slug}: not a real lab"
+                assert lab.title in raw, (
+                    f"{slug}: lesson names a title the database does not have "
+                    f"({lab.title!r})"
+                )
+                if previous is None:
+                    assert lab.prerequisite_lab_id is None, (
+                        "websec-http is the chain entry and must stay ungated"
+                    )
+                else:
+                    assert lab.prerequisite_lab_id == previous.id, (
+                        f"{slug}: chain order drifted from the lesson's claim"
+                    )
+                previous = lab
+
+    def test_mission_links_point_to_real_routes_and_real_missions(self, app):
+        from app.core.missions.mission_loader import MISSIONS
+
+        with app.test_request_context():
+            from flask import url_for
+            for slug in ("authentication-sessions", "sql-injection-fundamentals"):
+                assert url_for("terminal.mission_page", slug=slug) == (
+                    f"/terminal/mission/{slug}"
+                )
+        auth = MISSIONS["authentication-sessions"]
+        assert auth["title"] == "Authentication & Sessions"
+        assert len(auth["objectives"]) == 15
+        assert auth["web_lab"] == "auth-lifecycle"
+        sqli = MISSIONS["sql-injection-fundamentals"]
+        assert sqli["title"] == "SQL Injection Fundamentals"
+        assert len(sqli["objectives"]) == 16
+        assert sqli["web_lab"] == "sqli-investigation"
+
+    def test_further_missions_named_in_lesson_text_are_real(self, app):
+        """hands-on §12 names the other three web-security missions by
+        title. Naming a mission is a claim about reality even when it is
+        not a link."""
+        from app.core.missions.mission_loader import MISSIONS
+
+        raw = self._raw_lesson("hands-on-practice")
+        for slug in ("xss-fundamentals", "csrf-fundamentals",
+                     "file-upload-security"):
+            assert slug in MISSIONS, f"{slug}: not a real mission"
+            assert MISSIONS[slug]["title"] in raw, (
+                f"{slug}: lesson names a title the loader does not have "
+                f"({MISSIONS[slug]['title']!r})"
+            )
+
+    def test_soc_lab_named_for_a09_is_real_and_ungated(self, app):
+        """Core Concepts §26 and hands-on §12 both point at the real SOC
+        brute-force lab as the one place on this platform where the
+        defending side of A09 can be seen. Both claims — that it exists
+        and that it is reachable — are verified."""
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(slug="soc-brute-force").first()
+            assert lab is not None and lab.is_active and lab.is_interactive
+            assert lab.prerequisite_lab_id is None
+            assert lab.title == "SOC: Brute Force Investigation"
+        for slug in ("core-concepts", "hands-on-practice"):
+            assert "SOC: Brute Force Investigation" in self._raw_lesson(slug)
+
+    def test_training_credentials_named_in_lessons_are_the_real_ones(self, app):
+        """Every credential printed in these lessons is a fixed, fictional
+        training constant defined in the simulator."""
+        from app.core.terminal.web import _USERS, API_TOKEN, HOST
+
+        assert HOST == "cybershop.training"
+        assert _USERS["student"] == "training123"
+        assert _USERS["admin"] == "admin123"
+        assert _USERS["analyst"] == "analyst123"
+        assert API_TOKEN == "training-token-001"
+        for slug in self._SLUGS:
+            assert "cybershop.training" in self._raw_lesson(slug)
+        for slug in ("core-concepts", "hands-on-practice"):
+            raw = self._raw_lesson(slug)
+            for value in ("student", "training123", "admin", "admin123",
+                          "analyst", "analyst123"):
+                assert value in raw, f"{slug}: {value!r} not named"
+
+    # ── Real-evidence guard ────────────────────────────────────────────
+    _LOGIN_STUDENT: ClassVar[str] = (
+        'open -X POST -d "username=student&password=training123" '
+        "https://cybershop.training/auth/login"
+    )
+    _LOGIN_ADMIN: ClassVar[str] = (
+        'open -X POST -d "username=admin&password=admin123" '
+        "https://cybershop.training/auth/login"
+    )
+    _LOGIN_BAD: ClassVar[str] = (
+        'open -X POST -d "username=student&password=wrong-password" '
+        "https://cybershop.training/auth/login"
+    )
+    _SEARCH_QUOTE: ClassVar[str] = (
+        "open \"https://cybershop.training/search?q='\""
+    )
+    _SEARCH_TRUE: ClassVar[str] = (
+        "open \"https://cybershop.training/search?q=' OR '1'='1\""
+    )
+    _SECURE_SEARCH_TRUE: ClassVar[str] = (
+        "open \"https://cybershop.training/secure-search?q=' OR '1'='1\""
+    )
+    _BYPASS_LOGIN: ClassVar[str] = (
+        "open -X POST -d \"username=admin'--&password=anything\" "
+        "https://cybershop.training/training-login"
+    )
+    _BYPASS_SECURE_LOGIN: ClassVar[str] = (
+        "open -X POST -d \"username=admin'--&password=anything\" "
+        "https://cybershop.training/secure-login"
+    )
+    _TRANSFER: ClassVar[str] = (
+        'open -X POST -d "amount=100&recipient=training-user" '
+        "https://cybershop.training/transfer"
+    )
+    _TRANSFER_FORGED: ClassVar[str] = (
+        'open -X POST -H "Origin: https://attacker.training" '
+        '-d "amount=100&recipient=training-user" '
+        "https://cybershop.training/transfer"
+    )
+    _SECURE_TRANSFER_FORGED: ClassVar[str] = (
+        'open -X POST -H "Origin: https://attacker.training" '
+        '-d "amount=100&recipient=training-user'
+        '&csrf_token=TRAINING_TOKEN_STUDENT_SESSION" '
+        "https://cybershop.training/secure-transfer"
+    )
+    _SECURE_TRANSFER_NO_TOKEN: ClassVar[str] = (
+        'open -X POST -d "amount=100&recipient=training-user" '
+        "https://cybershop.training/secure-transfer"
+    )
+    _SECURE_TRANSFER_OK: ClassVar[str] = (
+        'open -X POST -d "amount=100&recipient=training-user'
+        '&csrf_token=TRAINING_TOKEN_STUDENT_SESSION" '
+        "https://cybershop.training/secure-transfer"
+    )
+    _UPLOAD_SHELL: ClassVar[str] = (
+        'open -X POST -d "filename=shell.php.jpg" '
+        "https://cybershop.training/upload"
+    )
+    _SECURE_UPLOAD_SHELL: ClassVar[str] = (
+        'open -X POST -d "filename=shell.php.jpg" '
+        "https://cybershop.training/secure-upload"
+    )
+
+    @staticmethod
+    def _shell(scenario):
+        from app.core.terminal.shell import Shell
+        from app.core.terminal.web import build_web_lab
+
+        sh = Shell()
+        sh.web_lab = build_web_lab(scenario)
+        return sh
+
+    def _sessions(self):
+        """Each session is an ordered command list replayed on one shell,
+        mirroring exactly how the lessons present them. Entries are
+        (command, lesson-slug-or-None): None marks a setup step the lesson
+        deliberately does not quote."""
+        intro, core, hands = self._SLUGS
+        return {
+            # Introduction §3 and §8.
+            "intro": ("sqli-investigation", [
+                ("web", intro),
+                ("open https://evil.example.com/", intro),
+            ]),
+            # Core Concepts §4-§24, one continuous session: the balances
+            # and session states in the quoted output only line up if the
+            # steps run in exactly this order.
+            "core": ("sqli-investigation", [
+                ("open https://cybershop.training/admin", core),
+                (self._LOGIN_STUDENT, core),
+                ("open https://cybershop.training/admin", core),
+                ("open https://cybershop.training/account", None),
+                ("open -X POST https://cybershop.training/logout", core),
+                ("open https://cybershop.training/account", core),
+                (self._LOGIN_ADMIN, core),
+                ("open https://cybershop.training/admin", core),
+                ("open -X POST https://cybershop.training/logout", None),
+                ("open https://cybershop.training/products?id=42", None),
+                ("headers", core),
+                (self._LOGIN_STUDENT, None),
+                ("open https://cybershop.training/profile", None),
+                ("headers", core),
+                ("schema products", core),
+                ("open https://cybershop.training/search?q=Laptop", core),
+                ("query", core),
+                (self._SEARCH_QUOTE, core),
+                ("query", core),
+                (self._SEARCH_TRUE, core),
+                ("query", core),
+                (self._SECURE_SEARCH_TRUE, core),
+                ("query", core),
+                (self._BYPASS_LOGIN, core),
+                ("query", core),
+                (self._BYPASS_SECURE_LOGIN, core),
+                ("query", core),
+                ("open https://cybershop.training/search?q=<TRAINING_XSS>", core),
+                ("open https://cybershop.training/secure-search?q=<TRAINING_XSS>",
+                 core),
+                ("open https://cybershop.training/csrf-demo", core),
+                (self._TRANSFER, core),
+                (self._TRANSFER_FORGED, core),
+                ("open https://cybershop.training/secure-transfer", core),
+                (self._SECURE_TRANSFER_FORGED, core),
+                (self._SECURE_TRANSFER_NO_TOKEN, core),
+                (self._SECURE_TRANSFER_OK, core),
+                ("open https://cybershop.training/nothing-here", core),
+                (self._LOGIN_BAD, core),
+                ("expire", core),
+                ("open https://cybershop.training/profile", core),
+                (self._LOGIN_STUDENT, None),
+                ("open https://cybershop.training/upload-security", core),
+                (self._UPLOAD_SHELL, core),
+                (self._SECURE_UPLOAD_SHELL, core),
+                ("open https://cybershop.training/uploads", core),
+            ]),
+            # Hands-on Practice §4-§9 — the exercises in order, as one
+            # session, which is what makes §9's request history real.
+            "hands": ("auth-lifecycle", [
+                ("web", hands),
+                ("open https://cybershop.training/admin", hands),
+                (self._LOGIN_STUDENT, hands),
+                ("cookies", hands),
+                ("open https://cybershop.training/admin", hands),
+                ("open https://cybershop.training/profile", hands),
+                (self._LOGIN_ADMIN, hands),
+                ("open https://cybershop.training/admin", hands),
+                ("open -X POST https://cybershop.training/logout", hands),
+                ("schema", hands),
+                ("open https://cybershop.training/search?q=Monitor", hands),
+                ("query", hands),
+                (self._SEARCH_QUOTE, hands),
+                ("query", hands),
+                (self._SEARCH_TRUE, hands),
+                ("query", hands),
+                (self._SECURE_SEARCH_TRUE, hands),
+                ("query", hands),
+                (self._LOGIN_BAD, hands),
+                (self._LOGIN_STUDENT, hands),
+                ("open https://cybershop.training/profile", hands),
+                ("expire", hands),
+                ("open https://cybershop.training/profile", hands),
+                (self._LOGIN_STUDENT, hands),
+                ("open https://cybershop.training/products?id=42", hands),
+                ("headers", hands),
+                ("open https://cybershop.training/nothing-here", hands),
+                ("open https://evil.example.com/", hands),
+                ("requests", hands),
+            ]),
+        }
+
+    def test_quoted_simulator_output_matches_the_real_simulator(self, app):
+        """Every request, response, header listing, schema dump, query
+        visualisation and request history quoted in all three lessons was
+        captured by actually running the real terminal command handlers
+        against the real simulated web application. If the simulator's
+        routes, responses or output formatting ever change, the lessons
+        become fabricated evidence — fail here rather than ship a lie."""
+        raws = {slug: self._raw_lesson(slug) for slug in self._SLUGS}
+        for name, (scenario, steps) in self._sessions().items():
+            sh = self._shell(scenario)
+            for index, (command, slug) in enumerate(steps):
+                output = sh.execute(command)
+                if slug is None:
+                    continue
+                for line in output.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    assert line in raws[slug], (
+                        f"{slug}: quoted output no longer matches the real "
+                        f"simulator for `{command}` (session {name}, step "
+                        f"{index}) — {line!r}"
+                    )
+
+    def test_admin_route_really_distinguishes_401_403_and_200(self, app):
+        """Exercise 1's entire conclusion rests on one URL producing three
+        outcomes as a function of session identity alone."""
+        sh = self._shell("auth-lifecycle")
+        assert "401 Unauthorized" in sh.execute(
+            "open https://cybershop.training/admin")
+        sh.execute(self._LOGIN_STUDENT)
+        assert "403 Forbidden" in sh.execute(
+            "open https://cybershop.training/admin")
+        sh.execute(self._LOGIN_ADMIN)
+        assert "200 OK" in sh.execute("open https://cybershop.training/admin")
+
+    def test_injection_endpoints_really_differ(self, app):
+        """Core Concepts §11-§13 and Exercise 2 both rest on /search being
+        concatenated and /secure-search being parameterised. Asserted on
+        the simulator's own behaviour, not only on the quoted text."""
+        sh = self._shell("sqli-investigation")
+        vulnerable = sh.execute(self._SEARCH_TRUE)
+        assert "X-Sim-Query-Kind: boolean_true" in vulnerable
+        assert "4 match(es)" in vulnerable
+        secure = sh.execute(self._SECURE_SEARCH_TRUE)
+        assert "X-Sim-Query-Kind: parameterized" in secure
+        assert "SELECT * FROM products WHERE name = ?" in secure
+        assert "0 match(es)" in secure
+        assert "X-Sim-Query-Kind: auth_bypass" in sh.execute(self._BYPASS_LOGIN)
+        assert "401 Unauthorized" in sh.execute(self._BYPASS_SECURE_LOGIN)
+
+    def test_session_expiry_really_rejects_an_unchanged_request(self, app):
+        """Exercise 3's whole point: the client sends a byte-identical
+        request and the server rejects it, because the server decides."""
+        sh = self._shell("auth-lifecycle")
+        sh.execute(self._LOGIN_STUDENT)
+        before = sh.execute("open https://cybershop.training/profile")
+        assert "200 OK" in before
+        assert "Cookie: session_id=student-session" in before
+        sh.execute("expire")
+        after = sh.execute("open https://cybershop.training/profile")
+        assert "401 Unauthorized" in after
+        assert "Cookie: session_id=student-session" in after
+
+    def test_out_of_scope_host_is_really_refused(self, app):
+        """Introduction §3 and Exercise 5 both claim the environment can
+        never reach a host outside the training scope. Asserted on state,
+        not only on the message."""
+        sh = self._shell("sqli-investigation")
+        before = len(sh.web_lab.session.history)
+        out = sh.execute("open https://evil.example.com/")
+        assert out == "External hosts are not available in the training environment."
+        assert len(sh.web_lab.session.history) == before
+        assert sh.web_lab.proxy.blocked_count == 1
+
+    def test_simulator_really_has_no_per_user_resource_endpoint(self, app):
+        """Core Concepts §6 and Exercise 1 both say outright that the
+        horizontal/IDOR test cannot be run here. If a per-user resource
+        endpoint is ever added, that honesty note becomes wrong and this
+        test should fail so the lessons get updated."""
+        from app.core.terminal.web import HOST
+
+        sh = self._shell("sqli-investigation")
+        sh.execute(self._LOGIN_STUDENT)
+        routes = sh.execute("web")
+        assert HOST in routes
+        assert "/orders/" not in routes
+        for path in ("/orders/1041", "/orders/1042", "/users/1", "/api/users/1"):
+            out = sh.execute(f"open https://{HOST}{path}")
+            assert "404 Not Found" in out, f"{path} unexpectedly exists"
+
+    # ── Rendering, XP and progression ─────────────────────────────────
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="owasp-top-10").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in self._SLUGS:
+                r = c.get(f"/roadmap/owasp-top-10/{slug}/")
+                assert r.status_code == 200, slug
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower(), slug
+
+    def test_cybermentor_context_is_set_on_every_lesson_page(self, app, student):
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="owasp-top-10").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug, title in (("introduction", "Introduction"),
+                                ("core-concepts", "Core Concepts"),
+                                ("hands-on-practice", "Hands-on Practice")):
+                r = c.get(f"/roadmap/owasp-top-10/{slug}/")
+                body = r.data.decode("utf-8")
+                assert f'data-mentor-lab="OWASP Top 10 — {title}"' in body
+
+    def test_completion_awards_xp_exactly_once(self, app, student):
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="owasp-top-10").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+
+        with app.test_client() as c:
+            _login(c, uname)
+            c.post("/roadmap/owasp-top-10/core-concepts/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_first = User.query.get(uid).xp
+            c.post("/roadmap/owasp-top-10/core-concepts/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_second = User.query.get(uid).xp
+
+        assert after_first == before + 50, "core-concepts should award exactly 50 XP"
+        assert after_second == after_first, "XP awarded twice for one lesson"
+
+    def test_module_completion_awards_bonus_and_unlocks_active_directory(self, app):
+        """A dedicated user completes all three OWASP Top 10 lessons:
+        25 + 50 + 100 lesson XP + 175 module bonus = 350, awarded once,
+        and `active-directory-basics` (Intermediate #5) becomes
+        available."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+        from app.roadmap.services import complete_lesson, module_status
+
+        with app.app_context():
+            u = User(username="owasp_module_complete", email="owasp_complete@t.io")
+            u.set_password("Str0ngPass!")
+            db.session.add(u)
+            db.session.commit()
+            uid = u.id
+
+            module = RoadmapModule.query.filter_by(slug="owasp-top-10").first()
+            db.session.add(UserModuleProgress(
+                user_id=uid, module_id=module.id, unlocked=True))
+            db.session.commit()
+
+            before = User.query.get(uid).xp
+            for slug in self._SLUGS:
+                complete_lesson(User.query.get(uid), "owasp-top-10", slug)
+            after = User.query.get(uid).xp
+            assert after == before + 350
+
+            for slug in self._SLUGS:
+                result = complete_lesson(User.query.get(uid), "owasp-top-10", slug)
+                assert result["already_completed"] is True
+                assert result["xp_awarded"] == 0
+            assert User.query.get(uid).xp == after
+
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            assert row.completed is True
+            assert row.bonus_awarded is True
+
+            nxt = RoadmapModule.query.filter_by(
+                slug="active-directory-basics").first()
             assert module_status(User.query.get(uid), nxt) == "available"
 
 
