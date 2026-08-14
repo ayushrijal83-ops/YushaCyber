@@ -591,6 +591,36 @@ _LESSON_LAB_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "lab_slug": "websec-http",
         "lab_title": "HTTP Requests & Responses",
     },
+    # active-directory-basics (YC-037.5): the real `active-directory` lab
+    # category runs a full simulated AD domain (app/labs/ad/ — YUSHA.LOCAL,
+    # 10 users / 6 groups / 9 OUs / 5 computers / 3 shares) through the
+    # same console both lessons quote real output from. "AD Basics:
+    # Explore YUSHA.LOCAL" is the chain's ungated entry (no
+    # prerequisite_lab_id) and its six scored objectives map one-to-one
+    # onto this module's material: survey users, survey groups, review
+    # OUs, inspect the Domain Controller, review shares, and watch a
+    # Kerberos authentication. Linked from TWO lessons, the same shape
+    # burp-suite (YC-037.3) used: core-concepts' Kerberos, GPO, policy
+    # and ACL sections are all demonstrated with real commands from this
+    # exact lab, so it has something to practise; hands-on-practice is
+    # built on it end to end. introduction is deliberately excluded —
+    # its exercises are reasoning questions about output already printed
+    # in the lesson, with no commands to run.
+    #
+    # The four later AD labs (ad-inactive-account, ad-compromised-
+    # password, ad-overprivileged, ad-least-privilege) are real and are
+    # named in hands-on §13 with the unlock order stated, but they sit
+    # behind a linear prerequisite chain and `labs.detail` redirects a
+    # locked lab back to the catalogue — so only the ungated entry is
+    # wired, same discipline as the websec chain in YC-037.4.
+    ("active-directory-basics", "core-concepts"): {
+        "lab_slug": "ad-orientation",
+        "lab_title": "AD Basics: Explore YUSHA.LOCAL",
+    },
+    ("active-directory-basics", "hands-on-practice"): {
+        "lab_slug": "ad-orientation",
+        "lab_title": "AD Basics: Explore YUSHA.LOCAL",
+    },
 }
 
 

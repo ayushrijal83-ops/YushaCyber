@@ -4,8 +4,8 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (60 of 96
-lessons still empty as of YC-037.4, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (57 of 96
+lessons still empty as of YC-037.5, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
@@ -14,9 +14,9 @@ added silently. Python Programming (YC-036.3), Linux Fundamentals
 (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9),
 Virtualization (YC-037.0 — completing the Beginner category), Nmap
 (YC-037.1 — the first real module in Intermediate), Wireshark
-(YC-037.2), Burp Suite (YC-037.3) and OWASP Top 10 (YC-037.4) are the
-real content in the roadmap; this file also pins that all twelve stay
-real.
+(YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4) and Active
+Directory Basics (YC-037.5) are the real content in the roadmap; this
+file also pins that all thirteen stay real.
 """
 
 from __future__ import annotations
@@ -318,8 +318,10 @@ class TestContentBaseline:
             # YC-037.3: Burp Suite's all 3 lessons were EMPTY. See
             # TestBurpSuiteContent below. Then 63 -> 60 as of YC-037.4:
             # OWASP Top 10's all 3 lessons were EMPTY. See
-            # TestOwaspTop10Content below.
-            assert empty == 60
+            # TestOwaspTop10Content below. Then 60 -> 57 as of
+            # YC-037.5: Active Directory Basics' all 3 lessons were
+            # EMPTY. See TestActiveDirectoryContent below.
+            assert empty == 57
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -4410,6 +4412,760 @@ class TestOwaspTop10Content:
 
             nxt = RoadmapModule.query.filter_by(
                 slug="active-directory-basics").first()
+            assert module_status(User.query.get(uid), nxt) == "available"
+
+
+# ═══════════════════════════════════════════
+# Content — Active Directory Basics (YC-037.5)
+# ═══════════════════════════════════════════
+class TestActiveDirectoryContent:
+    """Guards the real content written for YC-037.5 — Active Directory
+    Basics, module 5 of Intermediate. Pins that each lesson teaches its
+    actual material, that the terminology distinctions this module exists
+    to install survive (AD vs AD DS vs Domain Controller; LDAP vs
+    Kerberos; TGT vs service ticket; GPO vs OU; authentication vs
+    authorization), that every quoted console block is byte-for-byte what
+    this platform's real AD simulator (`app/labs/ad/`) actually produces,
+    and that the module's lab link (`ad-orientation`, on core-concepts and
+    hands-on-practice) is a real, reachable, ungated route."""
+
+    _SLUGS: ClassVar[tuple[str, ...]] = (
+        "introduction", "core-concepts", "hands-on-practice",
+    )
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "Active Directory Domain Services", "AD DS", "Domain Controller",
+            "domain", "directory service", "object", "attribute",
+            "user", "group", "computer account", "Organizational Unit",
+            "OU is not a security boundary", "DNS", "service location",
+            "NetBIOS", "YUSHA.LOCAL", "Illustrative example",
+        ],
+        "core-concepts": [
+            "Authentication", "Authorization", "Kerberos", "KDC",
+            "Key Distribution Center", "Authentication Service",
+            "Ticket Granting Service", "TGT", "Ticket Granting Ticket",
+            "service ticket", "AS-REQ", "TGS-REQ", "NTLM",
+            "LDAP", "Lightweight Directory Access Protocol",
+            "Group Policy", "GPO", "Computer Configuration",
+            "User Configuration", "ACL", "Access Control Entries",
+            "security principal", "SID", "Forest", "Trust",
+            "least privilege", "delegation", "Illustrative example",
+        ],
+        "hands-on-practice": [
+            "OBSERVATION", "EVIDENCE", "INTERPRETATION",
+            "SECURITY IMPACT", "RECOMMENDATION", "CONFIDENCE",
+            "AD COMPONENT", "SECURITY RELEVANCE", "POTENTIAL IMPACT",
+            "RECOMMENDED CONTROL",
+            "read-only investigation", "effective access",
+        ],
+    }
+
+    # The exact WRONG/CORRECT corrections the driving spec named.
+    _REQUIRED_CORRECTIONS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "Active Directory is just a database of usernames and passwords.",
+            "Domain Controller = Active Directory.",
+            "An OU is a security boundary.",
+            "Active Directory is DNS.",
+        ],
+        "core-concepts": [
+            "Kerberos sends the user's password to every service.",
+            "LDAP is the authentication protocol.",
+            "Being authenticated means you can access the resource.",
+            "An OU is a security boundary.",
+            "Group Policy is only cosmetic.",
+            "NTLM is always insecure and nobody uses it.",
+            "Every Windows domain uses only one authentication protocol.",
+            "OU = GPO.",
+        ],
+    }
+
+    @staticmethod
+    def _render(app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(
+                f"roadmap/intermediate/active-directory-basics/{slug}.md"
+            )
+
+    @staticmethod
+    def _raw_lesson(slug):
+        from pathlib import Path
+
+        import app as app_pkg
+        path = (Path(app_pkg.__file__).parent / "content" / "roadmap"
+                / "intermediate" / "active-directory-basics" / f"{slug}.md")
+        return path.read_text(encoding="utf-8")
+
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing or unreadable"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 3000, f"{slug}: suspiciously short ({len(html)} chars)"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_keep_their_misconception_corrections(self, app):
+        for slug, claims in self._REQUIRED_CORRECTIONS.items():
+            html = self._render(app, slug)
+            for claim in claims:
+                assert claim in html, f"{slug}: lost required correction {claim!r}"
+
+    def test_lessons_contain_real_code_examples(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug)
+            assert "<pre>" in html and "<code>" in html, f"{slug}: no code block rendered"
+
+    def test_no_placeholder_language_anywhere_in_lessons(self, app):
+        banned = ("coming soon", "lorem ipsum", "todo", "check back soon",
+                  "content is being written", "placeholder content",
+                  "placeholder text", "this is a placeholder",
+                  "to be written", "tbd")
+        for slug in self._SLUGS:
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: contains banned phrase {phrase!r}"
+
+    # ── The terminology distinctions this module exists to install ────
+    def test_ad_ad_ds_and_domain_controller_are_kept_distinct(self, app):
+        """The single most important vocabulary split in the module."""
+        intro = self._render(app, "introduction")
+        assert "Three Words That Are Not Synonyms" in intro
+        assert ("<strong>AD DS is the service. A Domain Controller is a server "
+                "that runs it. Active Directory is the family name.</strong>") in intro
+        assert "Domain ≠ Domain Controller." in intro
+
+    def test_domain_controller_taught_as_more_than_a_password_store(self, app):
+        """The spec forbids reducing a DC to 'the server where passwords
+        are stored' — six named jobs must survive."""
+        intro = self._render(app, "introduction")
+        assert "What a Domain Controller Actually Does" in intro
+        for job in ("Hosts AD DS", "Authenticates domain identities",
+                    "Runs the KDC", "Serves directory queries",
+                    "Stores and distributes policy",
+                    "Participates in domain security decisions"):
+            assert job in intro, f"introduction: DC job {job!r} missing"
+
+    def test_dns_dependency_is_taught_without_conflating_the_two(self, app):
+        intro = self._render(app, "introduction")
+        assert "DNS and Active Directory" in intro
+        assert "service location" in intro
+        assert "Active Directory <em>depends</em> on DNS" in intro
+
+    def test_ou_is_not_a_security_boundary_in_two_lessons(self, app):
+        """Stated in Introduction and demonstrated in Core Concepts'
+        boundary table — losing either weakens the module's clearest
+        structural correction."""
+        intro = self._render(app, "introduction")
+        assert "not</strong> an inherent security boundary" in intro
+        core = self._render(app, "core-concepts")
+        assert "What Is Actually a Boundary" in core
+        hands = self._render(app, "hands-on-practice")
+        assert "an OU is not a security boundary" in hands
+
+    def test_group_based_authorization_chain_is_taught(self, app):
+        intro = self._render(app, "introduction")
+        assert "Why Access Goes Through Them" in intro
+        core = self._render(app, "core-concepts")
+        assert "<strong>most permissive one wins</strong>" in core
+        assert "allow permissions from multiple groups" in core
+
+    def test_kerberos_ticket_model_is_taught_correctly(self, app):
+        core = self._render(app, "core-concepts")
+        for term in ("Authentication Service", "Ticket Granting Service",
+                     "TGT", "service ticket", "KDC"):
+            assert term in core, f"core-concepts: Kerberos term {term!r} missing"
+        # The TGT/service-ticket distinction, stated as a correction.
+        assert "The TGT is what gets you into the file server." in core
+        assert "It is presented to the KDC, not to services." in core
+
+    def test_ldap_and_kerberos_roles_are_separated(self, app):
+        core = self._render(app, "core-concepts")
+        assert ("LDAP is a <strong>directory access</strong> protocol") in core
+        assert "directory access" in core
+        assert "Kerberos is the primary" in core
+
+    def test_ntlm_taught_as_legacy_not_as_absent(self, app):
+        """The spec explicitly forbids 'NTLM is always insecure and never
+        used'. Both halves — why it persists and why it concerns — must
+        be present."""
+        core = self._render(app, "core-concepts")
+        assert "Why it still exists." in core
+        assert "Why it is a concern." in core
+        assert "This platform does not simulate NTLM." in self._raw_lesson(
+            "core-concepts")
+
+    def test_gpo_and_ou_relationship_is_taught_precisely(self, app):
+        core = self._render(app, "core-concepts")
+        assert "GPOs and OUs — the Actual Relationship" in core
+        assert "A GPO can be <strong>linked</strong> to a scope" in core
+        assert "Computer Configuration" in core and "User Configuration" in core
+
+    def test_authentication_versus_authorization_is_taught(self, app):
+        core = self._render(app, "core-concepts")
+        assert "Authentication Is Not Authorization" in core
+        assert ("the Domain Controller proves identity; the file server "
+                "decides access") in core
+
+    def test_security_principles_section_exists(self, app):
+        core = self._render(app, "core-concepts")
+        assert "Security Principles for Active Directory" in core
+        for principle in ("Least privilege", "Group-based access",
+                          "Separation of administrative roles",
+                          "Strong authentication", "Controlled delegation",
+                          "Auditing", "Patch management",
+                          "Secure configuration"):
+            assert principle in core, f"core-concepts: principle {principle!r} missing"
+
+    def test_hands_on_has_investigation_exercises_and_report(self, app):
+        hands = self._render(app, "hands-on-practice")
+        for heading in ("Exercise 1 — The Domain and Its Controller",
+                        "Exercise 2 — The User Population",
+                        "Exercise 3 — Groups and Where Privilege Actually Lives",
+                        "Exercise 4 — Structure: OUs and Computers",
+                        "Exercise 5 — Shares, ACLs and Effective Access",
+                        "Exercise 6 — Group Policy",
+                        "Exercise 7 — Watching Kerberos",
+                        "Exercise 8 — The Investigation Report"):
+            assert heading in hands, f"hands-on-practice: {heading!r} missing"
+        for field in ("OBSERVATION:", "EVIDENCE:", "AD COMPONENT:",
+                      "SECURITY RELEVANCE:", "POTENTIAL IMPACT:",
+                      "RECOMMENDED CONTROL:", "CONFIDENCE:"):
+            assert field in hands, f"hands-on-practice: report field {field!r} missing"
+
+    # ── Safety ────────────────────────────────────────────────────────
+    def test_no_offensive_or_unauthorized_framing(self, app):
+        """Permanent safety rule: this module teaches AD as a system, from
+        an administrator's and assessor's chair. It must never drift into
+        credential attacks, ticket abuse or privilege escalation — that
+        material belongs to later, gated modules."""
+        banned = ("kerberoast", "pass-the-hash", "pass the hash",
+                  "pass-the-ticket", "golden ticket", "silver ticket",
+                  "dcsync", "dump the ntds", "ntds.dit", "mimikatz",
+                  "crack the password", "brute-force the domain",
+                  "any real domain", "your employer's domain")
+        for slug in self._SLUGS:
+            html = self._render(app, slug).lower()
+            for phrase in banned:
+                assert phrase not in html, f"{slug}: unsafe framing {phrase!r}"
+
+    def test_authorization_boundary_is_stated(self, app):
+        intro = self._render(app, "introduction")
+        assert "Authorization and Scope" in intro
+        assert "written permission" in intro
+        hands = self._render(app, "hands-on-practice")
+        assert "Authorization Comes First" in hands
+        assert "read-only investigation" in hands
+        core = self._render(app, "core-concepts")
+        for html, slug in ((intro, "introduction"), (core, "core-concepts"),
+                           (hands, "hands-on-practice")):
+            assert "authoriz" in html.lower(), f"{slug}: no authorization framing"
+
+    def test_no_real_credentials_are_printed(self, app):
+        """Every account named is a fictional simulator object, and the
+        simulator stores no passwords at all — asserted rather than
+        assumed, so a future domain definition carrying credentials would
+        fail here before it reached a lesson."""
+        from app.labs.ad import domains
+
+        definition = domains.BUILTIN_DOMAINS["yusha-local"]
+        for user in definition["users"]:
+            assert "password" not in user, (
+                f"{user['sam']}: domain definition carries a password field"
+            )
+        intro = self._render(app, "introduction")
+        assert "Never put real credentials" in intro
+
+    # ── Honesty: what this platform cannot demonstrate ────────────────
+    def test_unsimulated_topics_are_labelled_illustrative(self, app):
+        """LDAP, AD's DNS service records, NTLM, forests and trusts have
+        no simulator behind them. Each must say so rather than implying
+        the example came from a running system."""
+        intro = self._raw_lesson("introduction")
+        core = self._raw_lesson("core-concepts")
+        assert "**Illustrative example — not captured output.**" in intro, "DNS"
+        assert ("does not model AD service records, so there is nothing real "
+                "to quote here") in intro
+        assert ("**Illustrative example — not captured output. This platform "
+                "has no LDAP simulator**") in core
+        assert "This platform does not simulate NTLM." in core
+        assert ("**This platform simulates a single domain, `YUSHA.LOCAL`.**"
+                in core), "forest/trust"
+
+    def test_absence_of_an_ad_mission_is_real(self, app):
+        """hands-on §13 states outright that no AD terminal mission
+        exists, which is why no mission link is offered. If one is ever
+        added, that honesty note becomes wrong — fail here first."""
+        from app.core.missions.mission_loader import MISSIONS
+
+        for slug, mission in MISSIONS.items():
+            haystack = (slug + " " + mission.get("title", "") + " "
+                        + mission.get("category", "")).lower()
+            for token in ("active directory", "domain controller", "kerberos",
+                          "ldap"):
+                assert token not in haystack, (
+                    f"mission {slug!r} now looks AD-related — hands-on §13 "
+                    f"says none exists"
+                )
+        raw = self._raw_lesson("hands-on-practice")
+        assert ("There is no Active Directory terminal mission on this "
+                "platform.") in raw
+        assert len(MISSIONS) == 16
+
+    # ── Structure untouched ───────────────────────────────────────────
+    def test_lessons_not_flagged_empty_or_placeholder_by_audit(self, app):
+        from app.roadmap.audit import _lesson_content_state
+        from app.roadmap.models import Lesson, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="active-directory-basics").first()
+            lessons = Lesson.query.filter_by(module_id=module.id).all()
+            assert len(lessons) == 3
+            for lesson in lessons:
+                is_empty, is_placeholder = _lesson_content_state(lesson)
+                assert not is_empty, f"{lesson.slug}: flagged empty"
+                assert not is_placeholder, f"{lesson.slug}: flagged placeholder"
+
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """Writing real content must never touch the locked structure —
+        same 3 lesson slugs, same display_order, same XP as YC-036.2, and
+        the module still sits at Intermediate display_order 5."""
+        from app.roadmap.models import Lesson, RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="active-directory-basics").first()
+            assert module.id == 13
+            assert module.display_order == 5
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            assert module.category_id == intermediate.id
+            assert module.difficulty == "intermediate"
+            assert module.estimated_hours == 1
+            assert module.xp_reward == 175
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [lesson.id for lesson in lessons] == [37, 38, 39]
+            assert [lesson.slug for lesson in lessons] == [
+                "introduction", "core-concepts", "hands-on-practice",
+            ]
+            assert [lesson.display_order for lesson in lessons] == [1, 2, 3]
+            assert [lesson.xp_reward for lesson in lessons] == [25, 50, 100]
+            assert [lesson.estimated_minutes for lesson in lessons] == [10, 20, 30]
+            assert [lesson.content_path for lesson in lessons] == [
+                "roadmap/intermediate/active-directory-basics/introduction.md",
+                "roadmap/intermediate/active-directory-basics/core-concepts.md",
+                "roadmap/intermediate/active-directory-basics/hands-on-practice.md",
+            ]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_intermediate_module_order_unchanged(self, app):
+        """Nmap < Wireshark < Burp Suite < OWASP Top 10 < AD Basics."""
+        from app.roadmap.models import RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            order = [
+                (m.slug, m.display_order) for m in
+                RoadmapModule.query.filter_by(category_id=intermediate.id)
+                .order_by(RoadmapModule.display_order).limit(6).all()
+            ]
+            assert order == [("nmap", 1), ("wireshark", 2), ("burp-suite", 3),
+                             ("owasp-top-10", 4),
+                             ("active-directory-basics", 5),
+                             ("metasploit", 6)]
+
+    # ── Practice links ────────────────────────────────────────────────
+    def test_practice_links_are_scoped_and_no_terminal_or_mission_link(
+            self, app, student):
+        """introduction has no practice CTA; core-concepts and
+        hands-on-practice both link the AD orientation lab. No lesson
+        offers a mission (none exists) or the free-practice terminal."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        expected = {"introduction": False, "core-concepts": True,
+                    "hands-on-practice": True}
+        with app.app_context():
+            student_user = User.query.get(uid)
+            for slug, want_lab in expected.items():
+                ctx = get_lesson_view_context(
+                    student_user, "active-directory-basics", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert not practice.get("show_terminal"), slug
+                assert practice.get("mission_slug") is None, slug
+                assert bool(practice.get("lab_slug")) is want_lab, slug
+                if want_lab:
+                    assert practice["lab_slug"] == "ad-orientation"
+                    assert practice["lab_title"] == "AD Basics: Explore YUSHA.LOCAL"
+
+    def test_free_practice_terminal_has_no_ad_commands(self, app):
+        """The reason `active-directory-basics` is excluded from
+        _TERMINAL_PRACTICE_MODULES: the shell's command registry has no
+        AD verb at all, so a free-practice CTA would send students
+        somewhere nothing in this module works."""
+        from app.core.terminal.shell import Shell
+
+        sh = Shell()
+        for verb in ("get-users", "get-groups", "get-ous", "get-computers",
+                     "kerberos", "gpos", "policy"):
+            out = sh.execute(verb)
+            assert "not found" in out.lower() or "not recognized" in out.lower(), (
+                f"{verb!r} unexpectedly exists in the free-practice terminal: "
+                f"{out!r}"
+            )
+
+    def test_lab_link_points_to_a_real_reachable_ungated_lab(self, app):
+        with app.test_request_context():
+            from flask import url_for
+            assert url_for("labs.detail", slug="ad-orientation") == (
+                "/labs/ad-orientation"
+            )
+        with app.app_context():
+            from app.labs.models import Lab
+            lab = Lab.query.filter_by(slug="ad-orientation").first()
+            assert lab is not None and lab.is_active and lab.is_interactive
+            assert lab.title == "AD Basics: Explore YUSHA.LOCAL"
+            assert lab.prerequisite_lab_id is None
+            assert lab.simulator_key == "ad"
+
+    def test_ad_lab_chain_named_in_lesson_is_real_and_really_gated(self, app):
+        """hands-on §13 names all five AD labs and states they unlock in
+        order. Both halves verified: they exist with those titles, and the
+        chain really is linear with ad-orientation as its only entry."""
+        raw = self._raw_lesson("hands-on-practice")
+        chain = ["ad-orientation", "ad-inactive-account",
+                 "ad-compromised-password", "ad-overprivileged",
+                 "ad-least-privilege"]
+        with app.app_context():
+            from app.labs.models import Lab
+            previous = None
+            for slug in chain:
+                lab = Lab.query.filter_by(slug=slug).first()
+                assert lab is not None and lab.is_active, f"{slug}: not a real lab"
+                assert lab.title in raw, (
+                    f"{slug}: lesson names a title the database does not have "
+                    f"({lab.title!r})"
+                )
+                if previous is None:
+                    assert lab.prerequisite_lab_id is None
+                else:
+                    assert lab.prerequisite_lab_id == previous.id, (
+                        f"{slug}: chain order drifted from the lesson's claim"
+                    )
+                previous = lab
+
+    def test_orientation_lab_objectives_match_the_lesson_exercises(self, app):
+        """hands-on §13 claims the lab's six objectives map onto this
+        module's material. Verified against the real objective rows."""
+        with app.app_context():
+            from app.labs.models import Lab, LabObjective
+            lab = Lab.query.filter_by(slug="ad-orientation").first()
+            objectives = LabObjective.query.filter_by(lab_id=lab.id).all()
+            assert len(objectives) == 6, (
+                f"lesson says six scored objectives, found {len(objectives)}"
+            )
+
+    # ── Real-evidence guard ────────────────────────────────────────────
+    _I: ClassVar[str] = "introduction"
+    _C: ClassVar[str] = "core-concepts"
+    _H: ClassVar[str] = "hands-on-practice"
+
+    def _steps(self):
+        """Every console command a lesson quotes, replayed in order on one
+        simulator session. Each entry is (command, lesson-slug or tuple of
+        slugs, or None for a step no lesson quotes)."""
+        i, c, h = self._I, self._C, self._H
+        return [
+            ("help", h),
+            ("whoami", h),
+            ("hostname", h),
+            ("get-computers", (i, h)),
+            ("get-computer DC-01", (i, h)),
+            ("get-ous", (i, h)),
+            ("get-ou IT", h),
+            ("get-ou Interns", h),
+            ("get-users", h),
+            ("get-user skhadka", i),
+            ("get-user kshrestha", (i, h)),
+            ("get-user mrai", (i, h)),
+            ("get-user svc-backup", h),
+            ("get-user intern01", h),
+            ("get-groups", (i, h)),
+            ('get-group "Domain Admins"', h),
+            ("members help-desk", h),
+            ("get-shares", h),
+            ("get-share HR-Confidential", (c, h)),
+            ("gpos", (c, h)),
+            ("policy", (c, h)),
+            ("access mrai HR-Confidential", (c, h)),
+            ("access lbasnet HR-Confidential", (c, h)),
+            ("access dtamang HR-Confidential", (c, h)),
+            ("access intern01 HR-Confidential", (c, h)),
+            ("access dtamang Finance-Reports", h),
+            ("access skhadka Finance-Reports", (c, h)),
+            ("reset-password dtamang short", c),
+            ("kerberos skhadka", (c, h)),
+            ("kerberos mrai", (c, h)),
+        ]
+
+    @staticmethod
+    def _simulator():
+        """A session on the same domain the real AD orientation lab
+        loads (`ad-orientation` -> YUSHA.LOCAL, app/labs/ad/domains.py)."""
+        from app.labs.ad.simulator import ADSimulator
+
+        class _Lab:
+            slug = "ad-orientation"
+
+        sim = ADSimulator()
+        return sim, sim.bootstrap(_Lab(), {})
+
+    def test_quoted_console_output_matches_the_real_simulator(self, app):
+        """Every directory listing, object inspection, GPO, policy, access
+        check and Kerberos flow quoted in all three lessons was captured by
+        actually running this platform's real AD simulator against the real
+        YUSHA.LOCAL domain definition. If the simulator's data or output
+        formatting ever changes, the lessons become fabricated evidence —
+        fail here rather than ship a lie."""
+        from app.labs.simulator_base import Action
+
+        raws = {slug: self._raw_lesson(slug) for slug in self._SLUGS}
+        sim, state = self._simulator()
+        for index, (command, slugs) in enumerate(self._steps()):
+            result = sim.handle(
+                state, Action(type="command", payload={"command": command}))
+            state = result.new_state
+            if slugs is None:
+                continue
+            if isinstance(slugs, str):
+                slugs = (slugs,)
+            for line in result.output.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                for slug in slugs:
+                    assert line in raws[slug], (
+                        f"{slug}: quoted output no longer matches the real AD "
+                        f"simulator for `{command}` (step {index}) — {line!r}"
+                    )
+
+    def test_quoted_welcome_screen_matches_the_real_simulator(self, app):
+        """hands-on §2 prints the console's real welcome screen, including
+        the object counts — which are derived from the domain definition,
+        so they drift the moment the domain changes."""
+        raw = self._raw_lesson("hands-on-practice")
+        sim, state = self._simulator()
+        for line in sim.welcome(state).splitlines():
+            line = line.strip()
+            if line:
+                assert line in raw, f"welcome screen drifted — {line!r}"
+
+    def test_domain_facts_the_lessons_rest_on_are_real(self, app):
+        """Three findings drive the entire hands-on lesson. Each is
+        asserted against the domain definition, not merely quoted: if the
+        training domain is ever cleaned up, the lessons become fiction."""
+        from app.labs.ad import domains
+
+        definition = domains.BUILTIN_DOMAINS["yusha-local"]
+        assert definition["name"] == "YUSHA.LOCAL"
+        assert definition["netbios"] == "YUSHA"
+
+        users = {u["sam"]: u for u in definition["users"]}
+        # Finding 1 — the over-privileged intern.
+        assert "domain-admins" in users["intern01"]["groups"]
+        assert users["intern01"]["ou"] == "interns"
+        # Finding 2 — the dormant account.
+        assert users["kshrestha"]["last_logon_days"] == 210
+        assert users["kshrestha"]["enabled"] is True
+        # Finding 3 — the locked-out account and its failed-attempt count.
+        assert users["mrai"]["locked"] is True
+        assert users["mrai"]["failed_attempts"] == 14
+
+        # Finding 4 — the domain-wide ACE on the confidential share.
+        hr_share = next(s for s in definition["shares"]
+                        if s["slug"] == "hr-confidential")
+        acl = {entry["group"]: entry["right"] for entry in hr_share["acl"]}
+        assert acl["domain-users"] == "read", (
+            "the HR share's domain-wide READ entry is the lesson's central "
+            "audit finding"
+        )
+        # The control case that proves it is an anomaly, not the pattern.
+        finance = next(s for s in definition["shares"]
+                       if s["slug"] == "finance-reports")
+        assert "domain-users" not in {e["group"] for e in finance["acl"]}
+
+        # The password/lockout policy Core Concepts §10 and Exercise 6 quote.
+        gpo = next(g for g in definition["gpos"]
+                   if g["slug"] == "default-domain-policy")
+        assert gpo["password_policy"]["min_length"] == 12
+        assert gpo["lockout_policy"]["threshold"] == 5
+
+    def test_locked_account_really_fails_authentication_before_the_acl(self, app):
+        """Core Concepts §2 and Exercise 7 both rest on authentication
+        being evaluated before authorization — asserted, not assumed."""
+        from app.labs.simulator_base import Action
+
+        sim, state = self._simulator()
+        result = sim.handle(state, Action(
+            type="command",
+            payload={"command": "access mrai HR-Confidential"}))
+        assert "ACCESS DENIED" in result.output
+        assert "cannot authenticate" in result.output
+        assert "whatever the ACL says" in result.output
+
+    def test_password_policy_really_rejects_a_weak_password(self, app):
+        """Core Concepts §10 shows the GPO enforcing itself against an
+        administrator. If enforcement is ever removed, the lesson's
+        'policy with teeth' claim becomes false."""
+        from app.labs.simulator_base import Action
+
+        sim, state = self._simulator()
+        result = sim.handle(state, Action(
+            type="command",
+            payload={"command": "reset-password dtamang short"}))
+        assert "REJECTED by policy" in result.output
+        assert "at least 12 characters" in result.output
+
+    # ── Rendering, XP and progression ─────────────────────────────────
+    def test_lesson_pages_render_over_http_once_unlocked(self, app, student):
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="active-directory-basics").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug in self._SLUGS:
+                r = c.get(f"/roadmap/active-directory-basics/{slug}/")
+                assert r.status_code == 200, slug
+                body = r.data.decode("utf-8")
+                assert "coming soon" not in body.lower(), slug
+
+    def test_cybermentor_context_is_set_on_every_lesson_page(self, app, student):
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="active-directory-basics").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug, title in (("introduction", "Introduction"),
+                                ("core-concepts", "Core Concepts"),
+                                ("hands-on-practice", "Hands-on Practice")):
+                r = c.get(f"/roadmap/active-directory-basics/{slug}/")
+                body = r.data.decode("utf-8")
+                assert (f'data-mentor-lab="Active Directory Basics — {title}"'
+                        in body)
+
+    def test_completion_awards_xp_exactly_once(self, app, student):
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="active-directory-basics").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+
+        with app.test_client() as c:
+            _login(c, uname)
+            c.post("/roadmap/active-directory-basics/core-concepts/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_first = User.query.get(uid).xp
+            c.post("/roadmap/active-directory-basics/core-concepts/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_second = User.query.get(uid).xp
+
+        assert after_first == before + 50, "core-concepts should award exactly 50 XP"
+        assert after_second == after_first, "XP awarded twice for one lesson"
+
+    def test_module_completion_awards_bonus_and_unlocks_metasploit(self, app):
+        """A dedicated user completes all three AD lessons: 25 + 50 + 100
+        lesson XP + 175 module bonus = 350, awarded once, and
+        `metasploit` (Intermediate #6) becomes available."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+        from app.roadmap.services import complete_lesson, module_status
+
+        with app.app_context():
+            u = User(username="ad_module_complete", email="ad_complete@t.io")
+            u.set_password("Str0ngPass!")
+            db.session.add(u)
+            db.session.commit()
+            uid = u.id
+
+            module = RoadmapModule.query.filter_by(
+                slug="active-directory-basics").first()
+            db.session.add(UserModuleProgress(
+                user_id=uid, module_id=module.id, unlocked=True))
+            db.session.commit()
+
+            before = User.query.get(uid).xp
+            for slug in self._SLUGS:
+                complete_lesson(User.query.get(uid),
+                                "active-directory-basics", slug)
+            after = User.query.get(uid).xp
+            assert after == before + 350
+
+            for slug in self._SLUGS:
+                result = complete_lesson(User.query.get(uid),
+                                         "active-directory-basics", slug)
+                assert result["already_completed"] is True
+                assert result["xp_awarded"] == 0
+            assert User.query.get(uid).xp == after
+
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            assert row.completed is True
+            assert row.bonus_awarded is True
+
+            nxt = RoadmapModule.query.filter_by(slug="metasploit").first()
             assert module_status(User.query.get(uid), nxt) == "available"
 
 

@@ -66,8 +66,8 @@ In today's implementation this loop is **partially wired**:
   YC-036.4/.5 linked missions only; YC-036.6 additionally links two
   `web-fundamentals` lessons to real interactive labs
   (`websec-http`, `websec-cookies`) — the first lab links wired from any
-  lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2, YC-037.3 and
-  YC-037.4 each wired their own module's links the same way — see the **Lab Mapping**
+  lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2, YC-037.3, YC-037.4
+  and YC-037.5 each wired their own module's links the same way — see the **Lab Mapping**
   and **Mission Mapping** tables, which are kept current, for exactly
   which lessons link where today. Every module not named in those tables
   still has no lab/mission link — this remains a real gap for whoever
@@ -286,7 +286,7 @@ fabricated link.
 | `wireshark` | `wireshark-basics` (category `wireshark`) — **linked in YC-037.2**, scoped to `hands-on-practice`; `wireshark-protocols`/`wireshark-advanced` are real, audited here, and named in the lesson text as next steps, but not wired (only one `lab_slug` fits per lesson — see Content Status below) |
 | `burp-suite` | `websec-http` (category `web-security`) — **linked in YC-037.3**, scoped to `hands-on-practice`. `websec-headers` is real and proxy-adjacent but deliberately **not** wired: every websec lab except `websec-http` sits behind a linear `prerequisite_lab_id` chain (`websec-cookies`→`websec-http`, `websec-sessions`→`websec-cookies`, … `websec-headers` is tenth), and `labs.detail` redirects a locked lab back to the catalogue, so linking it would be a dead CTA for anyone reaching this module. `websec-http` is the only one with no prerequisite. Note it is the same lab `web-fundamentals`/`core-concepts` links (YC-036.6) — reused deliberately, and the lesson text says so |
 | `owasp-top-10` | `websec-http` (category `web-security`) — **linked in YC-037.4**, scoped to `hands-on-practice`. The seven labs this row previously listed (`websec-auth`, `websec-idor`, `websec-sqli`, `websec-xss`, `websec-csrf`, `websec-upload`, `websec-headers`) are all real and all still the right subject matter, but every one sits behind the linear `prerequisite_lab_id` chain whose only ungated entry is `websec-http`, and `labs.detail` redirects a locked lab back to the catalogue — so the chain's entry point is wired and the lesson states the full unlock order instead. `websec-http` is also a genuine match for the module's Security Misconfiguration exercise (its second objective is response-header information leakage). Same lab `web-fundamentals`/`core-concepts` (YC-036.6) and `burp-suite`/`hands-on-practice` (YC-037.3) link — the lesson says so. `soc-brute-force` (category `soc`, ungated) is *named* in the lesson as the defending-side counterpart for A09, not wired |
-| `active-directory-basics` | `ad-orientation`, `ad-inactive-account` (category `active-directory`) |
+| `active-directory-basics` | `ad-orientation` (category `active-directory`) — **linked in YC-037.5**, scoped to `core-concepts` *and* `hands-on-practice`; it is the chain's only ungated lab and its six objectives map one-to-one onto the lessons' exercises. The four later AD labs (`ad-inactive-account`, `ad-compromised-password`, `ad-overprivileged`, `ad-least-privilege`) are real, prerequisite-gated, and named in `hands-on-practice` §13 with their unlock order — this module teaches students to *find* the domain's seeded problems, those labs have them *fix* each one |
 | `metasploit` | None yet |
 | `windows-privilege-escalation` | None yet |
 | `linux-privilege-escalation` | `linux-permissions`, `linux-processes` (partial — no dedicated privesc lab) |
@@ -326,6 +326,7 @@ Track J.
 | `burp-suite` | `burp-fundamentals` — **linked in YC-037.3**, scoped to `core-concepts` *and* `hands-on-practice` (the first module to link a mission from two lessons since `web-fundamentals`: core-concepts §14 is a real command-driven Repeater experiment, so it has something to practise; `introduction`'s exercises are reasoning questions about output already printed in the lesson, so it correctly gets no CTA) |
 | `owasp-top-10` | `authentication-sessions` — **linked in YC-037.4**, scoped to `core-concepts`; `sql-injection-fundamentals` — **linked in YC-037.4**, scoped to `hands-on-practice`. The first module to link *two different* missions from two different lessons (every prior multi-lesson case reused one mission). `xss-fundamentals`, `csrf-fundamentals` and `file-upload-security` are real, ungated, and named by their real titles in `hands-on-practice` §12 as next steps, but not wired — one `mission_slug` per lesson |
 | `web-pentesting` | `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
+| `active-directory-basics` | **None — and no AD mission exists at all.** The 16 missions cover Linux, networking, Nmap, Wireshark and web security; none involves a domain. Stated outright in `hands-on-practice` §13 and pinned by `test_absence_of_an_ad_mission_is_real`, so an AD mission added later fails that test first |
 | all other modules | None yet |
 
 ---
@@ -1702,9 +1703,197 @@ Deliberately left out of this pass:
 
 None of these were silently added as new roadmap rows — they're
 documented here as candidates for whoever scopes the next Intermediate
-content pass (`active-directory-basics` is the next lowest-order EMPTY
-module) or a future platform-infrastructure ticket, per the explicit
-instruction against inventing curriculum.
+content pass (`active-directory-basics` was the next lowest-order EMPTY
+module and was written in YC-037.5 — see below) or a future
+platform-infrastructure ticket, per the explicit instruction against
+inventing curriculum.
+
+---
+
+## Content Status — Active Directory Basics (YC-037.5)
+
+The thirteenth module with real, authored lesson content, and the fifth
+in the **Intermediate** category — `active-directory-basics` is module 5
+of Intermediate, the lowest-order EMPTY module remaining after YC-037.4.
+Framed throughout as **understanding the system first**: what a domain
+is, where identity lives, how authentication and authorization are
+actually split across machines, and what a weak configuration looks like
+from an administrator's chair. It is deliberately **not** an attack
+module — offensive AD technique belongs to `windows-privilege-escalation`
+and the Red Team track's `active-directory-attacks`, both later and both
+gated.
+
+All 3 lessons were EMPTY
+(`app/content/roadmap/intermediate/active-directory-basics/` did not
+exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | The 500-machine problem stated before any product name, and centralization named as both the benefit and the security exposure; **Active Directory vs. AD DS vs. Domain Controller** as three non-synonyms, with the one-sentence formulation and the "Domain ≠ Domain Controller" corollary; a directory service defined by its access pattern rather than as "usernames and passwords"; the domain read as both an administrative and a security boundary, with DNS-style and NetBIOS naming; **six named jobs** a Domain Controller does, against real `get-computer DC-01` output whose Role line reads "runs AD DS, DNS and the KDC"; directory objects and attributes as a table (plus contacts and managed service accounts, named once each); user objects taught from three real accounts — healthy, locked-out, and 210-days-dormant — with the point that the object stores no permissions; groups with the User→Group→Permission chain and a six-row comparison of why the extra hop is worth it, built-in vs. custom, and nesting; OUs with their three jobs and the **"an OU is not a security boundary"** correction; computer accounts as machine identities rather than "another user"; the domain-join sequence, explicitly labelled conceptual rather than protocol-exact; **DNS and AD** as the section that carries the most operational weight — service location, why DCs commonly run DNS, why a machine can browse the internet and still fail to log on, and the "AD is not DNS" correction; the whole chain in one diagram; six misconception corrections; four discussion exercises; 9 knowledge-check questions | `app/content/roadmap/intermediate/active-directory-basics/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | Authentication vs. authorization stated architecturally — **"the Domain Controller proves identity; the file server decides access"** — and demonstrated with real output where authentication fails *before* the ACL is consulted; Kerberos taught from the problem it solves (three named defects of password-per-service) through AS/TGS/TGT/service-ticket to a real six-step ticket flow, with five specific observations drawn from that output including "the ticket goes to the service, not back to the DC"; the KDC as AS+TGS running on DCs; the "why tickets" answer restated as the interview answer, plus the group-membership-in-the-ticket consequence; **NTLM** given both halves — why it persists (Kerberos's real requirements) and why it concerns — with two corrections and an explicit "this platform does not simulate NTLM"; **LDAP** as a directory-access protocol with a four-row comparison against Kerberos, the bind-vs-domain-logon clarification that explains *why* people conflate them, and three security properties of directory reads; **Group Policy** with Computer/User configuration split, three real GPOs, a seven-row table of security-relevant setting areas, and the "only cosmetic" correction plus an honest note that GPO is not the only configuration mechanism; the **GPO/OU relationship** as three separate facts with the "OU = GPO" correction, plus combination and filtering named; policy enforcement shown with teeth — the real password policy and a real administrator's weak password being **rejected**; **ACLs**, ACEs, security principals and SIDs, with effective access derived for three real users including the accumulate-and-most-permissive rule and a note on deny entries; forest/tree/domain/OU as an organisational hierarchy with a six-row **security-boundary table**; trusts (direction, transitivity, scope) taught conceptually; eight security principles each with a concrete referent in the training domain; eight misconception corrections; 12 knowledge-check questions | `app/content/roadmap/intermediate/active-directory-basics/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Authorization first, with enumeration named as reconnaissance and an explicit list of what the module does not teach; the environment from the console's real welcome screen and real `help` output, with a deliberate note that only the DIRECTORY and SECURITY verbs are used because the skill is *reading* before changing; the OBSERVATION → EVIDENCE → INTERPRETATION → SECURITY IMPACT → RECOMMENDATION → CONFIDENCE workflow; **eight exercises**, all read-only — the domain and its controller, the user population, groups and where privilege lives, OU/computer structure, shares and effective access, Group Policy, Kerberos, and the report — each with objective, real commands, real output, required reasoning in the six-part shape, and (for most) a "what you cannot conclude" and a common-mistake section; three genuine findings developed across the exercises and cross-referenced (the over-privileged intern, the dormant account, the domain-wide ACE on the confidential share) plus a deliberate control case proving the last is an anomaly rather than the house style; a seven-field report template and **two fully worked findings** built only from evidence the lesson produced, with the third left as the student's exercise and explicitly flagged as the hardest because nothing about the account looks broken; eight common mistakes; the real five-lab chain with its unlock order; the six-module arc this closes | `app/content/roadmap/intermediate/active-directory-basics/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the twelve prior content passes.
+
+### Real evidence — a genuine AD simulator, and no fabricated Windows output
+
+This platform has a real, deterministic Active Directory simulator
+(`app/labs/ad/` — `simulator.py` plus `engine.py`, `user_engine.py`,
+`group_engine.py`, `permission_engine.py`, `policy_engine.py`) driven by
+the domain definition in `domains.py`. The built-in **YUSHA.LOCAL**
+domain is a small company's directory — 10 users, 6 groups, 9 OUs, 5
+computers, 3 shares — deliberately seeded with realistic problems.
+
+Every console block quoted in all three lessons was captured by actually
+running that simulator against that domain.
+`tests/test_roadmap_lock.py::TestActiveDirectoryContent::
+test_quoted_console_output_matches_the_real_simulator` replays all 30
+commands in order and fails if any lesson's quoted output drifts, and
+`test_quoted_welcome_screen_matches_the_real_simulator` covers the
+welcome banner separately because its object counts are derived from the
+domain definition and would drift the moment the domain changed.
+
+Because three of the module's findings *are* the domain's seeded
+problems, they get asserted against the definition rather than merely
+quoted — `test_domain_facts_the_lessons_rest_on_are_real` pins that
+`intern01` really is in `domain-admins`, that `kshrestha` really is
+enabled with 210 days of inactivity, that `mrai` really is locked with 14
+failed attempts, that `hr-confidential` really grants READ to
+`domain-users`, that `finance-reports` really does **not** (the control
+case), and that the password/lockout policy really is 12 characters and 5
+attempts. If the training domain is ever tidied up, the lessons become
+fiction and these tests fail first. Two further behavioural claims are
+pinned by their own tests:
+`test_locked_account_really_fails_authentication_before_the_acl` and
+`test_password_policy_really_rejects_a_weak_password`.
+
+**Four topics are taught with no runnable evidence**, each labelled in
+the lesson text rather than quietly implied:
+
+- **LDAP** — the simulator is a data structure, not a directory server,
+  and `domains.py` says so in its own docstring ("no real directory, no
+  real Windows, no LDAP"). Core Concepts §7's query example is labelled
+  **"Illustrative example — not captured output. This platform has no
+  LDAP simulator"**, and the lesson says outright what the platform gives
+  you instead: the same *question* asked through an administrative
+  console.
+- **AD's DNS service records** — the platform has a real DNS simulator
+  (Computer Networking's `nslookup`) but it does not model AD `SRV`
+  records, so Introduction §13's example is labelled illustrative and
+  says exactly why there is nothing real to quote.
+- **NTLM** — not simulated; stated outright in Core Concepts §6.
+- **Forests and trusts** — the platform simulates a single domain, so
+  Core Concepts §§12–13 are conceptual and say so.
+
+`test_unsimulated_topics_are_labelled_illustrative` pins all four labels.
+
+One further safety property is asserted rather than assumed:
+`test_no_real_credentials_are_printed` checks that no user in the domain
+definition carries a password field at all, so a future domain definition
+that added one would fail before it could reach a lesson.
+
+**Structure untouched.** Module id 13, `display_order` 5, category
+Intermediate, difficulty `intermediate`, `estimated_hours` 1,
+`xp_reward` 175; lesson ids 37/38/39, slugs
+`introduction`/`core-concepts`/`hands-on-practice`, order 1/2/3, XP
+25/50/100, minutes 10/20/30, `is_preview` True/False/False, content paths
+unchanged. The module description is deliberately left as-is, consistent
+with every prior content pass. Pinned by
+`test_lesson_ids_and_order_unchanged_by_content_edit` and
+`test_intermediate_module_order_unchanged`.
+
+This lowers the roadmap-wide "empty lessons" count from 60 to 57 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Lab cross-link — and the first module with no mission at all
+
+- **Lab**: the real **AD Basics: Explore YUSHA.LOCAL** lab
+  (`ad-orientation`, `/labs/ad-orientation`, `labs.detail` — no new
+  route, no new lab) is linked from **both** `core-concepts` and
+  `hands-on-practice`, the same two-lesson shape `burp-suite` (YC-037.3)
+  used for its mission. The justification is the same: core-concepts'
+  Kerberos, GPO, policy and ACL sections are all demonstrated with real
+  commands from this exact lab, so it has something to practise;
+  hands-on-practice is built on it end to end. Its six scored objectives
+  (survey users, survey groups, review OUs, inspect the Domain
+  Controller, review shares, watch a Kerberos authentication) map
+  one-to-one onto the lesson's exercises — verified by
+  `test_orientation_lab_objectives_match_the_lesson_exercises`. It is the
+  chain's only ungated lab (`prerequisite_lab_id` is NULL), so the CTA
+  can never be dead. `introduction` correctly gets no CTA: its exercises
+  are reasoning questions about output already printed in the lesson.
+- **The four later AD labs** (`ad-inactive-account`,
+  `ad-compromised-password`, `ad-overprivileged`, `ad-least-privilege`)
+  are real, sit behind a linear prerequisite chain, and are named in
+  Hands-on §13 with the unlock order stated — pinned by
+  `test_ad_lab_chain_named_in_lesson_is_real_and_really_gated`. The
+  progression is worth recording because it is unusually neat: this
+  module teaches students to *find* the domain's four seeded problems,
+  and those four labs then have them *fix* each one, using exactly the
+  account- and group-management verbs Hands-on §2 deliberately leaves
+  alone.
+- **Mission: none, and that is a real gap.** This is the first module
+  with real content whose subject has **no** terminal mission at all —
+  the mission engine's 16 missions cover Linux, networking, Nmap,
+  Wireshark and web security, and none involves a domain. Hands-on §13
+  states that outright rather than implying the practice environment is
+  complete, and `test_absence_of_an_ad_mission_is_real` asserts both
+  halves: that no mission's slug, title or category mentions Active
+  Directory, a domain controller, Kerberos or LDAP, and that the lesson's
+  claim is still in the text. If an AD mission is ever added, that test
+  fails first and the lesson gets a link.
+- **Free-practice terminal**: `active-directory-basics` is deliberately
+  **not** added to `_TERMINAL_PRACTICE_MODULES`. The AD console is a
+  *lab* simulator, not the shell — the terminal's `@cmd` registry has no
+  AD verb whatsoever. Asserted rather than assumed by
+  `test_free_practice_terminal_has_no_ad_commands`, which checks seven of
+  the module's verbs are unrecognised there.
+
+CyberMentor context needed no change: the generic `current_lab` hook
+(YC-036.4) applies here unchanged and passes "Active Directory Basics —
+<lesson title>" through to the mentor's system prompt.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **An Active Directory terminal mission** — the module's clearest gap,
+  described above. The AD simulator is a lab-capability simulator
+  (`CAP_TERMINAL` through the lab engine) rather than a shell mission, so
+  a mission would need either a new mission type or an AD command set in
+  `app/core/terminal/commands.py`. Not attempted here per the instruction
+  against building infrastructure in a content-only ticket.
+- **LDAP, NTLM and DNS service records in the simulator** — the three
+  places the lessons must fall back to labelled illustrative examples.
+  Modelling an LDAP query interface over the existing directory
+  structure would be the highest-value of the three, since the directory
+  data already exists and only the protocol view is missing.
+- **A second domain, a forest and a trust** — would make Core Concepts
+  §§12–13 demonstrable rather than only explicable, and would give the
+  boundary table something to point at.
+- **Kerberos internals** — encryption types, pre-authentication,
+  delegation, the PAC. The ticket *model* is taught in depth and the
+  spec explicitly warned against drowning students in cryptographic
+  internals; the deeper material belongs with the offensive modules that
+  need it.
+- **Offensive AD technique** — Kerberoasting, credential replay,
+  delegation abuse, DCSync and the rest. Out of scope by design and
+  guarded by `test_no_offensive_or_unauthorized_framing`, which fails if
+  any of fifteen offensive terms appears in a lesson.
+- **The Active Directory module quiz** — `Quiz` id 13's questions remain
+  the generic seeded placeholders shared by every module (Known Issues
+  #4, roadmap-wide, unchanged since YC-036.2). Consistent with all twelve
+  prior content passes, knowledge checks live in the lesson markdown
+  (9 questions in Introduction, 12 in Core Concepts, plus Hands-on's
+  four-question Kerberos exercise and its three report write-ups).
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Intermediate
+content pass (`metasploit` is the next lowest-order EMPTY module) or a
+future platform-infrastructure ticket, per the explicit instruction
+against inventing curriculum.
 
 ---
 
@@ -1768,7 +1957,7 @@ instruction against inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 60/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), Wireshark (YC-037.2), Burp Suite (YC-037.3) and OWASP Top 10 (YC-037.4), the first four of Intermediate — 36 lessons total — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 57/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), Wireshark (YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4) and Active Directory Basics (YC-037.5), the first five of Intermediate — 39 lessons total — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -1826,29 +2015,28 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **60 of 96 lessons have no real content** (94 at the time of
+3. **57 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
    YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
    75 after YC-036.9, 72 after YC-037.0, 69 after YC-037.1, 66 after
-   YC-037.2, 63 after YC-037.3, 60 after YC-037.4).
+   YC-037.2, 63 after YC-037.3, 60 after YC-037.4, 57 after YC-037.5).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
    `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
    `git-github` (YC-036.8), `operating-systems` (YC-036.9),
    `virtualization` (YC-037.0), `nmap` (YC-037.1), `wireshark`
-   (YC-037.2), `burp-suite` (YC-037.3) and `owasp-top-10` (YC-037.4)
-   have genuine Markdown content; every
+   (YC-037.2), `burp-suite` (YC-037.3), `owasp-top-10` (YC-037.4) and
+   `active-directory-basics` (YC-037.5) have genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   twelve modules. **The Beginner category is complete** — all 8 of its
-   modules / 24 of its lessons are real; Intermediate has its first
-   four real modules (`nmap`, `wireshark`, `burp-suite`,
-   `owasp-top-10`, 4 of 8). The
-   remaining 60 empty lessons span the rest of Intermediate, Red Team,
+   thirteen modules. **The Beginner category is complete** — all 8 of
+   its modules / 24 of its lessons are real; Intermediate has its first
+   five real modules (`nmap`, `wireshark`, `burp-suite`,
+   `owasp-top-10`, `active-directory-basics`, 5 of 8). The
+   remaining 57 empty lessons span the rest of Intermediate, Red Team,
    and AI Security, tracked here for whoever picks up the next module's
-   lessons (`active-directory-basics` is the lowest-order EMPTY module
-   remaining).
+   lessons (`metasploit` is the lowest-order EMPTY module remaining).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw
    `<script>alert(1)</script>` payload (confirmed harmless at the time:
