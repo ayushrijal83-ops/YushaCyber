@@ -4,8 +4,8 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (57 of 96
-lessons still empty as of YC-037.5, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (54 of 96
+lessons still empty as of YC-037.6, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
@@ -14,9 +14,9 @@ added silently. Python Programming (YC-036.3), Linux Fundamentals
 (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9),
 Virtualization (YC-037.0 — completing the Beginner category), Nmap
 (YC-037.1 — the first real module in Intermediate), Wireshark
-(YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4) and Active
-Directory Basics (YC-037.5) are the real content in the roadmap; this
-file also pins that all thirteen stay real.
+(YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4), Active
+Directory Basics (YC-037.5) and Metasploit (YC-037.6) are the real
+content in the roadmap; this file also pins that all fourteen stay real.
 """
 
 from __future__ import annotations
@@ -320,8 +320,10 @@ class TestContentBaseline:
             # OWASP Top 10's all 3 lessons were EMPTY. See
             # TestOwaspTop10Content below. Then 60 -> 57 as of
             # YC-037.5: Active Directory Basics' all 3 lessons were
-            # EMPTY. See TestActiveDirectoryContent below.
-            assert empty == 57
+            # EMPTY. See TestActiveDirectoryContent below. Then 57 -> 54
+            # as of YC-037.6: Metasploit's all 3 lessons were EMPTY. See
+            # TestMetasploitContent below.
+            assert empty == 54
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -5167,6 +5169,536 @@ class TestActiveDirectoryContent:
 
             nxt = RoadmapModule.query.filter_by(slug="metasploit").first()
             assert module_status(User.query.get(uid), nxt) == "available"
+
+
+# ═══════════════════════════════════════════
+# YC-037.6 — Metasploit content
+# ═══════════════════════════════════════════
+class TestMetasploitContent:
+    """Guards the real content written for YC-037.6 — Metasploit, module 6
+    of Intermediate, and the first content pass whose subject this
+    platform cannot simulate at all.
+
+    Because of that, the honesty properties matter more here than in any
+    prior module: this class pins that every `nmap` block quoted in the
+    lessons is byte-for-byte what the real simulator produces against the
+    real Network Reconnaissance network, that the network facts the
+    reasoning depends on are still true, that the single illustrative
+    console block is labelled as such, that the platform really has no
+    Metasploit simulator (so the lessons' "we cannot run this here"
+    claims stay true), and that no operational post-exploitation content
+    crept in."""
+
+    _SLUGS: ClassVar[tuple[str, ...]] = (
+        "introduction", "core-concepts", "hands-on-practice",
+    )
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "framework", "msfconsole", "module", "exploit", "auxiliary",
+            "payload", "post", "encoder", "session", "Meterpreter",
+            "RHOSTS", "RPORT", "LHOST", "LPORT", "TARGET", "PAYLOAD",
+            "search", "info", "show options", "check", "sessions",
+        ],
+        "core-concepts": [
+            "DISCOVERY", "SERVICE IDENTIFICATION", "VULNERABILITY RESEARCH",
+            "MODULE SELECTION", "PAYLOAD SELECTION", "CONTROLLED EXECUTION",
+            "VALIDATION", "EVIDENCE", "REMEDIATION",
+            "CVE", "affected range", "target profile", "callback",
+            "false positive", "false negative", "Failure Analysis",
+            "Expected vs observed",
+        ],
+        "hands-on-practice": [
+            "Authorization", "OBSERVATION", "INTERPRETATION", "CONFIDENCE",
+            "WHAT WOULD CHANGE IT", "Finding:", "Recommended remediation",
+            "Validation after remediation", "Network Reconnaissance",
+        ],
+    }
+
+    # Claims this module must never quietly lose — the exact WRONG/CORRECT
+    # corrections the driving spec named, plus the honesty statements that
+    # are the whole reason this module is shaped the way it is.
+    _REQUIRED_CLAIMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "A module exists for this software",
+            ("The exploit is *how* the vulnerability is triggered. The "
+             "payload is *what runs afterwards*"),
+            ("A session is a channel at whatever privilege the payload "
+             "landed with"),
+            "Its most common professional use is authorized validation",
+            "The framework executes what you configure",
+        ],
+        "core-concepts": [
+            "check` result ≠ guaranteed exploitation",
+            "The first three links contain no Metasploit at all",
+            "A module should be understood before it is executed",
+            "A failed execution is evidence",
+            "That is one possible cause out of ten",
+        ],
+        "hands-on-practice": [
+            "YushaCyber has no Metasploit simulator",
+            "ILLUSTRATIVE EXAMPLE — not captured from a live simulator",
+            ("the failure occurred at **vulnerability research**, not at "
+             "execution"),
+            "a professional result with nothing exploited",
+        ],
+    }
+
+    def _text(self, slug):
+        from pathlib import Path
+
+        from flask import current_app
+        base = Path(current_app.root_path) / "content"
+        return (base / "roadmap" / "intermediate" / "metasploit"
+                / f"{slug}.md").read_text(encoding="utf-8")
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(
+                f"roadmap/intermediate/metasploit/{slug}.md")
+
+    # ── Content is real ───────────────────────────────────────────────
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 12000, f"{slug}: suspiciously short ({len(html)})"
+
+    def test_no_placeholder_markers(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug).lower()
+            # "documentation placeholders" is real content in
+            # core-concepts §8 (the RFC-style address advice), so the
+            # bare word is not a marker — these phrases are.
+            for marker in ("todo", "placeholder text", "placeholder content",
+                           "lorem ipsum", "content is being written",
+                           "coming soon", "tbd", "xxx", "fixme"):
+                assert marker not in html, f"{slug}: contains {marker!r}"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_keep_their_required_claims(self, app):
+        """The corrections and honesty statements that make this module
+        technically correct rather than merely long. Losing any of them
+        would turn it into the 'type exploit, get shell' lesson the
+        driving spec exists to prevent."""
+        with app.app_context():
+            for slug, claims in self._REQUIRED_CLAIMS.items():
+                text = self._text(slug)
+                for claim in claims:
+                    assert claim in text, f"{slug}: lost claim {claim!r}"
+
+    def test_knowledge_checks_and_exercises_exist(self, app):
+        with app.app_context():
+            for slug in self._SLUGS:
+                text = self._text(slug)
+                assert "Knowledge Check" in text, f"{slug}: no knowledge check"
+            assert "Exercise 1" in self._text("introduction")
+            assert "Exercise 1" in self._text("core-concepts")
+            assert "Practice 7" in self._text("hands-on-practice")
+
+    # ── Real output, real facts ───────────────────────────────────────
+    def _network(self):
+        from app.core.missions.mission_loader import MISSIONS
+        from app.core.terminal.network import build_network
+        return build_network(MISSIONS["network-reconnaissance"]["network"])
+
+    def _scan(self, args):
+        from app.core.terminal.commands import _nmap
+
+        class _FakeShell:
+            pass
+
+        sh = _FakeShell()
+        sh.network = self._network()
+        return _nmap(sh, args)
+
+    def test_quoted_scan_output_matches_the_real_simulator(self, app):
+        """Every nmap block quoted in these lessons was captured by
+        actually running the real `_nmap()` handler against the real
+        Network Reconnaissance mission network. If the topology or the
+        output formatting ever changes, the lessons become fabricated
+        output — fail here rather than ship a lie."""
+        checks = {
+            "core-concepts": [
+                ["-sV", "10.10.10.40"],
+                ["-sV", "10.10.10.30"],
+            ],
+            "hands-on-practice": [
+                ["-sn", "10.10.10.0/24"],
+                ["-sV", "10.10.10.40"],
+                ["-sV", "10.10.10.30"],
+                ["-sV", "10.10.10.99"],
+            ],
+        }
+        with app.app_context():
+            for slug, arg_sets in checks.items():
+                text = self._text(slug)
+                for args in arg_sets:
+                    real = self._scan(args)
+                    assert real in text, (
+                        f"{slug}: quoted output for 'nmap {' '.join(args)}' "
+                        f"does not match the real simulator")
+
+    def test_network_facts_the_lessons_rest_on_are_real(self, app):
+        """The four facts the module's reasoning actually depends on. If
+        the training network is ever 'tidied up' — e.g. the file server
+        upgraded to a vulnerable vsftpd, or the web service moved from
+        8080 to 80 — the lessons become fiction and this fails first."""
+        from app.core.missions.mission_loader import MISSIONS
+        hosts = MISSIONS["network-reconnaissance"]["network"]["hosts"]
+
+        def services(ip):
+            return {(s["port"], s["name"], s.get("version"))
+                    for s in hosts[ip].get("services", [])}
+
+        # Practice 1/2: the training server's three services, HTTP on 8080.
+        assert (3306, "mysql", "MySQL 8.x") in services("10.10.10.40")
+        assert (8080, "http", "Apache 2.x") in services("10.10.10.40")
+        assert (22, "ssh", "OpenSSH 8.x") in services("10.10.10.40")
+        assert not any(p == 80 for p, _n, _v in services("10.10.10.40")), (
+            "the lesson's RPORT-8080 teaching point requires that the "
+            "training server has NO service on port 80")
+
+        # Practice 6: the whole vsftpd exercise collapses if this is 2.3.4.
+        assert (21, "ftp", "vsftpd 3.x") in services("10.10.10.30")
+
+        # The LHOST reasoning requires the student to really be .20.
+        assert MISSIONS["network-reconnaissance"]["network"]["student_ip"] \
+            == "10.10.10.20"
+
+        # The second failure case requires .99 to really be empty.
+        assert "10.10.10.99" not in hosts
+
+    def test_illustrative_console_block_is_labelled(self, app):
+        """The lessons contain exactly one msfconsole-style block, and it
+        must carry its 'not captured from a live simulator' label — no
+        fabricated framework output may pass as real."""
+        with app.app_context():
+            for slug in self._SLUGS:
+                text = self._text(slug)
+                if "msf6 " not in text:
+                    continue
+                assert "Illustrative example — not captured from a live " \
+                    "simulator" in text, (
+                        f"{slug}: shows msfconsole output without the "
+                        f"illustrative-example label")
+
+    def test_platform_really_has_no_metasploit_simulator(self, app):
+        """Both lessons state outright that this platform cannot run the
+        framework. That claim is asserted, not trusted: if a Metasploit
+        simulator is ever built, this fails first and the lesson text
+        gets corrected before it can become a lie."""
+        from app.core.missions.mission_loader import MISSIONS
+        from app.core.terminal.commands import _COMMANDS
+        from app.labs.models import LabCategory
+
+        for verb in ("msfconsole", "msf", "use", "set", "exploit",
+                     "sessions", "meterpreter", "payload"):
+            assert verb not in _COMMANDS, (
+                f"terminal now has a {verb!r} command — hands-on-practice "
+                f"§2/§13 claim it does not")
+
+        for slug, mission in MISSIONS.items():
+            haystack = " ".join([
+                slug, mission.get("title", ""), mission.get("category", ""),
+            ]).lower()
+            assert "metasploit" not in haystack
+            assert "meterpreter" not in haystack
+
+        with app.app_context():
+            for cat in LabCategory.query.all():
+                assert "metasploit" not in (cat.slug or "").lower()
+                assert "metasploit" not in (cat.name or "").lower()
+
+        with app.app_context():
+            text = self._text("hands-on-practice")
+            assert "YushaCyber has no Metasploit simulator" in text
+
+    def test_no_operational_post_exploitation_content(self, app):
+        """This is a fundamentals module. Credential access, persistence,
+        lateral movement and evasion belong to later, gated modules —
+        the lessons may NAME them as out of scope but must not teach
+        them, so the guarded terms are checked as instructional phrases
+        rather than as bare words."""
+        banned = [
+            "hashdump", "mimikatz", "kiwi", "dump the credentials",
+            "dumping credentials", "credential dumping workflow",
+            "persistence mechanism to install", "install a backdoor",
+            "maintain access by", "pass-the-hash", "pass the hash",
+            "golden ticket", "kerberoast", "av bypass", "bypass the antivirus",
+            "disable defender", "clear the event log", "delete the logs",
+        ]
+        with app.app_context():
+            for slug in self._SLUGS:
+                low = self._text(slug).lower()
+                for term in banned:
+                    assert term not in low, (
+                        f"{slug}: operational post-exploitation content "
+                        f"({term!r}) — out of scope for this module")
+
+    def test_no_real_world_targets_are_used_as_examples(self, app):
+        """Every address in the lessons must be a training host, a
+        documentation placeholder, or an option name — never a public
+        IP or a real organisation's host."""
+        import re
+        allowed_prefixes = ("10.10.10.", "127.0.0.")
+        with app.app_context():
+            for slug in self._SLUGS:
+                text = self._text(slug)
+                for ip in re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", text):
+                    assert ip.startswith(allowed_prefixes), (
+                        f"{slug}: non-training address {ip!r} used as an "
+                        f"example")
+
+    # ── Structure untouched ───────────────────────────────────────────
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        """A content-only ticket must not touch structure: same module id,
+        same 3 lesson slugs, same display_order, same XP as YC-036.2, and
+        the module still sits at Intermediate display_order 6."""
+        from app.roadmap.models import Lesson, RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="metasploit").first()
+            assert module.id == 14
+            assert module.display_order == 6
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            assert module.category_id == intermediate.id
+            assert module.difficulty == "intermediate"
+            assert module.estimated_hours == 1
+            assert module.xp_reward == 175
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [lesson.id for lesson in lessons] == [40, 41, 42]
+            assert [lesson.slug for lesson in lessons] == list(self._SLUGS)
+            assert [lesson.display_order for lesson in lessons] == [1, 2, 3]
+            assert [lesson.xp_reward for lesson in lessons] == [25, 50, 100]
+            assert [lesson.estimated_minutes for lesson in lessons] == [10, 20, 30]
+            assert [lesson.content_path for lesson in lessons] == [
+                "roadmap/intermediate/metasploit/introduction.md",
+                "roadmap/intermediate/metasploit/core-concepts.md",
+                "roadmap/intermediate/metasploit/hands-on-practice.md",
+            ]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_intermediate_module_order_unchanged(self, app):
+        """Nmap < Wireshark < Burp < OWASP < AD Basics < Metasploit."""
+        from app.roadmap.models import RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            order = [
+                (m.slug, m.display_order) for m in
+                RoadmapModule.query.filter_by(category_id=intermediate.id)
+                .order_by(RoadmapModule.display_order).all()
+            ]
+            assert order == [("nmap", 1), ("wireshark", 2), ("burp-suite", 3),
+                             ("owasp-top-10", 4),
+                             ("active-directory-basics", 5),
+                             ("metasploit", 6),
+                             ("windows-privilege-escalation", 7),
+                             ("linux-privilege-escalation", 8)]
+
+    # ── Practice links ────────────────────────────────────────────────
+    def test_practice_links_are_scoped_to_hands_on_practice(self, app, student):
+        """Only hands-on-practice gets a CTA, and it is the mission — no
+        lab (none fits, see below) and no free-practice terminal (the
+        bare sandbox attaches no network)."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            user = User.query.get(uid)
+            expected = {
+                "introduction": {},
+                "core-concepts": {},
+                "hands-on-practice": {
+                    "mission_slug": "network-reconnaissance",
+                    "mission_title": "Network Reconnaissance",
+                },
+            }
+            for slug, want in expected.items():
+                ctx = get_lesson_view_context(user, "metasploit", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert practice.get("lab_slug") is None
+                assert "show_terminal" not in practice
+                assert practice == want, f"{slug}: practice links drifted"
+
+    def test_mission_link_points_to_a_real_ungated_mission(self, app):
+        """The linked mission must exist, be reachable by a real route,
+        and have no prerequisite gating — otherwise the CTA is dead."""
+        from flask import url_for
+
+        from app.core.missions.mission_loader import MISSIONS
+        mission = MISSIONS.get("network-reconnaissance")
+        assert mission is not None
+        assert mission["title"] == "Network Reconnaissance"
+        assert len(mission["objectives"]) == 11
+
+        with app.test_request_context():
+            assert url_for("terminal.mission_page",
+                           slug="network-reconnaissance") == \
+                "/terminal/mission/network-reconnaissance"
+
+    def test_mission_objectives_match_what_the_lesson_claims(self, app):
+        """Hands-on §13 describes the mission's objectives. If the mission
+        is ever rewritten, the lesson's description becomes wrong."""
+        from app.core.missions.mission_loader import MISSIONS
+        titles = " ".join(o["title"].lower()
+                          for o in MISSIONS["network-reconnaissance"]["objectives"])
+        for expected in ("discover hosts", "enumerate target ports",
+                         "identify open services", "service detection",
+                         "compare hosts", "attack-surface inventory",
+                         "identify the primary target", "document findings"):
+            assert expected in titles, f"mission lost objective {expected!r}"
+
+        with app.app_context():
+            text = self._text("hands-on-practice")
+            assert "eleven objectives" in text
+
+    def test_closest_lab_match_is_really_gated_which_is_why_none_is_wired(
+            self, app):
+        """No lab is linked from this module. The reason recorded in
+        docs/ROADMAP_LOCK.md is that the closest match, `nmap-services`,
+        is prerequisite-gated — assert that rather than trusting it."""
+        from app.labs.models import Lab
+
+        with app.app_context():
+            services_lab = Lab.query.filter_by(slug="nmap-services").first()
+            assert services_lab is not None
+            assert services_lab.prerequisite_lab_id is not None, (
+                "nmap-services is no longer gated — a lab link for this "
+                "module may now be worth wiring")
+
+    def test_free_practice_terminal_is_correctly_withheld(self, app):
+        """`metasploit` must not be in _TERMINAL_PRACTICE_MODULES: the
+        bare sandbox attaches no network, so even nmap fails there."""
+        from app.core.terminal.commands import _nmap
+        from app.roadmap.services import _TERMINAL_PRACTICE_MODULES
+
+        assert "metasploit" not in _TERMINAL_PRACTICE_MODULES
+
+        class _BareShell:
+            network = None
+
+        assert "no network configured" in _nmap(_BareShell(), ["10.10.10.40"])
+
+    # ── XP / progression ──────────────────────────────────────────────
+    def test_lesson_completion_awards_xp_exactly_once(self, app, student):
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="metasploit").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+
+        with app.test_client() as c:
+            _login(c, uname)
+            c.post("/roadmap/metasploit/hands-on-practice/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_first = User.query.get(uid).xp
+            c.post("/roadmap/metasploit/hands-on-practice/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_second = User.query.get(uid).xp
+
+        assert after_first == before + 100, "hands-on should award exactly 100 XP"
+        assert after_second == after_first, "XP awarded twice for one lesson"
+
+    def test_module_completion_awards_bonus_and_unlocks_next(self, app):
+        """25 + 50 + 100 + 175 module bonus = 350, awarded once, and
+        `windows-privilege-escalation` (Intermediate #7) unlocks."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+        from app.roadmap.services import complete_lesson, module_status
+
+        with app.app_context():
+            u = User(username="msf_module_complete", email="msf_complete@t.io")
+            u.set_password("Str0ngPass!")
+            db.session.add(u)
+            db.session.commit()
+            uid = u.id
+
+            module = RoadmapModule.query.filter_by(slug="metasploit").first()
+            db.session.add(UserModuleProgress(
+                user_id=uid, module_id=module.id, unlocked=True))
+            db.session.commit()
+
+            before = User.query.get(uid).xp
+            for slug in self._SLUGS:
+                complete_lesson(User.query.get(uid), "metasploit", slug)
+            after = User.query.get(uid).xp
+            assert after == before + 350
+
+            for slug in self._SLUGS:
+                result = complete_lesson(User.query.get(uid),
+                                         "metasploit", slug)
+                assert result["already_completed"] is True
+                assert result["xp_awarded"] == 0
+            assert User.query.get(uid).xp == after
+
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            assert row.completed is True
+            assert row.bonus_awarded is True
+
+            nxt = RoadmapModule.query.filter_by(
+                slug="windows-privilege-escalation").first()
+            assert module_status(User.query.get(uid), nxt) == "available"
+
+    # ── CyberMentor ───────────────────────────────────────────────────
+    def test_cybermentor_context_is_set_on_every_lesson_page(
+            self, app, student):
+        """The generic `current_lab` hook (YC-036.4) must carry
+        "Metasploit — <lesson title>" into the mentor's system prompt."""
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(slug="metasploit").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        titles = {"introduction": "Introduction",
+                  "core-concepts": "Core Concepts",
+                  "hands-on-practice": "Hands-on Practice"}
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug, title in titles.items():
+                r = c.get(f"/roadmap/metasploit/{slug}/")
+                assert r.status_code == 200
+                assert f"Metasploit — {title}" in r.data.decode("utf-8")
 
 
 # ═══════════════════════════════════════════

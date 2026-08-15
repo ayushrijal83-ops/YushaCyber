@@ -66,8 +66,8 @@ In today's implementation this loop is **partially wired**:
   YC-036.4/.5 linked missions only; YC-036.6 additionally links two
   `web-fundamentals` lessons to real interactive labs
   (`websec-http`, `websec-cookies`) — the first lab links wired from any
-  lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2, YC-037.3, YC-037.4
-  and YC-037.5 each wired their own module's links the same way — see the **Lab Mapping**
+  lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2, YC-037.3, YC-037.4,
+  YC-037.5 and YC-037.6 each wired their own module's links the same way — see the **Lab Mapping**
   and **Mission Mapping** tables, which are kept current, for exactly
   which lessons link where today. Every module not named in those tables
   still has no lab/mission link — this remains a real gap for whoever
@@ -287,7 +287,7 @@ fabricated link.
 | `burp-suite` | `websec-http` (category `web-security`) — **linked in YC-037.3**, scoped to `hands-on-practice`. `websec-headers` is real and proxy-adjacent but deliberately **not** wired: every websec lab except `websec-http` sits behind a linear `prerequisite_lab_id` chain (`websec-cookies`→`websec-http`, `websec-sessions`→`websec-cookies`, … `websec-headers` is tenth), and `labs.detail` redirects a locked lab back to the catalogue, so linking it would be a dead CTA for anyone reaching this module. `websec-http` is the only one with no prerequisite. Note it is the same lab `web-fundamentals`/`core-concepts` links (YC-036.6) — reused deliberately, and the lesson text says so |
 | `owasp-top-10` | `websec-http` (category `web-security`) — **linked in YC-037.4**, scoped to `hands-on-practice`. The seven labs this row previously listed (`websec-auth`, `websec-idor`, `websec-sqli`, `websec-xss`, `websec-csrf`, `websec-upload`, `websec-headers`) are all real and all still the right subject matter, but every one sits behind the linear `prerequisite_lab_id` chain whose only ungated entry is `websec-http`, and `labs.detail` redirects a locked lab back to the catalogue — so the chain's entry point is wired and the lesson states the full unlock order instead. `websec-http` is also a genuine match for the module's Security Misconfiguration exercise (its second objective is response-header information leakage). Same lab `web-fundamentals`/`core-concepts` (YC-036.6) and `burp-suite`/`hands-on-practice` (YC-037.3) link — the lesson says so. `soc-brute-force` (category `soc`, ungated) is *named* in the lesson as the defending-side counterpart for A09, not wired |
 | `active-directory-basics` | `ad-orientation` (category `active-directory`) — **linked in YC-037.5**, scoped to `core-concepts` *and* `hands-on-practice`; it is the chain's only ungated lab and its six objectives map one-to-one onto the lessons' exercises. The four later AD labs (`ad-inactive-account`, `ad-compromised-password`, `ad-overprivileged`, `ad-least-privilege`) are real, prerequisite-gated, and named in `hands-on-practice` §13 with their unlock order — this module teaches students to *find* the domain's seeded problems, those labs have them *fix* each one |
-| `metasploit` | None yet |
+| `metasploit` | **None — deliberately, after audit (YC-037.6).** No lab category simulates the framework; the closest subject-matter match, `nmap-services` (Nmap: Service Enumeration), sits behind `nmap-basics` in the `nmap` category's linear `prerequisite_lab_id` chain and `labs.detail` redirects a locked lab back to the catalogue, so wiring it would be a dead CTA. The module's real practice is the **mission** below. Stated outright in `hands-on-practice` §13 |
 | `windows-privilege-escalation` | None yet |
 | `linux-privilege-escalation` | `linux-permissions`, `linux-processes` (partial — no dedicated privesc lab) |
 | `reconnaissance` | `nmap-basics`, `net-explore` |
@@ -325,6 +325,7 @@ Track J.
 | `wireshark` | `wireshark-fundamentals` — **linked in YC-037.2**, scoped to `hands-on-practice` |
 | `burp-suite` | `burp-fundamentals` — **linked in YC-037.3**, scoped to `core-concepts` *and* `hands-on-practice` (the first module to link a mission from two lessons since `web-fundamentals`: core-concepts §14 is a real command-driven Repeater experiment, so it has something to practise; `introduction`'s exercises are reasoning questions about output already printed in the lesson, so it correctly gets no CTA) |
 | `owasp-top-10` | `authentication-sessions` — **linked in YC-037.4**, scoped to `core-concepts`; `sql-injection-fundamentals` — **linked in YC-037.4**, scoped to `hands-on-practice`. The first module to link *two different* missions from two different lessons (every prior multi-lesson case reused one mission). `xss-fundamentals`, `csrf-fundamentals` and `file-upload-security` are real, ungated, and named by their real titles in `hands-on-practice` §12 as next steps, but not wired — one `mission_slug` per lesson |
+| `metasploit` | `network-reconnaissance` — **linked in YC-037.6**, scoped to `hands-on-practice`. The mission was real but unused by any lesson before this ticket. It runs the exact `10.10.10.0/24` network every `nmap` block in the three lessons was captured from, and its eleven objectives are the pre-exploitation half of an engagement — host discovery, full port enumeration, service/version detection, attack-surface comparison, high-interest ports, then three objectives of *writing findings to a report file*, which is precisely `hands-on-practice` §11's deliverable. Deliberately not `nmap-fundamentals` (already wired to the `nmap` module, and it stops at scanning without the documentation half). **No Metasploit mission exists and none is simulated** — see Content Status below |
 | `web-pentesting` | `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
 | `active-directory-basics` | **None — and no AD mission exists at all.** The 16 missions cover Linux, networking, Nmap, Wireshark and web security; none involves a domain. Stated outright in `hands-on-practice` §13 and pinned by `test_absence_of_an_ad_mission_is_real`, so an AD mission added later fails that test first |
 | all other modules | None yet |
@@ -1891,9 +1892,169 @@ Deliberately left out of this pass:
 
 None of these were silently added as new roadmap rows — they're
 documented here as candidates for whoever scopes the next Intermediate
-content pass (`metasploit` is the next lowest-order EMPTY module) or a
-future platform-infrastructure ticket, per the explicit instruction
-against inventing curriculum.
+content pass or a future platform-infrastructure ticket, per the
+explicit instruction against inventing curriculum.
+
+---
+
+## Content Status — Metasploit (YC-037.6)
+
+The fourteenth module with real, authored lesson content, and the sixth
+in the **Intermediate** category — `metasploit` is module 6 of
+Intermediate, the lowest-order EMPTY module remaining after YC-037.5.
+
+It is also the first content pass whose subject **this platform cannot
+simulate at all**, and that shaped every decision in it. Framed
+throughout as *reasoning about exploitation* rather than performing it:
+what the framework is, why a module is selected, what a module needs,
+what can go wrong, how a result is validated, and how the whole thing
+becomes a finding somebody can act on. Post-exploitation technique
+(credential access, persistence, lateral movement, evasion) is
+deliberately absent — it belongs to `windows-privilege-escalation`,
+`linux-privilege-escalation` and the Red Team track.
+
+All 3 lessons were EMPTY (`app/content/roadmap/intermediate/metasploit/`
+did not exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | Metasploit defined as a framework for **developing, testing and running** security-testing code, with the definition taken apart phrase by phrase and the "hacking tool" framing corrected explicitly; the problem frameworks solve, stated as the pre-framework reality (one-off proof-of-concept code, no common interface, hard-coded payloads, no way to distinguish a patched target from a typo) and answered with the four things a framework standardises; **what is automated (mechanics) versus what cannot be (judgment)**, given as two explicit lists; the ecosystem kept to three words — msfconsole, modules, sessions — rather than an inventory; modules with their path-like hierarchy and a six-row category table, plus two honest caveats (modules share an interface, not a mechanism; encoders are not evasion); the exploit module and **the three-gap diagram** — module exists → target vulnerable → exploit succeeds → session established — with each arrow explained as a place testers fool themselves; auxiliary modules with a three-row "when Nmap, when auxiliary" table connecting straight back to YC-037.1; **exploit vs payload** as a five-row comparison plus the consequence that changing the payload does not change the way in; sessions with both negatives stated (not proof of full compromise, not automatic on success); Meterpreter at high level via three properties, with an explicit list of what the module does not teach; the six common options and the caveat that the required set depends on the module (a scanner needs no `LHOST`; a post module needs a session ID, not `RHOSTS`); the eight console commands taught as **the question each answers**, with the observation that six of eight are about understanding and exactly one executes; five misconception corrections; the six-module roadmap arc; 5 exercises; 12 knowledge-check questions | `app/content/roadmap/intermediate/metasploit/introduction.md` |
+| `core-concepts` (20 min) | EMPTY | The eleven-link workflow as one diagram, with the two observations that make it teach something — the first three links contain no Metasploit at all, and execution is one link out of eleven; discovery → service identification worked against **real `-sV` output** from the training network, split into what the output supports and what it does not, and ending in the **version-precision problem** (`MySQL 8.x` is a family, not a build, and module applicability needs a build); vulnerability research as three questions, the third being the professional one everybody skips ("does this tell the client something they don't already know?"), with CVE/advisory/affected-range/precondition vocabulary; a **real historical example used correctly** — the backdoored vsftpd 2.3.4 distribution (CVE-2011-2523) assessed against the training file server's real `vsftpd 3.x` banner and correctly closed as not applicable *without running anything*; module search as a narrowing step with a five-row table of what to search on and what each risks, plus the two disciplines (results are candidates; never work down the list); reading `info` as an eight-row table of the question each field answers, with **rank** singled out because a low rank often means "may leave the service dead"; the check with a four-row result table and **concrete** false-positive (backported patch, stale banner) and false-negative (filtered probe) mechanisms; option configuration as six decisions with what goes wrong for each; the **callback concept** with an ASCII diagram, why outbound-initiated connections exist, the `LHOST`-must-be-routable consequence, and an explicit refusal to teach control bypass; **why one exploit has several target profiles**, with the "automatic means the module guesses" corollary; exploit vs payload restated **operationally** as a four-row diagnostic table (three of whose four rows are not payload problems — which is why "try another payload" is usually wrong); failure analysis as ten checkable causes plus the one-change-at-a-time rule; validation as a five-row claim/evidence table and why a console message is one program's claim about itself; the ten-field evidence record with **expected-vs-observed** identified as the field people omit and the most valuable one; seven remediation options with when each is right, closing on validate-the-remediation; six misconception corrections; 5 exercises; 13 knowledge-check questions | `app/content/roadmap/intermediate/metasploit/core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | Authorization first, with the technical (not legal) reason exploit modules require it; **§2, the honesty section** — a four-row table stating exactly which blocks in the lesson are real output, which infrastructure is real, and that every `msf6 >` block is an illustrative example, because there is no `msfconsole` on this platform; the environment from a **real** `nmap -sn 10.10.10.0/24` sweep with a six-row host table; the OBSERVATION → EVIDENCE → INTERPRETATION → DECISION → CONFIDENCE → **WHAT WOULD CHANGE IT** reasoning shape; **seven practices** — module research on real `-sV` output (with a worked six-part answer on the precision problem, plus explicit "what you cannot conclude"), options (a fill-in table with four checks, including the real `RPORT 8080` trap and the point that a scanner needs no `LHOST`), the check (expected/observed/conclusion written for *both* results, with the trap that "appears vulnerable" is a claim about a target that may misrepresent itself), controlled execution reframed as a **twelve-question readiness checklist** whose deliverable is the list of questions the student *cannot* answer, result validation (a five-claim sufficient/misleading table plus five direct questions), **the failed exploit** built on the real `vsftpd 3.x` evidence and the 2.3.4 backdoor — including that the failure happened at the research link *before the console was opened* — with a second failure case from a real "0 hosts up" scan of an empty address, and the professional finding with a ten-field template; **a fully worked finding with nothing exploited**, plus two more for the student (the second deliberately hardest because nothing about an exposed database *looks* broken); ten common mistakes; §13 stating plainly what can and cannot be practised here and pointing at the real Network Reconnaissance mission by its eleven objectives; the four-module arc forward; 12 knowledge-check questions | `app/content/roadmap/intermediate/metasploit/hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the thirteen prior content passes.
+
+### Real evidence — and the first module with no simulator for its own subject
+
+**This platform has no Metasploit simulator, and the lessons say so
+rather than implying otherwise.** Audited directly against
+`app/core/terminal/commands.py`'s `@cmd` registry: there is no
+`msfconsole`, `use`, `set`, `check`, `exploit`, `sessions` or `search`
+command anywhere in the terminal; no lab category simulates the
+framework; no terminal mission involves it.
+
+Git & GitHub (YC-036.8) hit the same wall and solved it by sending
+students to their own machine's real Git. That answer is unavailable
+here — "install Metasploit and run it" is not something a training
+platform should say without an authorized lab behind it. So this module
+takes the other route: it is built on the workflow's **first three
+links**, which are entirely real on this platform, and it teaches the
+remaining links as reasoning rather than fabricated console output.
+
+Every `nmap` block quoted in `core-concepts` and `hands-on-practice`
+was captured by actually running `app/core/terminal/commands.py::_nmap`
+against the real **Network Reconnaissance** mission network
+(`app/core/missions/mission_loader.py`).
+`tests/test_roadmap_lock.py::TestMetasploitContent::
+test_quoted_scan_output_matches_the_real_simulator` replays all six and
+fails if any lesson's quoted output drifts, and
+`test_network_facts_the_lessons_rest_on_are_real` pins the four facts
+the reasoning actually depends on: that `10.10.10.40` really runs MySQL
+8.x, Apache 2.x on **8080** and OpenSSH 8.x; that `10.10.10.30` really
+reports `vsftpd 3.x` (the whole Practice 6 exercise collapses if the
+training network is ever "upgraded" to a vulnerable version); that
+`10.10.10.20` really is the student's own host, which is what makes the
+lesson's `LHOST` reasoning correct; and that `10.10.10.99` really has
+nothing on it.
+
+Two absence claims are asserted rather than assumed:
+`test_platform_really_has_no_metasploit_simulator` checks that none of
+eight framework verbs is a registered terminal command and that no
+mission or lab category mentions Metasploit — so if a Metasploit
+simulator is ever built, that test fails first and §2's honesty table
+gets rewritten before it can become a lie.
+`test_illustrative_console_block_is_labelled` pins that the single
+`msf6 >` block carries its "not captured from a live simulator" label.
+
+`test_no_operational_post_exploitation_content` fails if any of fifteen
+post-exploitation/evasion terms appears in a lesson, guarding the scope
+boundary the same way YC-037.5's
+`test_no_offensive_or_unauthorized_framing` guards Active Directory's.
+
+**Structure untouched.** Module id 14, `display_order` 6, category
+Intermediate, difficulty `intermediate`, `estimated_hours` 1,
+`xp_reward` 175; lesson ids 40/41/42, slugs
+`introduction`/`core-concepts`/`hands-on-practice`, order 1/2/3, XP
+25/50/100, minutes 10/20/30, `is_preview` True/False/False, content paths
+unchanged. The module description is deliberately left as-is, consistent
+with every prior content pass. Pinned by
+`test_lesson_ids_and_order_unchanged_by_content_edit` and
+`test_intermediate_module_order_unchanged`.
+
+This lowers the roadmap-wide "empty lessons" count from 57 to 54 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Mission cross-link — a real mission no lesson had ever used
+
+- **Mission**: the real **Network Reconnaissance** mission
+  (`network-reconnaissance`, `/terminal/mission/network-reconnaissance`,
+  `terminal.mission_page` — no new route, no new mission) is linked from
+  `hands-on-practice`. It was real, ungated and **unused by any lesson**
+  before this ticket. It runs the exact network the lessons quote, and
+  its eleven objectives are the pre-exploitation half of an engagement,
+  ending in three objectives that write findings to a report file —
+  which is precisely §11's deliverable. Deliberately not
+  `nmap-fundamentals`: that one is already wired to the `nmap` module
+  (YC-037.1) and stops at scanning without the documentation half.
+  Missions have no prerequisite gating (`start_mission()` checks only
+  that the mission exists — verified), so the CTA can never be dead.
+- **Scope**: `hands-on-practice` only. `introduction` is conceptual;
+  `core-concepts`' exercises are reasoning questions about output
+  already printed in the lesson — the same discipline that withheld a
+  CTA from `burp-suite`'s and `owasp-top-10`'s `introduction`.
+- **Lab: none, deliberately.** No lab category simulates the framework.
+  The closest subject-matter match, `nmap-services` (Nmap: Service
+  Enumeration), sits behind `nmap-basics` in the `nmap` category's
+  linear `prerequisite_lab_id` chain, and `labs.detail` redirects a
+  locked lab back to the catalogue — a dead CTA for anyone who has not
+  worked that chain. Pinned by
+  `test_closest_lab_match_is_really_gated_which_is_why_none_is_wired`.
+- **Free-practice terminal**: `metasploit` is deliberately **not** added
+  to `_TERMINAL_PRACTICE_MODULES`. The bare `/terminal` sandbox attaches
+  no network (`start_shell()` never sets `sh.network`), so even `nmap`
+  answers "nmap: no network configured for this session" there.
+
+CyberMentor context needed no change: the generic `current_lab` hook
+(YC-036.4) applies here unchanged and passes "Metasploit — <lesson
+title>" through to the mentor's system prompt.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **A Metasploit simulator** — the module's defining gap. A useful one
+  would need a module catalogue with metadata (`info`), an options
+  model (`show options`/`set`), a check implementation with deliberate
+  false positives and negatives, and a session concept — modelled over
+  the existing simulated network the way `app/labs/ad/` models a
+  domain. That is a substantial infrastructure ticket, not attempted
+  here per the instruction against building infrastructure in a
+  content-only pass. Until it exists, `hands-on-practice` §2 and §13
+  state the limitation outright.
+- **Post-exploitation** — credential access, persistence, lateral
+  movement, privilege escalation and evasion. Out of scope by design
+  and guarded by `test_no_operational_post_exploitation_content`.
+- **Payload generation and encoding depth** — staged versus stageless
+  payloads, standalone payload-generation tooling, encoder mechanics.
+  The exploit/payload *distinction* is taught in depth; the tooling is
+  not, consistent with the instruction not to overwhelm a fundamentals
+  module with module categories.
+- **The Metasploit database/workspace backend** — named once in
+  Introduction §7 as part of the wider framework, then left alone.
+- **The Metasploit module quiz** — `Quiz` id 14's questions remain the
+  generic seeded placeholders shared by every module (Known Issues #4,
+  roadmap-wide, unchanged since YC-036.2). Consistent with all thirteen
+  prior content passes, knowledge checks live in the lesson markdown
+  (12 questions in Introduction, 13 in Core Concepts, 12 in Hands-on
+  Practice, plus 17 exercises across the three lessons).
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Intermediate
+content pass (`windows-privilege-escalation` is the next lowest-order
+EMPTY module) or a future platform-infrastructure ticket, per the
+explicit instruction against inventing curriculum.
 
 ---
 
@@ -1957,7 +2118,7 @@ against inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 57/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), Wireshark (YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4) and Active Directory Basics (YC-037.5), the first five of Intermediate — 39 lessons total — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 54/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), Wireshark (YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4), Active Directory Basics (YC-037.5) and Metasploit (YC-037.6), the first six of Intermediate — 42 lessons total — are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -1991,7 +2152,12 @@ instruction against hundreds of "Coming soon" placeholders.
 - **Dedicated Pentesting-methodology modules** (scope, evidence,
   reporting) — `reconnaissance`/`enumeration`/`exploitation` exist;
   methodology/reporting content does not.
-- **Metasploit / Windows privilege escalation / pivoting / persistence /
+- **A Metasploit simulator** — `metasploit` has real lesson content
+  (YC-037.6) and a real reinforcing *mission* (`network-reconnaissance`,
+  covering the discovery/enumeration half), but no lab, and nothing on
+  this platform simulates the framework itself. See Content Status —
+  Metasploit for what a useful simulator would need.
+- **Windows privilege escalation / pivoting / persistence /
   evasion-techniques labs** — the roadmap modules exist; no lab or
   mission reinforces any of them yet.
 
@@ -2015,28 +2181,31 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **57 of 96 lessons have no real content** (94 at the time of
+3. **54 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
    YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
    75 after YC-036.9, 72 after YC-037.0, 69 after YC-037.1, 66 after
-   YC-037.2, 63 after YC-037.3, 60 after YC-037.4, 57 after YC-037.5).
+   YC-037.2, 63 after YC-037.3, 60 after YC-037.4, 57 after YC-037.5,
+   54 after YC-037.6).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
    `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
    `git-github` (YC-036.8), `operating-systems` (YC-036.9),
    `virtualization` (YC-037.0), `nmap` (YC-037.1), `wireshark`
    (YC-037.2), `burp-suite` (YC-037.3), `owasp-top-10` (YC-037.4) and
-   `active-directory-basics` (YC-037.5) have genuine Markdown content; every
+   `active-directory-basics` (YC-037.5) and `metasploit` (YC-037.6) have
+   genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   thirteen modules. **The Beginner category is complete** — all 8 of
+   fourteen modules. **The Beginner category is complete** — all 8 of
    its modules / 24 of its lessons are real; Intermediate has its first
-   five real modules (`nmap`, `wireshark`, `burp-suite`,
-   `owasp-top-10`, `active-directory-basics`, 5 of 8). The
-   remaining 57 empty lessons span the rest of Intermediate, Red Team,
+   six real modules (`nmap`, `wireshark`, `burp-suite`,
+   `owasp-top-10`, `active-directory-basics`, `metasploit`, 6 of 8). The
+   remaining 54 empty lessons span the rest of Intermediate, Red Team,
    and AI Security, tracked here for whoever picks up the next module's
-   lessons (`metasploit` is the lowest-order EMPTY module remaining).
+   lessons (`windows-privilege-escalation` is the lowest-order EMPTY
+   module remaining).
 3b. **`computer-networking/introduction.md`'s content used to be a test
    fixture, not a stub — fixed in YC-036.5.** Previously a raw
    `<script>alert(1)</script>` payload (confirmed harmless at the time:

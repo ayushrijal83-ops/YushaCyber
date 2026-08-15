@@ -450,6 +450,43 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "sql-injection-fundamentals",
         "mission_title": "SQL Injection Fundamentals",
     },
+    # metasploit (YC-037.6): this platform has NO Metasploit simulator —
+    # `app/core/terminal/commands.py`'s @cmd registry has no msfconsole,
+    # `use`, `set`, `check`, `exploit` or `sessions` verb, and no lab
+    # category or mission simulates the framework. Rather than inventing
+    # one or linking nothing, the lesson is built on the workflow's first
+    # three links, which ARE real here: discovery -> service
+    # identification -> vulnerability research.
+    #
+    # Network Reconnaissance is the right mission for that and had never
+    # been wired to any lesson. It runs the exact 10.10.10.0/24 network
+    # (web-server / file-server / training-server / dns-server) every
+    # nmap block in these lessons was captured from, and its eleven
+    # objectives are the pre-exploitation half of an engagement: host
+    # discovery, full port enumeration, service/version detection,
+    # attack-surface comparison, high-interest port identification, and
+    # then THREE objectives of writing findings to a report file —
+    # which is precisely hands-on-practice §11's deliverable. It is
+    # deliberately NOT `nmap-fundamentals` (already wired to the nmap
+    # module, and it stops at scanning without the documentation half).
+    # Missions have no prerequisite gating (`start_mission` checks only
+    # that the mission exists), so this CTA can never be dead.
+    #
+    # Scoped to hands-on-practice only: introduction is conceptual, and
+    # core-concepts' exercises are reasoning questions about output
+    # already printed in the lesson — same discipline as burp-suite's
+    # and owasp-top-10's introduction. No lab link at all: the closest
+    # match, `nmap-services` (Service Enumeration), sits behind
+    # `nmap-basics` in the nmap category's prerequisite chain and
+    # `labs.detail` redirects a locked lab back to the catalogue, so it
+    # would be a dead CTA. `metasploit` is likewise NOT added to
+    # _TERMINAL_PRACTICE_MODULES — the bare sandbox attaches no network,
+    # so even `nmap` answers "no network configured for this session"
+    # there.
+    ("metasploit", "hands-on-practice"): {
+        "mission_slug": "network-reconnaissance",
+        "mission_title": "Network Reconnaissance",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
