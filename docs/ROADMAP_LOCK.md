@@ -67,7 +67,7 @@ In today's implementation this loop is **partially wired**:
   `web-fundamentals` lessons to real interactive labs
   (`websec-http`, `websec-cookies`) — the first lab links wired from any
   lesson. YC-036.9, YC-037.0, YC-037.1, YC-037.2, YC-037.3, YC-037.4,
-  YC-037.5 and YC-037.6 each wired their own module's links the same way — see the **Lab Mapping**
+  YC-037.5, YC-037.6 and YC-037.8 each wired their own module's links the same way — see the **Lab Mapping**
   and **Mission Mapping** tables, which are kept current, for exactly
   which lessons link where today. Every module not named in those tables
   still has no lab/mission link — this remains a real gap for whoever
@@ -289,7 +289,7 @@ fabricated link.
 | `active-directory-basics` | `ad-orientation` (category `active-directory`) — **linked in YC-037.5**, scoped to `core-concepts` *and* `hands-on-practice`; it is the chain's only ungated lab and its six objectives map one-to-one onto the lessons' exercises. The four later AD labs (`ad-inactive-account`, `ad-compromised-password`, `ad-overprivileged`, `ad-least-privilege`) are real, prerequisite-gated, and named in `hands-on-practice` §13 with their unlock order — this module teaches students to *find* the domain's seeded problems, those labs have them *fix* each one |
 | `metasploit` | **None — deliberately, after audit (YC-037.6).** No lab category simulates the framework; the closest subject-matter match, `nmap-services` (Nmap: Service Enumeration), sits behind `nmap-basics` in the `nmap` category's linear `prerequisite_lab_id` chain and `labs.detail` redirects a locked lab back to the catalogue, so wiring it would be a dead CTA. The module's real practice is the **mission** below. Stated outright in `hands-on-practice` §13 |
 | `windows-privilege-escalation` | None yet |
-| `linux-privilege-escalation` | `linux-permissions`, `linux-processes` (partial — no dedicated privesc lab) |
+| `linux-privilege-escalation` | **No lab wired (YC-037.8), by design.** The interactive `linux-permissions` and `linux-processes` labs (ids 18/21) are subject-adjacent but sit behind the linear `linux` lab `prerequisite_lab_id` chain (`linux-basics`→`linux-files`→`linux-permissions`→…), and `labs.detail` redirects a locked lab back to the catalogue, so either would be a dead CTA for a student reaching this Intermediate module. The module's real practice is the **mission** below, which covers the same enumeration/permission material and is ungated |
 | `reconnaissance` | `nmap-basics`, `net-explore` |
 | `enumeration` | `nmap-services`, `nmap-advanced` |
 | `exploitation` | None yet |
@@ -326,6 +326,7 @@ Track J.
 | `burp-suite` | `burp-fundamentals` — **linked in YC-037.3**, scoped to `core-concepts` *and* `hands-on-practice` (the first module to link a mission from two lessons since `web-fundamentals`: core-concepts §14 is a real command-driven Repeater experiment, so it has something to practise; `introduction`'s exercises are reasoning questions about output already printed in the lesson, so it correctly gets no CTA) |
 | `owasp-top-10` | `authentication-sessions` — **linked in YC-037.4**, scoped to `core-concepts`; `sql-injection-fundamentals` — **linked in YC-037.4**, scoped to `hands-on-practice`. The first module to link *two different* missions from two different lessons (every prior multi-lesson case reused one mission). `xss-fundamentals`, `csrf-fundamentals` and `file-upload-security` are real, ungated, and named by their real titles in `hands-on-practice` §12 as next steps, but not wired — one `mission_slug` per lesson |
 | `metasploit` | `network-reconnaissance` — **linked in YC-037.6**, scoped to `hands-on-practice`. The mission was real but unused by any lesson before this ticket. It runs the exact `10.10.10.0/24` network every `nmap` block in the three lessons was captured from, and its eleven objectives are the pre-exploitation half of an engagement — host discovery, full port enumeration, service/version detection, attack-surface comparison, high-interest ports, then three objectives of *writing findings to a report file*, which is precisely `hands-on-practice` §11's deliverable. Deliberately not `nmap-fundamentals` (already wired to the `nmap` module, and it stops at scanning without the documentation half). **No Metasploit mission exists and none is simulated** — see Content Status below |
+| `linux-privilege-escalation` | `linux-permissions` — **linked in YC-037.8**, scoped to `hands-on-practice`. Deliberately reuses the same Beginner mission `operating-systems` links, because it is the only place on the platform where the identity/permission/ownership commands this module opens with actually run: `whoami`/`id`/`groups` (real `sudo`-group membership), `ls -l` notation, a genuine permission boundary (`cat private.txt` → "Permission denied" on a root-owned 600 file), `chmod`/`chown`. The lesson frames it honestly as the *enumeration + permission* half of privilege escalation, not a full privesc range — the deeper surfaces (sudo/SUID/capabilities/cron/systemd) are not simulated anywhere and are taught as labelled illustrative examples. All three lessons also offer the free-practice terminal (`_TERMINAL_PRACTICE_MODULES`), since the identity commands work bare. See Content Status below |
 | `web-pentesting` | `sql-injection-fundamentals`, `xss-fundamentals`, `csrf-fundamentals`, `file-upload-security` |
 | `active-directory-basics` | **None — and no AD mission exists at all.** The 16 missions cover Linux, networking, Nmap, Wireshark and web security; none involves a domain. Stated outright in `hands-on-practice` §13 and pinned by `test_absence_of_an_ad_mission_is_real`, so an AD mission added later fails that test first |
 | all other modules | None yet |
@@ -2052,9 +2053,140 @@ Deliberately left out of this pass:
 
 None of these were silently added as new roadmap rows — they're
 documented here as candidates for whoever scopes the next Intermediate
-content pass (`windows-privilege-escalation` is the next lowest-order
-EMPTY module) or a future platform-infrastructure ticket, per the
+content pass or a future platform-infrastructure ticket, per the
 explicit instruction against inventing curriculum.
+
+---
+
+## Content Status — Linux Privilege Escalation (YC-037.8)
+
+The fifteenth module with real, authored lesson content, and the seventh
+in the **Intermediate** category — `linux-privilege-escalation` is module
+**8** of Intermediate (the last), lesson ids 46/47/48. It was picked up
+ahead of `windows-privilege-escalation` (module 7, still EMPTY) because
+the platform's real Linux terminal makes the Linux module's enumeration
+half genuinely runnable, whereas nothing on the platform simulates
+Windows privilege boundaries.
+
+Like Metasploit (YC-037.6), this is a module whose full subject the
+platform cannot simulate, and that shaped it. The terminal runs identity
+and permission commands for real (`whoami`, `id`, `groups`, `uname`,
+`hostname`, `ls -l`, `cat`, `chmod`, `chown`, `find`, `grep`) but has
+**no** `sudo`, SUID bits, `getcap`, `cron` or `systemctl` (verified
+against `app/core/terminal/commands.py`'s `@cmd` registry). So the module
+is built on the enumeration + permission/ownership half, which is real
+and captured, and teaches the deeper surfaces (sudo, SUID, capabilities,
+cron, systemd, PATH, kernel, containers) as **reasoning** with
+clearly-labelled illustrative examples. The throughline is the one
+distinction the driving spec demanded be emphasised: **a finding is not a
+confirmed escalation path**.
+
+All 3 lessons were EMPTY
+(`app/content/roadmap/intermediate/linux-privilege-escalation/` did not
+exist at all):
+
+| Lesson | Classification before | Scope written | File |
+|---|---|---|---|
+| `introduction` (10 min, preview) | EMPTY | Privilege escalation defined as crossing a boundary configured *incorrectly* rather than "hacking root"; the user/group/root identity model with UID 0 read from the **real** `/etc/passwd`; why escalation exists (a stack of human-configured boundaries); **"a shell is not root"** demonstrated from the real `whoami`/`id` output, including the real `sudo`-group membership as a *lead*; vertical vs horizontal with a diagram; enumeration-first as a table of questions-with-reasons; the five core enumeration commands each shown with **real output** and the question it answers; and the module's central mental model — the **privilege boundary** examined with four questions (who owns / modifies / executes / with what privileges), applied to a real root-owned 600 file that is correctly *sound*; five misconception corrections; 5 exercises; 12 knowledge-check questions | `.../introduction.md` |
+| `core-concepts` (20 min) | EMPTY | Users/groups/ownership (real `/etc/passwd`, group-as-authority table); file permissions with a labelled `rwx` diagram and the directory-write and writable-privileged consequences; **SUID** taught correctly (elevated *context*, not a vulnerability) with the "does it provide an *unintended* path?" question; SGID; **sudo** reasoned about via four questions instead of a GTFOBins catalogue; **capabilities** as slices of root; **cron**, **systemd services**, **PATH** hijack, **writable files/dirs**, **environment/config**, **kernel** (a version is a lead) and **containers** (a boundary, not a VM) — each at the right altitude; the **finding-vs-confirmed-path** section with a decision diagram; prioritisation; the 8-step validation process; the evidence record; a remediation table whose recurring answer is least privilege; six misconception corrections; 6 exercises; 12 knowledge-check questions. Every non-runnable surface (SUID/sudo/capabilities/cron/systemd) is a labelled **ILLUSTRATIVE EXAMPLE** | `.../core-concepts.md` |
+| `hands-on-practice` (30 min) | EMPTY | An honesty section (§2) stating exactly which blocks are **REAL OUTPUT** and which are **ILLUSTRATIVE**, including the note that the mission's `chown` step is a *simulation affordance* because real Linux `chown` is root-only; seven exercises in the OBSERVATION→EVIDENCE→INTERPRETATION→DECISION→CONFIDENCE→WHAT-WOULD-CHANGE-IT shape — identity, host enumeration, permission analysis (all on **real** mission output), then sudo/SUID/cron as labelled illustrative reasoning; **Exercise 7** validates a boundary and is explicit that the real root-owned file is a *sound* boundary and that the `chown` demonstration is not a real escalation; the **failed-escalation** section (writable-but-not-consumed); a professional finding template with two worked findings — one illustrative confirmed path, one **real** "boundary held, no escalation" — plus common mistakes and a §15 stating exactly what is and is not runnable here | `.../hands-on-practice.md` |
+
+All three now classify as **HIGH_QUALITY** under the same standard used
+for the fourteen prior content passes.
+
+### Real evidence — the enumeration half is genuinely runnable
+
+Every block tagged **REAL OUTPUT** was captured by actually running the
+command through this platform's terminal engine against the **Linux
+Permissions** mission host (`whoami`, `id`, `groups`, `uname -a`,
+`hostname`, `cat /etc/passwd`, `ls -l`, `cat public.txt`, `cat
+private.txt` and the `chown`/`ls -l` ownership sequence).
+`tests/test_roadmap_lock.py::TestLinuxPrivEscContent::
+test_quoted_real_output_matches_the_simulator` replays all of them and
+fails if the simulator's output ever drifts.
+
+The single most important honesty property is asserted, not trusted:
+`test_illustrative_blocks_are_labelled` checks that every `sudo -l`,
+SUID listing and `cron`/`crontab` block carries an **ILLUSTRATIVE
+EXAMPLE** label, and `test_platform_really_has_no_privesc_surface` checks
+that `sudo`, `getcap`, `crontab`, `systemctl` and `ps` are genuinely
+absent from the terminal `@cmd` registry — so if any of those is ever
+implemented, the test fails first and the lesson's "not simulated here"
+framing gets corrected before it can become a lie.
+`test_no_operational_persistence_or_evasion_content` guards the scope
+boundary (persistence, stealth, credential theft, lateral movement) the
+same way the AD and Metasploit modules guard theirs, and
+`test_chown_divergence_is_flagged` pins that the lesson explicitly warns
+that the mission's `chown` step diverges from real Linux semantics.
+
+**Structure untouched.** Module id 16, `display_order` 8, category
+Intermediate, difficulty `intermediate`, `estimated_hours` 1,
+`xp_reward` 175; lesson ids 46/47/48, slugs
+`introduction`/`core-concepts`/`hands-on-practice`, order 1/2/3, XP
+25/50/100, minutes 10/20/30, `is_preview` True/False/False, content
+paths unchanged. Pinned by
+`test_lesson_ids_and_order_unchanged_by_content_edit`.
+
+This lowers the roadmap-wide "empty lessons" count from 54 to 51 (see
+Known Issues #3) — reflected in both `flask roadmap-audit` and
+`tests/test_roadmap_lock.py`'s pinned baseline.
+
+### Cross-links — mission + free-practice terminal
+
+- **Mission**: the real **Linux Permissions** mission
+  (`linux-permissions`, `/terminal/mission/linux-permissions`,
+  `terminal.mission_page`) is linked from `hands-on-practice`. It is
+  ungated at the route level (`start_mission()` checks only that the
+  mission exists — the same fact relied on for `network-reconnaissance`
+  in YC-037.6), so the CTA is reachable even though the interactive
+  `linux-permissions` **lab** (id 18) is prerequisite-gated. It
+  deliberately reuses the mission `operating-systems` already links,
+  because it is the only place on the platform where the identity /
+  permission / ownership commands actually run — the lesson says so and
+  frames it as the enumeration half of privilege escalation.
+- **Free-practice terminal**: `linux-privilege-escalation` is added to
+  `_TERMINAL_PRACTICE_MODULES`, so all three lessons offer the bare
+  `/terminal` link. The identity commands (`whoami`/`id`/`groups`/
+  `uname`/`hostname`/`ls -l`/`chmod`/`chown`/`find`) all work in the
+  network-less sandbox — verified — and the `id` output there really does
+  report the `sudo`-group membership the module reasons about.
+- **Lab: none, deliberately.** The subject-adjacent `linux-permissions`
+  and `linux-processes` interactive labs sit behind the linear `linux`
+  lab chain and would be dead CTAs; pinned by
+  `test_closest_labs_are_gated_which_is_why_none_is_wired`.
+
+CyberMentor context needed no change: the generic `current_lab` hook
+(YC-036.4) passes "Linux Privilege Escalation — <lesson title>" through
+to the mentor's system prompt.
+
+### Future curriculum note (not built in this ticket, per scope)
+
+Deliberately left out of this pass:
+
+- **A sudo / SUID / capability / cron / systemd simulator** — the
+  module's defining gap. A useful one would model an `/etc/sudoers`, SUID
+  bits with an escape-capable program, `getcap` output, and a root-run
+  scheduled job over the existing VirtualFS. Substantial infrastructure,
+  not attempted in a content-only ticket; until it exists the lessons
+  label those surfaces illustrative.
+- **`windows-privilege-escalation` (module 7)** — still EMPTY. Left for
+  its own pass; the platform simulates no Windows privilege surface at
+  all, so it is a harder gap than this one.
+- **Persistence, stealth/evasion, credential theft, lateral movement** —
+  out of scope by design and guarded by
+  `test_no_operational_persistence_or_evasion_content`.
+- **Weaponised kernel / container-breakout technique** — taught only
+  conceptually; the deeper material belongs to the Red Team track.
+- **The Linux Privilege Escalation module quiz** — `Quiz` id 16's
+  questions remain the generic seeded placeholders (Known Issues #4,
+  roadmap-wide). Knowledge checks live in the lesson markdown (12 + 12
+  questions plus 18 exercises across the three lessons).
+
+None of these were silently added as new roadmap rows — they're
+documented here as candidates for whoever scopes the next Intermediate
+content pass (`windows-privilege-escalation`) or a future
+platform-infrastructure ticket, per the explicit instruction against
+inventing curriculum.
 
 ---
 
@@ -2118,7 +2250,7 @@ explicit instruction against inventing curriculum.
 |---|---|
 | `AVAILABLE` | Unlocked for this user (`UserModuleProgress.unlocked=True`, not yet completed) |
 | `IN PROGRESS` *(curriculum-level, not a DB status)* | Real labs/missions exist but no roadmap lessons reference them yet — e.g. Track J below |
-| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 54/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), Wireshark (YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4), Active Directory Basics (YC-037.5) and Metasploit (YC-037.6), the first six of Intermediate — 42 lessons total — are real) |
+| `COMING SOON` | A module/category exists in the DB but its lesson content is still placeholder (applies to 51/96 of today's lessons — Python Programming (YC-036.3), Linux Fundamentals (YC-036.4), Computer Networking (YC-036.5), Web Fundamentals (YC-036.6), Cryptography Basics (YC-036.7), Git & GitHub (YC-036.8), Operating Systems (YC-036.9), Virtualization (YC-037.0) — the entire Beginner category — and Nmap (YC-037.1), Wireshark (YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4), Active Directory Basics (YC-037.5), Metasploit (YC-037.6) and Linux Privilege Escalation (YC-037.8), seven of the eight Intermediate modules — `windows-privilege-escalation` (#7) is the only Intermediate module still empty — 45 lessons total are real) |
 | `FUTURE` | No DB rows exist yet; listed only in this document's Future Curriculum section |
 
 **Lessons** (per-user, computed by `services.module_status` /
@@ -2157,9 +2289,16 @@ instruction against hundreds of "Coming soon" placeholders.
   covering the discovery/enumeration half), but no lab, and nothing on
   this platform simulates the framework itself. See Content Status —
   Metasploit for what a useful simulator would need.
+- **A Linux privilege-escalation simulator** — `linux-privilege-escalation`
+  has real lesson content (YC-037.8) and reuses the real **Linux
+  Permissions** mission for its enumeration/permission half, but the
+  platform simulates no `sudo`, SUID, capability, cron or systemd surface,
+  so those are taught as labelled illustrative examples. See Content
+  Status — Linux Privilege Escalation for what a simulator would need.
 - **Windows privilege escalation / pivoting / persistence /
   evasion-techniques labs** — the roadmap modules exist; no lab or
-  mission reinforces any of them yet.
+  mission reinforces any of them yet (`windows-privilege-escalation` is
+  the last EMPTY Intermediate module).
 
 ---
 
@@ -2181,28 +2320,31 @@ instruction against hundreds of "Coming soon" placeholders.
    produces only 4 categories. Left in the database (never delete
    progress-bearing or any other data per project rule); documented as
    the likely future home for Track J.
-3. **54 of 96 lessons have no real content** (94 at the time of
+3. **51 of 96 lessons have no real content** (94 at the time of
    YC-036.2's audit, 91 after YC-036.3, 89 after YC-036.4, 87 after
    YC-036.5, 84 after YC-036.6, 81 after YC-036.7, 78 after YC-036.8,
    75 after YC-036.9, 72 after YC-037.0, 69 after YC-037.1, 66 after
    YC-037.2, 63 after YC-037.3, 60 after YC-037.4, 57 after YC-037.5,
-   54 after YC-037.6).
+   54 after YC-037.6, 51 after YC-037.8).
    All 3 lessons each of `python-programming` (YC-036.3),
    `linux-fundamentals` (YC-036.4), `computer-networking` (YC-036.5),
    `web-fundamentals` (YC-036.6), `cryptography-basics` (YC-036.7),
    `git-github` (YC-036.8), `operating-systems` (YC-036.9),
    `virtualization` (YC-037.0), `nmap` (YC-037.1), `wireshark`
-   (YC-037.2), `burp-suite` (YC-037.3), `owasp-top-10` (YC-037.4) and
-   `active-directory-basics` (YC-037.5) and `metasploit` (YC-037.6) have
+   (YC-037.2), `burp-suite` (YC-037.3), `owasp-top-10` (YC-037.4),
+   `active-directory-basics` (YC-037.5), `metasploit` (YC-037.6) and
+   `linux-privilege-escalation` (YC-037.8) have
    genuine Markdown content; every
    other `content_path` resolves to nothing and renders "This lesson is
    coming soon." This is the single largest
    content-debt item and remains explicitly out of scope beyond these
-   fourteen modules. **The Beginner category is complete** — all 8 of
-   its modules / 24 of its lessons are real; Intermediate has its first
-   six real modules (`nmap`, `wireshark`, `burp-suite`,
-   `owasp-top-10`, `active-directory-basics`, `metasploit`, 6 of 8). The
-   remaining 54 empty lessons span the rest of Intermediate, Red Team,
+   fifteen modules. **The Beginner category is complete** — all 8 of
+   its modules / 24 of its lessons are real; Intermediate has seven of
+   its eight real modules (`nmap`, `wireshark`, `burp-suite`,
+   `owasp-top-10`, `active-directory-basics`, `metasploit`,
+   `linux-privilege-escalation`), leaving only
+   `windows-privilege-escalation` (#7). The
+   remaining 51 empty lessons span that one Intermediate module, Red Team,
    and AI Security, tracked here for whoever picks up the next module's
    lessons (`windows-privilege-escalation` is the lowest-order EMPTY
    module remaining).

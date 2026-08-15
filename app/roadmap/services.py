@@ -487,6 +487,30 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
         "mission_slug": "network-reconnaissance",
         "mission_title": "Network Reconnaissance",
     },
+    # linux-privilege-escalation (YC-037.8): this platform has no sudo,
+    # SUID, getcap, cron or systemd simulation (verified against
+    # `app/core/terminal/commands.py`'s @cmd registry), so the module's
+    # deeper surfaces are taught as labelled illustrative examples. What
+    # IS real is the enumeration + permission/ownership half — and the
+    # Linux Permissions mission runs exactly that: `whoami`/`id`/`groups`
+    # (identity, incl. the real `sudo`-group membership this module reasons
+    # about), `ls -l` permission notation, a genuine permission boundary
+    # (`cat private.txt` -> "Permission denied" on a root-owned 600 file),
+    # and `chmod`/`chown`. It is the foundational first rungs of privesc
+    # enumeration, real and captured. Missions have no prerequisite gating
+    # (`start_mission` checks only that the mission exists — verified), so
+    # this CTA is reachable even though the interactive `linux-permissions`
+    # LAB (id 18) sits behind the linux lab chain and would be a dead CTA.
+    # Deliberately reuses the same mission `operating-systems` links (the
+    # only place identity/permission commands actually run) — the lesson
+    # says so and frames it as the enumeration half, not a full privesc
+    # range. Scoped to hands-on-practice: introduction/core-concepts get
+    # the free-practice terminal below (identity commands work bare), but
+    # the ownership-boundary demonstration is the mission's job.
+    ("linux-privilege-escalation", "hands-on-practice"): {
+        "mission_slug": "linux-permissions",
+        "mission_title": "Linux Permissions",
+    },
 }
 
 # Modules whose lessons should all offer the free-practice terminal link,
@@ -509,7 +533,18 @@ _LESSON_MISSION_LINKS: dict[tuple[str, str], dict[str, str]] = {
 # `proxy`/`intercept`/`open`/`forward`/`repeater`/`compare` — every
 # command that module teaches — answer "no simulated web environment
 # configured for this session" outside a real mission.
-_TERMINAL_PRACTICE_MODULES: set[str] = {"linux-fundamentals", "operating-systems"}
+# linux-privilege-escalation (YC-037.8) joins linux-fundamentals /
+# operating-systems here: the identity + permission commands this module's
+# Exercises 1-3 open with — `whoami`/`id`/`groups`/`uname`/`hostname`/
+# `ls -l`/`cat`/`chmod`/`chown`/`find` — all work in the bare sandbox with
+# no mission/network attachment (verified against
+# app/core/terminal/commands.py, and the `id` output really does report the
+# `sudo`-group membership the module reasons about). The module's deeper
+# surfaces (sudo/SUID/capabilities/cron/systemd) are not simulated anywhere
+# and are taught as labelled illustrative examples, so the free-practice
+# link is honest about what it does and does not cover.
+_TERMINAL_PRACTICE_MODULES: set[str] = {
+    "linux-fundamentals", "operating-systems", "linux-privilege-escalation"}
 
 # Lesson -> real interactive lab cross-links (YC-036.6). Deliberately
 # scoped and additive, same discipline as _LESSON_MISSION_LINKS: only

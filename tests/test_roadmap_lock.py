@@ -4,8 +4,8 @@ Pins the structural invariants documented in docs/ROADMAP_LOCK.md: a
 locked category/module/lesson hierarchy, deterministic ordering, no
 duplicate slugs/ordering, no orphaned records, server-side lock
 enforcement (fixed by this ticket), and that XP/progress stay intact
-through the normal lesson-completion flow. Content quality (54 of 96
-lessons still empty as of YC-037.6, gameable quizzes) is deliberately
+through the normal lesson-completion flow. Content quality (51 of 96
+lessons still empty as of YC-037.8, gameable quizzes) is deliberately
 NOT asserted as passing — see docs/ROADMAP_LOCK.md "Known Issues" —
 only pinned as a baseline so new empty/placeholder lessons can't be
 added silently. Python Programming (YC-036.3), Linux Fundamentals
@@ -15,8 +15,9 @@ added silently. Python Programming (YC-036.3), Linux Fundamentals
 Virtualization (YC-037.0 — completing the Beginner category), Nmap
 (YC-037.1 — the first real module in Intermediate), Wireshark
 (YC-037.2), Burp Suite (YC-037.3), OWASP Top 10 (YC-037.4), Active
-Directory Basics (YC-037.5) and Metasploit (YC-037.6) are the real
-content in the roadmap; this file also pins that all fourteen stay real.
+Directory Basics (YC-037.5), Metasploit (YC-037.6) and Linux Privilege
+Escalation (YC-037.8) are the real content in the roadmap; this file also
+pins that all fifteen stay real.
 """
 
 from __future__ import annotations
@@ -322,8 +323,10 @@ class TestContentBaseline:
             # YC-037.5: Active Directory Basics' all 3 lessons were
             # EMPTY. See TestActiveDirectoryContent below. Then 57 -> 54
             # as of YC-037.6: Metasploit's all 3 lessons were EMPTY. See
-            # TestMetasploitContent below.
-            assert empty == 54
+            # TestMetasploitContent below. Then 54 -> 51 as of YC-037.8:
+            # Linux Privilege Escalation's all 3 lessons were EMPTY. See
+            # TestLinuxPrivEscContent below.
+            assert empty == 51
             assert placeholder == 0
 
     def test_format_audit_report_is_stable_text(self, app):
@@ -5699,6 +5702,449 @@ class TestMetasploitContent:
                 r = c.get(f"/roadmap/metasploit/{slug}/")
                 assert r.status_code == 200
                 assert f"Metasploit — {title}" in r.data.decode("utf-8")
+
+
+# ═══════════════════════════════════════════
+# YC-037.8 — Linux Privilege Escalation content
+# ═══════════════════════════════════════════
+class TestLinuxPrivEscContent:
+    """Guards the real content written for YC-037.8 — Linux Privilege
+    Escalation, module 8 (last) of Intermediate.
+
+    Like Metasploit, the platform cannot simulate the full subject (no
+    sudo/SUID/getcap/cron/systemd), so the honesty properties matter most:
+    this class pins that the identity/permission blocks are byte-for-byte
+    the real terminal output, that every non-runnable surface is a
+    labelled illustrative example, that the platform really lacks those
+    surfaces, that the mission's chown-divergence-from-real-Linux is
+    flagged, and that no persistence/evasion content crept in."""
+
+    _SLUGS: ClassVar[tuple[str, ...]] = (
+        "introduction", "core-concepts", "hands-on-practice",
+    )
+
+    _EXPECTED_TERMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "privilege escalation", "vertical", "horizontal",
+            "UID 0", "root", "enumerat", "privilege boundary",
+            "who owns", "sudo", "a shell is not root",
+        ],
+        "core-concepts": [
+            "SUID", "SGID", "sudo", "capabilit", "cron", "systemd",
+            "PATH", "writable", "kernel", "container",
+            "finding is not a confirmed", "least privilege",
+            "CAP_DAC_OVERRIDE", "prioriti", "Validation", "Evidence",
+            "Remediation",
+        ],
+        "hands-on-practice": [
+            "OBSERVATION", "INTERPRETATION", "WHAT WOULD CHANGE IT",
+            "REAL OUTPUT", "ILLUSTRATIVE EXAMPLE", "Failed Escalation",
+            "Remediation", "Severity",
+        ],
+    }
+
+    _REQUIRED_CLAIMS: ClassVar[dict[str, list[str]]] = {
+        "introduction": [
+            "obtains privileges beyond those they were intended to have",
+            "a shell is not root",
+            ("A shell gives you a *position* at some privilege level"),
+        ],
+        "core-concepts": [
+            "A finding is not a confirmed escalation path",
+            "The SUID bit is not a vulnerability",
+            "A file being writable is not a vulnerability",
+            ("A matching kernel version does **not** prove exploitability"),
+        ],
+        "hands-on-practice": [
+            "On real Linux, `chown` is a root-only operation",
+            ("an interesting configuration is not a confirmed path"),
+            "boundary held, no escalation",
+        ],
+    }
+
+    def _text(self, slug):
+        from pathlib import Path
+
+        from flask import current_app
+        base = Path(current_app.root_path) / "content"
+        return (base / "roadmap" / "intermediate"
+                / "linux-privilege-escalation" / f"{slug}.md").read_text(
+                    encoding="utf-8")
+
+    def _render(self, app, slug):
+        from app.roadmap.content_render import render_lesson_content
+        with app.app_context():
+            return render_lesson_content(
+                "roadmap/intermediate/linux-privilege-escalation/"
+                f"{slug}.md")
+
+    # ── Content is real ───────────────────────────────────────────────
+    def test_all_three_lessons_render_real_content(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug)
+            assert html is not None, f"{slug}: content file missing"
+            assert "coming soon" not in html.lower()
+            assert len(html) > 12000, f"{slug}: suspiciously short ({len(html)})"
+
+    def test_no_placeholder_markers(self, app):
+        for slug in self._SLUGS:
+            html = self._render(app, slug).lower()
+            for marker in ("todo", "placeholder text", "placeholder content",
+                           "lorem ipsum", "content is being written",
+                           "coming soon", "tbd", "fixme"):
+                assert marker not in html, f"{slug}: contains {marker!r}"
+
+    def test_lessons_contain_their_taught_terms(self, app):
+        for slug, terms in self._EXPECTED_TERMS.items():
+            html = self._render(app, slug)
+            for term in terms:
+                assert term in html, f"{slug}: missing expected term {term!r}"
+
+    def test_lessons_keep_their_required_claims(self, app):
+        with app.app_context():
+            for slug, claims in self._REQUIRED_CLAIMS.items():
+                text = self._text(slug)
+                for claim in claims:
+                    assert claim in text, f"{slug}: lost claim {claim!r}"
+
+    def test_knowledge_checks_and_exercises_exist(self, app):
+        with app.app_context():
+            for slug in self._SLUGS:
+                assert "Knowledge Check" in self._text(slug), \
+                    f"{slug}: no knowledge check"
+            assert "Exercise 1" in self._text("introduction")
+            assert "Exercise 1" in self._text("core-concepts")
+            assert "Exercise 7" in self._text("hands-on-practice")
+
+    # ── Real output, honesty ──────────────────────────────────────────
+    def _mission_shell(self):
+        from app.core.missions.mission_loader import MISSIONS
+        from app.core.terminal.filesystem import VirtualFS
+        from app.core.terminal.shell import Shell
+        m = MISSIONS["linux-permissions"]
+        return Shell(fs=VirtualFS(tree=m["filesystem"],
+                                  permissions=m.get("permissions")))
+
+    def test_quoted_real_output_matches_the_simulator(self, app):
+        """Every block tagged REAL OUTPUT was captured from the real
+        terminal engine against the Linux Permissions mission host. If the
+        simulator drifts, the lessons become fabricated output — fail
+        here rather than ship a lie."""
+        with app.app_context():
+            blob = "\n".join(self._text(s) for s in self._SLUGS)
+
+            sh = self._mission_shell()
+            simple = {
+                "whoami": "student",
+                "id": ("uid=1000(student) gid=1000(student) "
+                       "groups=1000(student),27(sudo)"),
+                "groups": "student sudo",
+                "uname -a": "Linux yushacyber-lab 5.15.0 #1 SMP x86_64 GNU/Linux",
+                "hostname": "yushacyber-lab",
+            }
+            for cmd, expected in simple.items():
+                out = sh.execute(cmd)
+                assert out == expected, f"{cmd!r} drifted: {out!r}"
+                assert out in blob, f"{cmd!r} real output not quoted in lessons"
+
+            assert sh.execute("cat /etc/passwd") in blob
+
+            # Permission-directory sequence.
+            sh.execute("cd permissions")
+            ls = sh.execute("ls -l")
+            assert ls in blob, "ls -l permission listing not quoted"
+            assert sh.execute("cat public.txt") in blob
+            denied = sh.execute("cat private.txt")
+            assert denied == "cat: private.txt: Permission denied"
+            assert denied in blob
+
+            # Ownership-change demonstration.
+            sh.execute("chown student private.txt")
+            assert sh.execute("ls -l private.txt") in blob
+            assert sh.execute("cat private.txt") in blob
+
+    def test_illustrative_blocks_are_labelled(self, app):
+        """Every non-runnable surface (sudo -l, SUID listing, cron) must
+        be labelled illustrative — no fabricated output may pass as real.
+        Checked at the section level: each lesson that shows such a block
+        also carries the ILLUSTRATIVE EXAMPLE label."""
+        with app.app_context():
+            for slug in ("core-concepts", "hands-on-practice"):
+                text = self._text(slug)
+                for needle in ("sudo -l", "-rwsr-xr-x", "/etc/crontab"):
+                    if needle in text:
+                        assert "ILLUSTRATIVE EXAMPLE" in text or \
+                            "Illustrative example" in text, (
+                                f"{slug}: shows {needle!r} without an "
+                                f"illustrative-example label")
+
+    def test_platform_really_has_no_privesc_surface(self, app):
+        """The lessons state the platform cannot run sudo/SUID/cron/etc.
+        Asserted, not trusted: if any is implemented, this fails first and
+        the lesson framing gets corrected before it can become a lie."""
+        from app.core.terminal.commands import _COMMANDS
+        for verb in ("sudo", "getcap", "setcap", "crontab", "systemctl",
+                     "ps", "top"):
+            assert verb not in _COMMANDS, (
+                f"terminal now has a {verb!r} command — the lessons claim "
+                f"it does not")
+        with app.app_context():
+            assert ("does not implement sudo" in self._text("core-concepts")
+                    or "no `sudo`" in self._text("hands-on-practice"))
+
+    def test_chown_divergence_is_flagged(self, app):
+        """The mission lets a non-root user chown a root file, which real
+        Linux forbids. The lesson must flag that divergence explicitly."""
+        with app.app_context():
+            text = self._text("hands-on-practice")
+            assert "On real Linux, `chown` is a root-only operation" in text
+            assert "simulation affordance" in text
+
+    def test_no_operational_persistence_or_evasion_content(self, app):
+        """Fundamentals module — persistence, stealth, credential theft and
+        lateral movement belong to later gated modules. The lessons may
+        NAME them as out of scope but must not teach them."""
+        banned = [
+            "add a cron job for persistence", "install a backdoor",
+            "maintain access by", "clear the bash history to hide",
+            "clear the logs to avoid", "disable auditd",
+            "exfiltrate the /etc/shadow", "crack the hashes",
+            "pass-the-hash", "reverse shell payload to establish",
+        ]
+        with app.app_context():
+            for slug in self._SLUGS:
+                low = self._text(slug).lower()
+                for term in banned:
+                    assert term not in low, (
+                        f"{slug}: operational post-exploitation content "
+                        f"({term!r}) — out of scope")
+
+    def test_no_real_world_targets_are_used(self, app):
+        """Every IP-looking token must be a documentation/RFC placeholder
+        or a local address — never a routable public host used as a live
+        example. (192.168.x / 10.x / 127.x / 0.0.0.0 are fine.)"""
+        import re
+        allowed = ("10.", "192.168.", "172.16.", "127.", "0.0.0.0", "255.")
+        with app.app_context():
+            for slug in self._SLUGS:
+                for ip in re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b",
+                                     self._text(slug)):
+                    assert ip.startswith(allowed), (
+                        f"{slug}: non-training address {ip!r}")
+
+    # ── Structure untouched ───────────────────────────────────────────
+    def test_lesson_ids_and_order_unchanged_by_content_edit(self, app):
+        from app.roadmap.models import Lesson, RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="linux-privilege-escalation").first()
+            assert module.id == 16
+            assert module.display_order == 8
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            assert module.category_id == intermediate.id
+            assert module.difficulty == "intermediate"
+            assert module.estimated_hours == 1
+            assert module.xp_reward == 175
+            lessons = (
+                Lesson.query.filter_by(module_id=module.id)
+                .order_by(Lesson.display_order).all()
+            )
+            assert [lesson.id for lesson in lessons] == [46, 47, 48]
+            assert [lesson.slug for lesson in lessons] == list(self._SLUGS)
+            assert [lesson.display_order for lesson in lessons] == [1, 2, 3]
+            assert [lesson.xp_reward for lesson in lessons] == [25, 50, 100]
+            assert [lesson.estimated_minutes for lesson in lessons] == [10, 20, 30]
+            assert [lesson.content_path for lesson in lessons] == [
+                "roadmap/intermediate/linux-privilege-escalation/introduction.md",
+                "roadmap/intermediate/linux-privilege-escalation/core-concepts.md",
+                "roadmap/intermediate/linux-privilege-escalation/hands-on-practice.md",
+            ]
+            assert lessons[0].is_preview is True
+            assert lessons[1].is_preview is False
+            assert lessons[2].is_preview is False
+
+    def test_intermediate_module_order_unchanged(self, app):
+        from app.roadmap.models import RoadmapCategory, RoadmapModule
+
+        with app.app_context():
+            intermediate = RoadmapCategory.query.filter_by(
+                title="Intermediate").first()
+            order = [
+                (m.slug, m.display_order) for m in
+                RoadmapModule.query.filter_by(category_id=intermediate.id)
+                .order_by(RoadmapModule.display_order).all()
+            ]
+            assert order == [("nmap", 1), ("wireshark", 2), ("burp-suite", 3),
+                             ("owasp-top-10", 4),
+                             ("active-directory-basics", 5),
+                             ("metasploit", 6),
+                             ("windows-privilege-escalation", 7),
+                             ("linux-privilege-escalation", 8)]
+
+    # ── Practice links ────────────────────────────────────────────────
+    def test_practice_links_are_scoped_and_real(self, app, student):
+        """All three lessons offer the free-practice terminal (identity
+        commands work bare); only hands-on-practice adds the Linux
+        Permissions mission. No lab (the linux labs are gated)."""
+        from app.auth.models import User
+        from app.roadmap.services import get_lesson_view_context
+
+        _uname, uid = student
+        with app.app_context():
+            user = User.query.get(uid)
+            expected = {
+                "introduction": {"show_terminal": True},
+                "core-concepts": {"show_terminal": True},
+                "hands-on-practice": {
+                    "show_terminal": True,
+                    "mission_slug": "linux-permissions",
+                    "mission_title": "Linux Permissions",
+                },
+            }
+            for slug, want in expected.items():
+                ctx = get_lesson_view_context(
+                    user, "linux-privilege-escalation", slug)
+                assert ctx is not None
+                practice = ctx["practice"]
+                assert practice.get("lab_slug") is None
+                assert practice == want, f"{slug}: practice links drifted"
+
+    def test_mission_link_points_to_a_real_reachable_mission(self, app):
+        from flask import url_for
+
+        from app.core.missions.mission_loader import MISSIONS
+        assert "linux-permissions" in MISSIONS
+        assert MISSIONS["linux-permissions"]["title"] == "Linux Permissions"
+        with app.test_request_context():
+            assert url_for("terminal.mission_page",
+                           slug="linux-permissions") == \
+                "/terminal/mission/linux-permissions"
+
+    def test_closest_labs_are_gated_which_is_why_none_is_wired(self, app):
+        """No lab is linked. The recorded reason is that the subject-
+        adjacent linux labs are prerequisite-gated — assert it."""
+        from app.labs.models import Lab
+        with app.app_context():
+            for slug in ("linux-permissions", "linux-processes"):
+                lab = Lab.query.filter_by(slug=slug).first()
+                assert lab is not None
+                assert lab.prerequisite_lab_id is not None, (
+                    f"{slug} lab is no longer gated — a lab link may now be "
+                    f"worth wiring")
+
+    def test_free_practice_terminal_identity_commands_work_bare(self, app):
+        """The module is in _TERMINAL_PRACTICE_MODULES because its identity
+        commands work in the network-less sandbox. Assert that."""
+        from app.core.terminal.shell import Shell
+        from app.roadmap.services import _TERMINAL_PRACTICE_MODULES
+        assert "linux-privilege-escalation" in _TERMINAL_PRACTICE_MODULES
+        sh = Shell()  # bare sandbox, no mission attached
+        assert sh.execute("whoami") == "student"
+        assert "uid=1000(student)" in sh.execute("id")
+        assert "sudo" in sh.execute("groups")
+
+    # ── XP / progression ──────────────────────────────────────────────
+    def test_lesson_completion_awards_xp_exactly_once(self, app, student):
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="linux-privilege-escalation").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+            before = User.query.get(uid).xp
+
+        with app.test_client() as c:
+            _login(c, uname)
+            c.post("/roadmap/linux-privilege-escalation/hands-on-practice/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_first = User.query.get(uid).xp
+            c.post("/roadmap/linux-privilege-escalation/hands-on-practice/complete",
+                   follow_redirects=True)
+            with app.app_context():
+                after_second = User.query.get(uid).xp
+
+        assert after_first == before + 100
+        assert after_second == after_first, "XP awarded twice for one lesson"
+
+    def test_module_completion_awards_bonus(self, app):
+        """25 + 50 + 100 + 175 module bonus = 350, awarded once. This is
+        the last module in Intermediate, so no next module unlocks."""
+        from app.auth.models import User
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+        from app.roadmap.services import complete_lesson
+
+        with app.app_context():
+            u = User(username="linpe_complete", email="linpe_complete@t.io")
+            u.set_password("Str0ngPass!")
+            db.session.add(u)
+            db.session.commit()
+            uid = u.id
+
+            module = RoadmapModule.query.filter_by(
+                slug="linux-privilege-escalation").first()
+            db.session.add(UserModuleProgress(
+                user_id=uid, module_id=module.id, unlocked=True))
+            db.session.commit()
+
+            before = User.query.get(uid).xp
+            for slug in self._SLUGS:
+                complete_lesson(User.query.get(uid),
+                                "linux-privilege-escalation", slug)
+            after = User.query.get(uid).xp
+            assert after == before + 350
+
+            for slug in self._SLUGS:
+                result = complete_lesson(User.query.get(uid),
+                                         "linux-privilege-escalation", slug)
+                assert result["already_completed"] is True
+                assert result["xp_awarded"] == 0
+            assert User.query.get(uid).xp == after
+
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            assert row.completed is True
+            assert row.bonus_awarded is True
+
+    def test_cybermentor_context_is_set_on_every_lesson_page(
+            self, app, student):
+        from app.extensions import db
+        from app.roadmap.models import RoadmapModule, UserModuleProgress
+
+        uname, uid = student
+        with app.app_context():
+            module = RoadmapModule.query.filter_by(
+                slug="linux-privilege-escalation").first()
+            row = UserModuleProgress.query.filter_by(
+                user_id=uid, module_id=module.id).first()
+            if row is None:
+                row = UserModuleProgress(user_id=uid, module_id=module.id)
+                db.session.add(row)
+            row.unlocked = True
+            db.session.commit()
+
+        titles = {"introduction": "Introduction",
+                  "core-concepts": "Core Concepts",
+                  "hands-on-practice": "Hands-on Practice"}
+        with app.test_client() as c:
+            _login(c, uname)
+            for slug, title in titles.items():
+                r = c.get(f"/roadmap/linux-privilege-escalation/{slug}/")
+                assert r.status_code == 200
+                assert f"Linux Privilege Escalation — {title}" in \
+                    r.data.decode("utf-8")
 
 
 # ═══════════════════════════════════════════
